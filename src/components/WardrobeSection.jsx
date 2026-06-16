@@ -140,6 +140,7 @@ export default function WardrobeSection() {
 
           .image-wrapper {
             height: 320px;
+            <width: 100%;
           }
 
           .wardrobe-card h5 {

@@ -33,11 +33,11 @@ export default function VirtualExperience() {
       <style jsx>{`
         .virtual-section {
           background: #fdfff1;
-          padding: 80px 20px 60px;
+          padding: 80px 0px 60px;
         }
 
         .virtual-container {
-          max-width: 1400px;
+            width: 100%;
           margin: 0 auto;
         }
 
@@ -66,7 +66,7 @@ export default function VirtualExperience() {
         .virtual-image-wrap {
           position: relative;
           width: 100%;
-          height: 720px;
+          height: 600px;
           overflow: hidden;
         }
 
@@ -76,13 +76,13 @@ export default function VirtualExperience() {
           }
 
           .virtual-image-wrap {
-            height: 620px;
+            height: 500px;
           }
         }
 
         @media (max-width: 768px) {
           .virtual-section {
-            padding: 60px 16px 40px;
+            padding: 60px 0px 40px;
           }
 
           .virtual-title {
@@ -96,7 +96,7 @@ export default function VirtualExperience() {
           }
 
           .virtual-image-wrap {
-            height: 380px;
+            height: 320px;
           }
         }
 

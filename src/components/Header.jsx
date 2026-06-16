@@ -12,7 +12,7 @@ const navLinks = [
   { label: "Wardrobe", href: "/wardrobe" },
   { label: "Our Story", href: "/our-story" },
   { label: "Exhibition / Fair", href: "/exhibition" },
-  { label: "Bulk Order", href: "/bulk-order" },
+  { label: "Bulk Order", href: "/enquiry" },
   { label: "Contact Us", href: "/contact" },
 ];
 
@@ -272,9 +272,7 @@ export default function Header() {
       </header>
 
       {/* Spacer for fixed header on non-home pages */}
-      {!isHome && isSolid && (
-        <div aria-hidden="true" style={{ height: headerHeight }} />
-      )}
+     
     </>
   );
 }
