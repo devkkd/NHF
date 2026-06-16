@@ -58,6 +58,14 @@
   --accent: #8b7355;
   --muted: #b0a898;
   --border: #e5ddd5;
+  --header-solid-bg: #fdfdf4;
+  --header-solid-fg: #8a9071;
+}
+
+/* White logo → sage green for solid header state */
+.header-logo-solid {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(12%) saturate(620%)
+    hue-rotate(38deg) brightness(92%) contrast(88%);
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────── */
