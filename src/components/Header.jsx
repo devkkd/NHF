@@ -8,10 +8,10 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "+ Customization", href: "/customization" },
   { label: "New Arrivals", href: "/new-arrivals" },
-  { label: "Collection", href: "/collection" },
+  { label: "Collection", href: "/" },
   { label: "Wardrobe", href: "/wardrobe" },
   { label: "Our Story", href: "/our-story" },
-  { label: "Exhibition / Fair", href: "/exhibition" },
+  { label: "Exhibition / Fair", href: "/" },
   { label: "Bulk Order", href: "/enquiry" },
   { label: "Contact Us", href: "/contact" },
 ];

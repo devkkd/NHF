@@ -12,7 +12,7 @@ export default function OurStoryPage() {
   return (
     <>
       {/* ── Intro Text ──────────────────────────────────────────── */}
-      <section className="w-full bg-[#fdfdf4] text-center px-6 pt-10 pb-14 md:pt-14 md:pb-16 lg:pt-16 lg:pb-14">
+      <section className="w-full bg-[#fdfdf4] text-center px-6 pt-10 pb-14 md:pt-14 md:pb-16 lg:pt-32 lg:pb-14">
         <div className="max-w-4xl mx-auto flex flex-col items-center gap-3 md:gap-6">
           <h1
             className="text-[#7B7F5C] uppercase  font-normal"
@@ -48,10 +48,10 @@ export default function OurStoryPage() {
           sizes="90vw"
         />
       </section>
-
+      <Established />
       <OurStoryContent />
       <OurStoryTrust />
-      <Established />
+     
      
     </>
   );
