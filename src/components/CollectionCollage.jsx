@@ -374,7 +374,7 @@ export default function CircularCollection() {
   return (
     <div
       ref={containerRef}
-      className="relative h-[300vh] bg-[#FAF8F4]"
+      className="relative h-[300vh] bg-[#FDFFF1]"
     >
       <div className="sticky top-0 h-screen w-full flex items-center justify-center overflow-hidden">
 

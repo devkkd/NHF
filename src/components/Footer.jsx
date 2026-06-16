@@ -1,197 +1,591 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 
+/* ─────────────────────────────────────────────
+   DATA
+───────────────────────────────────────────── */
 const footerLinks = {
-  Collections: [
-    { label: "Living Room", href: "/collections/living-room" },
-    { label: "Bedroom", href: "/collections/bedroom" },
-    { label: "Dining Room", href: "/collections/dining-room" },
-    { label: "Office", href: "/collections/office" },
-  ],
-  Company: [
-    { label: "About Us", href: "/about" },
-    { label: "Craftsmanship", href: "/craftsmanship" },
-    { label: "Sustainability", href: "/sustainability" },
-    { label: "Careers", href: "/careers" },
-  ],
-  Support: [
+  company: [
+    { label: "Company", href: "/company" },
+    { label: "Customization", href: "/customization" },
+    { label: "Our Story", href: "/our-story" },
+    { label: "Exhibition / Fair", href: "/exhibition-fair" },
+    { label: "Company Profile", href: "/company-profile" },
+    { label: "Manufacturing", href: "/manufacturing" },
     { label: "Contact Us", href: "/contact" },
-    { label: "FAQs", href: "/faqs" },
-    { label: "Shipping & Returns", href: "/shipping" },
-    { label: "Care Guide", href: "/care" },
+    { label: "Shipping Policy", href: "/shipping-policy" },
+    { label: "Return Policy", href: "/return-policy" },
+    { label: "Terms & Conditions", href: "/terms-conditions" },
+  ],
+  garments: [
+    { label: "Kaftans", href: "/kaftans" },
+    { label: "Bathrobes", href: "/bathrobes" },
+    { label: "Scarves", href: "/scarves" },
+    { label: "Garments", href: "/garments" },
+    { label: "Pajama Set", href: "/pajama-set" },
+    { label: "Dohar", href: "/dohar" },
+  ],
+  jacketsAndBathrobes: [
+    { label: "Jackets & Bathrobes", href: "/jackets-bathrobes" },
+    { label: "Cotton Quilted Jackets", href: "/cotton-quilted-jackets" },
+    { label: "Vintage & New Kantha Jackets", href: "/kantha-jackets" },
+    { label: "Waffle, Velvet & Suzani Jackets / Bathrobes", href: "/waffle-velvet-suzani" },
+  ],
+  scarves: [
+    { label: "Scarves", href: "/scarves-category" },
+    { label: "Cotton Screen & Handblock Printed Scarves", href: "/printed-scarves" },
+    { label: "Vintage & New Kantha / Embroidered Scarves", href: "/kantha-scarves" },
+  ],
+  bagsAndPouches: [
+    { label: "Bags & Pouches", href: "/bags-pouches" },
+    { label: "Tote Bags With Out ZIP", href: "/tote-bags-no-zip" },
+    { label: "Tote Bags With ZIP", href: "/tote-bags-zip" },
+    { label: "Toiletry Pouches", href: "/toiletry-pouches" },
+    { label: "Quilted Thela Bags With Flap", href: "/quilted-thela-bags" },
+    { label: "Velvet Bags With ZIP", href: "/velvet-bags-zip" },
+    { label: "Velvet Bags Without ZIP", href: "/velvet-bags-no-zip" },
+    { label: "Velvet Toilerty Pouches", href: "/velvet-toiletry" },
+    { label: "Duffle Bags", href: "/duffle-bags" },
+    { label: "School Bags", href: "/school-bags" },
+    { label: "Tote Bags With ZIP", href: "/tote-bags-zip-2" },
+  ],
+  throwsAndMore: [
+    { label: "Throws / Gudri", href: "/throws-gudri" },
+    { label: "Cushion Covers", href: "/cushion-covers" },
+    { label: "Rugs & Dhurries", href: "/rugs-dhurries" },
+    { label: "Table Covers & Runners", href: "/table-covers" },
+  ],
+  bedCovers: [
+    { label: "Bed Covers", href: "/bed-covers" },
+    { label: "Cotton Handblock Printed Waffle Bed Covers", href: "/waffle-bed-covers" },
+    { label: "Cotton Handblock Printed TNT Bed Covers", href: "/tnt-bed-covers" },
+    { label: "Cotton Quilted Bed Covers / Quilts", href: "/quilted-bed-covers" },
+    { label: "Organdi Cutwork Bed Covers", href: "/organdi-bed-covers" },
+    { label: "Cotton Suzani Embroidered Bed Covers", href: "/suzani-bed-covers" },
+    { label: "Cotton Kantha Bed Covers", href: "/kantha-bed-covers" },
+    { label: "Silk Kantha / Khambadiya Bed Covers", href: "/silk-kantha-bed-covers" },
+  ],
+  quilts: [
+    { label: "Quilts", href: "/quilts" },
+    { label: "Cotton Kantha Quilt", href: "/cotton-kantha-quilt" },
+    { label: "Silk Kantha Quilts", href: "/silk-kantha-quilts" },
+    { label: "Cotton Kantha Quilts", href: "/cotton-kantha-quilts-2" },
+  ],
+  bedsheets: [
+    { label: "Bedsheet", href: "/bedsheets" },
+    { label: "Cotton Screen Printed Bedsheets", href: "/screen-printed" },
+    { label: "Cotton Handblock Printed Bedsheets", href: "/handblock-bedsheets" },
   ],
 };
 
-export default function Footer() {
+/* Desktop columns definition */
+const desktopColumns = [
+  { key: "company",           links: footerLinks.company },
+  { key: "garments",          links: [...footerLinks.garments, ...footerLinks.jacketsAndBathrobes, ...footerLinks.scarves] },
+  { key: "bags",              links: footerLinks.bagsAndPouches },
+  { key: "throws",            links: [...footerLinks.throwsAndMore, ...footerLinks.bedCovers] },
+  { key: "quilts",            links: footerLinks.quilts },
+  { key: "bedsheets",         links: footerLinks.bedsheets },
+];
+
+/* Mobile accordion sections */
+const accordionSections = [
+  { title: "Company",              links: footerLinks.company },
+  { title: "Garments",             links: footerLinks.garments },
+  { title: "Jackets & Bathrobes",  links: footerLinks.jacketsAndBathrobes },
+  { title: "Scarves",              links: footerLinks.scarves },
+  { title: "Bags & Pouches",       links: footerLinks.bagsAndPouches },
+  { title: "Throws & Gudri",       links: footerLinks.throwsAndMore },
+  { title: "Bed Covers",           links: footerLinks.bedCovers },
+  { title: "Quilts",               links: footerLinks.quilts },
+  { title: "Bedsheets",            links: footerLinks.bedsheets },
+];
+
+/* ─────────────────────────────────────────────
+   ACCORDION (mobile)
+───────────────────────────────────────────── */
+function AccordionSection({ title, links }) {
+  const [open, setOpen] = useState(false);
   return (
-    <footer className="bg-[#2C2C2C] text-[#FAF8F5]">
-      {/* Top Section */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-        {/* Brand Column */}
-        <div className="flex flex-col gap-5">
-          <div>
-            <p className="text-[20px] tracking-[0.12em] uppercase font-normal">
-              Nikita
-            </p>
-            <p className="text-[11px] tracking-[0.28em] uppercase text-[#8B7355] font-light mt-1">
-              Home Furnishing
-            </p>
+    <div style={{ borderBottom: "1px solid #C4C3B2" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "14px 0",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "'Mona Sans', sans-serif",
+          fontWeight: 600,
+          fontSize: "14px",
+          color: "#7B7F5C",
+          textAlign: "left",
+        }}
+      >
+        {title}
+        <span style={{ fontSize: "20px", lineHeight: 1, color: "#7B7F5C" }}>
+          {open ? "−" : "+"}
+        </span>
+      </button>
+      {open && (
+        <div style={{ paddingBottom: "12px" }}>
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                display: "block",
+                fontFamily: "'Mona Sans', sans-serif",
+                fontWeight: 400,
+                fontSize: "14px",
+                lineHeight: "240%",
+                color: "#0E0E0E",
+                textDecoration: "none",
+              }}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────── */
+export default function Footer() {
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  return (
+    <>
+      <style>{`
+        /* ── Base ── */
+        .f-root {
+          font-family: 'Mona Sans', sans-serif;
+          background-color: #FDFFF1;
+        }
+
+        /* ── Shared padding helper ── */
+        .f-pad { padding-left: 80px; padding-right: 80px; }
+
+        /* ── FOLLOW US ── */
+        .f-follow {
+          padding-top: 40px;
+          padding-bottom: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .f-follow-left {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          flex: 1;
+          min-width: 0;
+        }
+        .f-follow-line {
+          flex: 1;
+          height: 1px;
+          background-color: #C4C3B2;
+        }
+        .f-socials {
+          display: flex;
+          gap: 14px;
+          flex-shrink: 0;
+        }
+        .f-social-icon {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          overflow: hidden;
+          display: block;
+          transition: opacity 0.2s, transform 0.2s;
+        }
+        .f-social-icon:hover { opacity: 0.82; transform: scale(1.06); }
+
+        /* ── CTA + NEWSLETTER ── */
+        .f-cta-row {
+          border-bottom: 1px solid #C4C3B2;
+          padding-top: 60px;
+          padding-bottom: 60px;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 80px;
+          align-items: start;
+        }
+        .f-cta-inner {
+          display: flex;
+          align-items: center;
+          gap: 0;
+        }
+        .f-v-line {
+          width: 1px;
+          height: 140px;
+          background-color: #C4C3B2;
+          margin: 0 36px;
+          flex-shrink: 0;
+        }
+        .f-sub-row {
+          display: flex;
+          align-items: center;
+          gap: 110px;
+          flex-wrap: wrap;
+        }
+          
+        .f-input-wrap {
+          display: flex;
+          flex: 1;
+          min-width: 220px;
+        }
+        .f-email-input {
+          flex: 1;
+          padding: 12px 16px;
+          border: 1px solid #C4C3B2;
+          border-right: none;
+          border-radius: 4px 0 0 4px;
+          background-color: #F5F4EC;
+          font-family: 'Mona Sans', sans-serif;
+          font-size: 14px;
+          color: #0E0E0E;
+          outline: none;
+        }
+        .f-email-input:focus { border-color: #7B7F5C; }
+        .f-sub-btn {
+          padding: 12px 20px;
+          background-color: #7B7F5C;
+          color: #fff;
+          border: none;
+          border-radius: 0 4px 4px 0;
+          cursor: pointer;
+          font-family: 'Mona Sans', sans-serif;
+          font-size: 14px;
+          font-weight: 600;
+          white-space: nowrap;
+          transition: background 0.2s;
+        }
+        .f-sub-btn:hover { background-color: #636749; }
+        .f-back-top {
+          background: none;
+          border: none;
+          color: #7B7F5C;
+          cursor: pointer;
+          font-family: 'Mona Sans', sans-serif;
+          font-size: 13px;
+          font-weight: 300;
+          white-space: nowrap;
+          letter-spacing: 0.04em;
+          padding: 0;
+          transition: opacity 0.2s;
+        }
+        .f-back-top:hover { opacity: 0.7; }
+
+        /* ── BRAND + LINKS ── */
+        .f-brand-sec {
+          padding-top: 56px;
+          padding-bottom: 40px;
+          border-bottom: 1px solid #C4C3B2;
+        }
+        .f-brand-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+          margin-bottom: 12px;
+        }
+        .f-desktop-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 8px 20px;
+        }
+        .f-accordion { display: none; }
+        .f-link {
+          display: block;
+          font-family: 'Mona Sans', sans-serif;
+          font-weight: 400;
+          font-size: 14px;
+          line-height: 240%;
+          color: #0E0E0E;
+          text-decoration: none;
+          transition: color 0.15s;
+        }
+        .f-link:hover { color: #7B7F5C; }
+
+        /* ── CONTACT ── */
+        .f-contact {
+          padding-top: 20px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #C4C3B2;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+        .f-contact-right {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          flex-wrap: wrap;
+        }
+
+        /* ── TAGLINE ── */
+        .f-tagline {
+          padding-top: 40px;
+          padding-bottom: 40px;
+          text-align: center;
+        }
+
+        /* ══════════════════════════════════════
+           TABLET  769 – 1024
+        ══════════════════════════════════════ */
+        @media (max-width: 1024px) {
+          .f-pad { padding-left: 40px; padding-right: 40px; }
+          .f-cta-row { gap: 40px; }
+          .f-desktop-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* ══════════════════════════════════════
+           MOBILE  ≤ 768
+        ══════════════════════════════════════ */
+        @media (max-width: 768px) {
+          .f-pad { padding-left: 20px; padding-right: 20px; }
+
+          /* Follow us */
+          .f-follow { flex-wrap: wrap; padding-top: 28px; padding-bottom: 20px; }
+          .f-follow-left { width: 100%; }
+          .f-socials { width: 100%; }
+
+          /* CTA */
+          .f-cta-row {
+            grid-template-columns: 1fr;
+            padding-top: 32px;
+            padding-bottom: 32px;
+            gap: 32px;
+            border-bottom: none;
+          }
+          .f-cta-inner { flex-direction: column; align-items: flex-start; gap: 16px; }
+          .f-v-line { display: none; }
+          /* newsletter border on mobile */
+          .f-newsletter-wrap {
+            border-top: 1px solid #C4C3B2;
+            border-bottom: 1px solid #C4C3B2;
+            padding: 28px 0;
+          }
+
+          /* subscribe */
+          .f-sub-row { flex-direction: column; align-items: stretch; gap: 50px; }
+          .f-input-wrap { min-width: unset; }
+          .f-back-top { text-align: center; margin-top: 4px; }
+
+          /* brand */
+          .f-brand-sec { padding-top: 32px; padding-bottom: 24px; }
+          .f-brand-row { flex-direction: column; text-align: center; }
+          .f-desktop-grid { display: none; }
+          .f-accordion { display: block; }
+
+          /* contact */
+          .f-contact {
+            flex-direction: column;
+            align-items: flex-start;
+            padding-top: 20px;
+            padding-bottom: 20px;
+          }
+          .f-contact-right { flex-direction: column; align-items: flex-start; gap: 6px; }
+          .f-contact-sep { display: none; }
+
+          /* tagline */
+          .f-tagline { padding-top: 28px; padding-bottom: 28px; }
+        }
+
+        /* ══════════════════════════════════════
+           LARGE DESKTOP  ≥ 1440
+        ══════════════════════════════════════ */
+        @media (min-width: 1440px) {
+          .f-pad { padding-left: 120px; padding-right: 120px; }
+          .f-cta-row { gap: 120px; }
+        }
+      `}</style>
+
+      <footer className="f-root">
+
+        {/* ── FOLLOW US ── */}
+        <div className="f-follow f-pad">
+          <div className="f-follow-left">
+            <h3 style={{
+              fontFamily: "'Tobias TRIAL', serif",
+              fontWeight: 600,
+              fontSize: "clamp(22px, 3vw, 40px)",
+              letterSpacing: "-0.02em",
+              color: "#7B7F5C",
+              margin: 0,
+              whiteSpace: "nowrap",
+            }}>
+              FOLLOW US
+            </h3>
+            <div className="f-follow-line" />
           </div>
-          <p className="text-[13px] leading-7 text-[#B0A898] max-w-xs">
-            Crafting timeless furniture that transforms houses into homes.
-            Quality materials, enduring design.
-          </p>
-          {/* Social Icons */}
-          <div className="flex items-center gap-4 mt-2">
-            <a
-              href="https://instagram.com"
-              aria-label="Instagram"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#B0A898] hover:text-[#FAF8F5] transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-                <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-              </svg>
-            </a>
-            <a
-              href="https://pinterest.com"
-              aria-label="Pinterest"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#B0A898] hover:text-[#FAF8F5] transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2C6.477 2 2 6.477 2 12c0 4.236 2.636 7.855 6.356 9.312-.088-.791-.167-2.005.035-2.868.181-.78 1.172-4.97 1.172-4.97s-.299-.598-.299-1.482c0-1.388.806-2.428 1.808-2.428.853 0 1.265.641 1.265 1.408 0 .858-.546 2.141-.828 3.33-.236.995.499 1.806 1.476 1.806 1.772 0 3.136-1.867 3.136-4.563 0-2.386-1.715-4.054-4.163-4.054-2.837 0-4.5 2.127-4.5 4.326 0 .856.33 1.775.741 2.276a.3.3 0 0 1 .069.284c-.076.311-.243.995-.276 1.134-.044.183-.146.222-.338.134-1.249-.581-2.03-2.407-2.03-3.874 0-3.154 2.292-6.052 6.608-6.052 3.469 0 6.165 2.473 6.165 5.776 0 3.447-2.173 6.22-5.19 6.22-1.013 0-1.967-.527-2.292-1.148l-.623 2.378c-.226.869-.835 1.958-1.244 2.621.937.29 1.931.446 2.962.446 5.523 0 10-4.477 10-10S17.523 2 12 2z" />
-              </svg>
-            </a>
-            <a
-              href="https://facebook.com"
-              aria-label="Facebook"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#B0A898] hover:text-[#FAF8F5] transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
-              </svg>
-            </a>
+
+          <div className="f-socials">
+            {[
+              { src: "/images/footer/instagram.png", alt: "Instagram", href: "https://instagram.com" },
+              { src: "/images/footer/facebook.png",  alt: "Facebook",  href: "https://facebook.com"  },
+              { src: "/images/footer/youtube.png",   alt: "YouTube",   href: "https://youtube.com"   },
+            ].map(({ src, alt, href }) => (
+              <Link key={alt} href={href} target="_blank" rel="noopener noreferrer" className="f-social-icon">
+                <Image src={src} alt={alt} width={48} height={48} style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+              </Link>
+            ))}
           </div>
         </div>
 
-        {/* Link Columns */}
-        {Object.entries(footerLinks).map(([section, links]) => (
-          <div key={section} className="flex flex-col gap-4">
-            <h3 className="text-[11px] tracking-[0.22em] uppercase text-[#8B7355]">
-              {section}
-            </h3>
-            <ul className="flex flex-col gap-3">
-              {links.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-[13px] text-[#B0A898] hover:text-[#FAF8F5] tracking-wide transition-colors duration-200"
-                  >
+        {/* ── CTA + NEWSLETTER ── */}
+        <div className="f-cta-row f-pad">
+
+          {/* Left — CTA */}
+          <div className="f-cta-inner">
+            <div style={{ flexShrink: 0 }}>
+              <Image src="/images/footer/logo2.png" alt="NHF Logo" width={80} height={80} style={{ objectFit: "contain" }} />
+            </div>
+            <div className="f-v-line" />
+            <div>
+              <h4 style={{
+                fontFamily: "'Tobias TRIAL', serif",
+                fontWeight: 500,
+                fontSize: "clamp(17px, 1.6vw, 25px)",
+                color: "#7B7F5C",
+                margin: "0 0 12px 0",
+                lineHeight: 1.3,
+              }}>
+                READY TO BRING ARTISAN CRAFT<br />INTO YOUR HOME?
+              </h4>
+              <p style={{ fontFamily: "'Mona Sans', sans-serif", fontSize: "14px", lineHeight: "1.8", margin: 0, color: "#0E0E0E" }}>
+                Browse The Full Nikita Collection From Hand-block Bedsheets To Kantha Quilts, From Quilted Jackets To Hand-woven Rugs. Every Piece Is Available To Order Directly. Customisation Welcome.
+              </p>
+            </div>
+          </div>
+
+          {/* Right — Newsletter */}
+          <div className="f-newsletter-wrap">
+            <h5 style={{
+              fontFamily: "'Mona Sans', sans-serif",
+              fontWeight: 700,
+              fontSize: "clamp(17px, 1.6vw, 24px)",
+              lineHeight: "160%",
+              color: "#7B7F5C",
+              margin: "0 0 8px 0",
+            }}>
+              Exclusive Updates, Delivered
+            </h5>
+            <p style={{ fontFamily: "'Mona Sans', sans-serif", fontSize: "15px", lineHeight: "160%", color: "#0E0E0E", margin: "0 0 20px 0" }}>
+              Subscribe for curated news, product releases, and member-only offers.
+            </p>
+            <div className="f-sub-row">
+              <div className="f-input-wrap">
+                <input type="email" placeholder="Enter your email address" className="f-email-input" />
+                <button className="f-sub-btn">Subscribe Now</button>
+              </div>
+              <button onClick={scrollToTop} className="f-back-top">↑ BACK TO TOP</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── BRAND + LINKS ── */}
+        <div className="f-brand-sec f-pad">
+          <div className="f-brand-row">
+            <Image src="/images/footer/Logo2.png" alt="Nikita Home Furnishings Logo" width={46} height={46} style={{ objectFit: "contain" }} />
+            <h2 style={{
+              fontFamily: "'Tobias TRIAL', serif",
+              fontWeight: 600,
+              fontSize: "clamp(15px, 1.8vw, 26px)",
+              letterSpacing: "-0.01em",
+              color: "#7B7F5C",
+              margin: 0,
+            }}>
+              NIKITA HOME FURNISHINGS
+            </h2>
+          </div>
+
+          <p style={{
+            fontFamily: "'Mona Sans', sans-serif",
+            fontSize: "15px",
+            lineHeight: "160%",
+            color: "#0E0E0E",
+            textAlign: "center",
+            margin: "0 auto 40px",
+            maxWidth: "720px",
+          }}>
+            Artisan Home Textiles And Lifestyle Collections Made In Jaipur, Rajasthan, India. Manufacturers And Exporters Since 2006, Crafted With Hands That Know The Difference.
+          </p>
+
+          {/* Desktop 6-column grid */}
+          <div className="f-desktop-grid">
+            {desktopColumns.map((col) => (
+              <div key={col.key}>
+                {col.links.map((link) => (
+                  <Link key={link.href} href={link.href} className="f-link">
                     {link.label}
                   </Link>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Newsletter Strip */}
-      <div className="border-t border-[#3E3E3E]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          {/* Mobile accordion */}
+          <div className="f-accordion">
+            {accordionSections.map((sec) => (
+              <AccordionSection key={sec.title} title={sec.title} links={sec.links} />
+            ))}
+          </div>
+        </div>
+
+        {/* ── CONTACT BAR ── */}
+        <div className="f-contact f-pad">
           <div>
-            <p className="text-[14px] tracking-[0.08em] text-[#FAF8F5]">
-              Join our world
+            <p style={{ fontFamily: "'Mona Sans', sans-serif", fontWeight: 700, fontSize: "14px", color: "#0E0E0E", margin: "0 0 4px 0" }}>
+              Contact Us
             </p>
-            <p className="text-[12px] text-[#B0A898] mt-1">
-              New collections, design stories & exclusive offers.
+            <p style={{ fontFamily: "'Mona Sans', sans-serif", fontSize: "14px", color: "#0E0E0E", margin: 0 }}>
+              38, Gupta Garden, Govind Nagar West, Amer Road, Jaipur – 302002, Rajasthan
             </p>
           </div>
-          <form
-            className="flex w-full md:w-auto gap-0"
-            onSubmit={(e) => e.preventDefault()}
-          >
-            <label htmlFor="newsletter-email" className="sr-only">
-              Email address
-            </label>
-            <input
-              id="newsletter-email"
-              type="email"
-              placeholder="Your email address"
-              required
-              className="w-full md:w-72 bg-transparent border border-[#3E3E3E] text-[#FAF8F5] placeholder-[#6B6B6B] text-[12px] tracking-wide px-4 py-3 outline-none focus:border-[#8B7355] transition-colors"
-            />
-            <button
-              type="submit"
-              className="text-[11px] tracking-[0.18em] uppercase bg-[#8B7355] text-[#FAF8F5] px-6 py-3 hover:bg-[#7A6449] transition-colors duration-300 whitespace-nowrap"
-            >
-              Subscribe
-            </button>
-          </form>
+          <div className="f-contact-right">
+            <a href="tel:+919460387858" className="f-link" style={{ fontWeight: 700, fontSize: "14px" }}>
+              +91 9460387858
+            </a>
+            <span className="f-contact-sep" style={{ color: "#C4C3B2" }}>|</span>
+            <a href="mailto:nikitahomefurnishings@yahoo.com" className="f-link" style={{ fontWeight: 700, fontSize: "14px" }}>
+              nikitahomefurnishings@yahoo.com
+            </a>
+          </div>
         </div>
-      </div>
 
-      {/* Bottom Bar */}
-      <div className="border-t border-[#3E3E3E]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[11px] text-[#6B6B6B] tracking-wide">
-            © {new Date().getFullYear()} Nikita Home Furnishing. All rights
-            reserved.
+        {/* ── TAGLINE + COPYRIGHT ── */}
+        <div className="f-tagline f-pad">
+          <p style={{
+            fontFamily: "'Tobias TRIAL', serif",
+            fontWeight: 400,
+            fontStyle: "italic",
+            fontSize: "clamp(15px, 1.5vw, 22px)",
+            color: "#7B7F5C",
+            margin: "0 0 8px 0",
+          }}>
+            &ldquo;Crafted in Jaipur. Cherished everywhere.&rdquo;
           </p>
-          <div className="flex items-center gap-6">
-            <Link
-              href="/privacy"
-              className="text-[11px] text-[#6B6B6B] hover:text-[#B0A898] tracking-wide transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/terms"
-              className="text-[11px] text-[#6B6B6B] hover:text-[#B0A898] tracking-wide transition-colors"
-            >
-              Terms of Use
-            </Link>
-          </div>
+          <p style={{ fontFamily: "'Mona Sans', sans-serif", fontSize: "13px", color: "#7B7F5C", margin: 0 }}>
+            Copyright line: © 2026 Nikita Home Furnishings. Made with care in Rajasthan, India.
+          </p>
         </div>
-      </div>
-    </footer>
+
+      </footer>
+    </>
   );
 }
