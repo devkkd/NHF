@@ -191,7 +191,7 @@ export default function NewArrivals() {
         .bulk-btn:hover { color: #7B7F5C; }
 
         /* ── BIG IMAGE ── */
-     .big-img-wrap {
+  .big-img-wrap {
   position: relative;
   width: calc(100% + 120px);
   margin-right: -120px;
@@ -217,6 +217,10 @@ export default function NewArrivals() {
 
           .card-img-wrap { height: 320px; }
           .big-img-wrap { min-height: 400px; }
+           .big-img-wrap {
+    min-height: 400px;
+    width: 100%;
+  }
         }
 
         /* ════════════════════════════════
@@ -235,10 +239,12 @@ export default function NewArrivals() {
           }
 
           /* On small tablet, card on top, big image below */
-          .big-img-wrap {
-            min-height: 380px;
-            margin-top: 24px;
-          }
+            .big-img-wrap {
+    width: 100%;
+    min-height: 380px;
+    margin-top: 24px;
+  }
+
         }
 
         /* ════════════════════════════════
@@ -262,10 +268,12 @@ export default function NewArrivals() {
 
           .card-img-wrap { height: 280px; }
 
-          .big-img-wrap {
-            min-height: 300px;
-            margin-top: 24px;
-          }
+            .big-img-wrap {
+    width: 100%;
+    min-height: 280px;
+    margin-top: 20px;
+  }
+
 
           .card-actions {
             flex-direction: column;
@@ -293,7 +301,7 @@ export default function NewArrivals() {
           }
 
           .card-img-wrap { height: 420px; }
-          .big-img-wrap { min-height: 520px; }
+          .big-img-wrap { min-height: 220px; }
         }
       `}</style>
     </section>

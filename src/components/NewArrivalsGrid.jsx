@@ -1,18 +1,18 @@
 "use client";
 
 import Image from "next/image";
-
+import Link from "next/link";
 const products = [
   {
-    image: "/images/product/4.png",
+    image: "/images/product-1.jpg",
     title: "HAND BLOCK PERCALE PRINTED BEDSHEET",
   },
   {
-    image: "/images/product/5.png",
+    image: "/images/product-2.jpg",
     title: "HAND BLOCK PERCALE PRINTED BEDSHEET",
   },
   {
-    image: "/images/product/6.png",
+    image: "/images/product-3.jpg",
     title: "HAND BLOCK PERCALE PRINTED BEDSHEET",
   },
 ];
@@ -56,11 +56,11 @@ export default function NewArrivalsGrid() {
           ))}
         </div>
 
-        <div className="bottom-btn-wrap">
-          <button className="bottom-btn">
-            SEE ALL NEW ARRIVALS →
-          </button>
-        </div>
+       <div className="bottom-btn-wrap">
+  <Link href="/new-arrivals" className="bottom-btn">
+    SEE ALL NEW ARRIVALS →
+  </Link>
+</div>
       </div>
 
       <style jsx>{`

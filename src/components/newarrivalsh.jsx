@@ -135,12 +135,14 @@ export default function NewArrivalsPage() {
           max-height: 4000px;
           overflow: hidden;
           
+          
         }
         .hero-img {
           width: 100%;
-          height: 340px;
+          height: 440px;
           object-fit: cover;
           display: block;
+        
           
         }
 
@@ -404,6 +406,7 @@ export default function NewArrivalsPage() {
           width: 100%;
           max-height: 350px;
           overflow: hidden;
+        
         }
         }
         @media (max-width: 560px) {

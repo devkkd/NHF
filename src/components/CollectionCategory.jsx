@@ -15,6 +15,42 @@ const categories = [
     title: "Bedsheets",
     image: "/images/category/3.png",
   },
+  {
+    title: "Jackets & Bathrobes",
+    image: "/images/category/4.png",
+  },
+  {
+    title: "Bags & Pouches",
+    image: "/images/category/5.png",
+  },
+  {
+    title: "Scarves",
+    image: "/images/category/6.png",
+  },
+  {
+    title: "Kaftans",
+    image: "/images/category/7.png",
+  },
+  {
+    title: "Dohar",
+    image: "/images/category/8.png",
+  },
+  {
+    title: "Throws / Gudri",
+    image: "/images/category/9.png",
+  },
+  {
+    title: "Cushion Covers",
+    image: "/images/category/10.png",
+  },
+  {
+    title: "Rugs & Dhurries",
+    image: "/images/category/11.png",
+  },
+  {
+    title: "Table Covers & Runners",
+    image: "/images/category/12.png",
+  },
 ];
 
 export default function CollectionCategory() {
@@ -81,10 +117,10 @@ export default function CollectionCategory() {
 
       <style jsx>{`
         .collection-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 24px;
-        }
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px 24px;
+}
 
         .collection-card {
           text-align: center;
@@ -93,8 +129,7 @@ export default function CollectionCategory() {
         .image-wrapper {
   position: relative;
   width: 100%;
-  max-width: 580px;
-  height: 460px;
+  height: 300px;
   overflow: hidden;
   margin: 0 auto;
 }
@@ -133,19 +168,38 @@ export default function CollectionCategory() {
         }
 
         @media (max-width: 768px) {
-          .collection-grid {
-            grid-template-columns: 1fr;
-            gap: 32px;
-          }
+  .collection-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
 
-          .collection-card h5 {
-            font-size: 20px;
-          }
+  .collection-card h5 {
+    font-size: 14px;
+  }
 
-          h2 {
-            font-size: 32px;
-          }
-        }
+  h2 {
+    font-size: 28px;
+  }
+
+  .image-wrapper {
+    height: 180px;
+  }
+}
+  @media (max-width: 480px) {
+  .collection-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .image-wrapper {
+    height: 150px;
+  }
+
+  .collection-card h5 {
+    font-size: 12px;
+    margin-top: 10px;
+  }
+}
       `}</style>
     </section>
   );

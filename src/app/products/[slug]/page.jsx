@@ -2,7 +2,7 @@
 
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-
+import Link from "next/link";
 const PRODUCTS = {
   "percal-hand-block-cotton-double-bed-sheets": {
     slug: "percal-hand-block-cotton-double-bed-sheets",
@@ -126,8 +126,21 @@ export default function ProductDetailPage({ params }) {
 
               {/* CTA Buttons */}
               <div className="cta-row">
-                <a href="/enquiry" className="btn-enquiry">PRICE ENQUIRY →</a>
-                <a href="/enquiry" className="btn-bulk">✦ BULK CUSTOMIZATION</a>
+     <Link
+  href={`/enquiry1/${product.slug}`}
+  style={{
+    background: "#8a8d67",
+    color: "#fff",
+    width: "220px",
+    height: "56px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+  }}
+>
+  PRICE ENQUIRY →
+</Link>       <a href="/enquiry" className="btn-bulk">✦ BULK CUSTOMIZATION</a>
               </div>
 
               {/* Specs Table */}
@@ -314,19 +327,31 @@ export default function ProductDetailPage({ params }) {
           align-items: center;
           flex-wrap: wrap;
         }
-        .btn-enquiry {
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          background: #7b7f5c;
-          color: #fdfff1;
-          text-decoration: none;
-          padding: 13px 30px;
-          letter-spacing: 0.06em;
-          display: inline-block;
-          transition: background 0.2s;
-        }
-        .btn-enquiry:hover { background: #636649; }
+       .btn-enquiry {
+  background: #8a8d67 !important;
+  color: #fff !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  width: 220px;
+  height: 56px;
+
+  border: none !important;
+  text-decoration: none !important;
+
+  font-family: "Mona Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+
+  transition: all 0.3s ease;
+}
+
+.btn-enquiry:hover {
+  background: #747854 !important;
+  color: #fff !important;
+}
         .btn-bulk {
           font-family: "Mona Sans", "Inter", sans-serif;
           font-size: 13px;
