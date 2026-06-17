@@ -8,7 +8,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "+ Customization", href: "/customization" },
   { label: "New Arrivals", href: "/new-arrivals" },
-  { label: "Collection", href: "/" },
+  { label: "Collection", href: "/collection" },
   { label: "Wardrobe", href: "/wardrobe" },
   { label: "Our Story", href: "/our-story" },
   { label: "Exhibition / Fair", href: "/exhibition" },
@@ -28,11 +28,17 @@ export default function Header() {
   const [headerHeight, setHeaderHeight] = useState(0);
 
   const isSolid = !isHome || scrolled;
-useEffect(() => {
-  setMenuOpen(false);
-}, [pathname]);
 
- 
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isHome) return;
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isHome]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -85,20 +91,24 @@ useEffect(() => {
       >
         {/* ── Top Bar ─────────────────────────────────────────────── */}
         <div
-          className={`w-full px-6 lg:px-10 py-3 flex items-center justify-between transition-all duration-300 ${
+          className={`w-full px-4 sm:px-6 lg:px-10 py-2.5 sm:py-3 flex items-center justify-between transition-all duration-300 ${
             isSolid ? "" : "bg-black/20 backdrop-blur-[2px]"
           }`}
         >
           {/* Left — Search */}
           <div
-            className={`w-[220px] flex items-center gap-2 border-b pb-1 transition-colors duration-300 ${
-              isSolid ? "border-[#8a9071]" : "border-white/50"
-            }`}
-          >
+  className={`flex items-center transition-colors duration-300
+  w-auto lg:w-[220px]
+  ${
+    isSolid
+      ? "lg:border-b lg:border-[#8a9071]"
+      : "lg:border-b lg:border-white/50"
+  }`}
+>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke={isSolid ? SOLID_FG : "white"}
@@ -111,9 +121,10 @@ useEffect(() => {
               <path d="m21 21-4.35-4.35" />
             </svg>
             <input
+           
               type="text"
               placeholder="SEARCH"
-              className={`bg-transparent text-[11px] tracking-[0.22em] uppercase outline-none w-full font-light transition-colors duration-300 ${
+              className={`hidden lg:block bg-transparent text-[10px] sm:text-[11px] tracking-[0.18em] sm:tracking-[0.22em] uppercase outline-none w-full font-light transition-colors duration-300 ${
                 isSolid
                   ? "text-[#8a9071] placeholder-[#8a9071]/60"
                   : "text-white placeholder-white/70"
@@ -129,19 +140,19 @@ useEffect(() => {
             <img
               src="/images/logo.png"
               alt="Nikita Home Furnishings"
-              className={`w-80 max-w-[min(320px,55vw)] h-auto transition-all duration-300 ${
+              className={`h-auto transition-all duration-300 w-[160px] sm:w-[220px] lg:w-80 max-w-[min(320px,45vw)] ${
                 isSolid ? "header-logo-solid" : ""
               }`}
             />
           </Link>
 
-          {/* Right — Profile / Wishlist / Cart */}
-          <div className="flex items-center gap-5">
-            <button aria-label="Account" className={iconClass}>
+          {/* Right — Profile / Wishlist / Cart / Hamburger */}
+          <div className="flex items-center gap-3 sm:gap-5">
+            <button aria-label="Account" className={`hidden sm:block ${iconClass}`}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -154,11 +165,11 @@ useEffect(() => {
               </svg>
             </button>
 
-            <button aria-label="Wishlist" className={iconClass}>
+            <button aria-label="Wishlist" className={`hidden sm:block ${iconClass}`}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -173,8 +184,8 @@ useEffect(() => {
             <button aria-label="Cart" className={iconClass}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -188,6 +199,7 @@ useEffect(() => {
               </svg>
             </button>
 
+            {/* Hamburger — visible below lg */}
             <button
               className={`lg:hidden ml-1 transition-colors ${iconClass}`}
               onClick={() => setMenuOpen(!menuOpen)}
@@ -221,9 +233,9 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* ── Nav Bar ─────────────────────────────────────────────── */}
+        {/* ── Nav Bar — desktop only ───────────────────────────────── */}
         <nav
-          className={`hidden lg:flex w-full items-center justify-center gap-8 py-3 px-10 transition-all duration-300 ${
+          className={`hidden lg:flex w-full items-center justify-center gap-6 xl:gap-8 py-3 px-10 transition-all duration-300 ${
             isSolid ? "" : "bg-black/20 backdrop-blur-[2px]"
           }`}
         >
@@ -242,9 +254,46 @@ useEffect(() => {
         {menuOpen && (
           <div
             className={`lg:hidden px-6 py-6 flex flex-col gap-4 transition-colors duration-300 ${
-              isSolid ? "bg-[#fdfdf4] border-t border-[#8a9071]/20" : "bg-black/80 backdrop-blur-md"
+              isSolid
+                ? "bg-[#fdfdf4] border-t border-[#8a9071]/20"
+                : "bg-black/80 backdrop-blur-md"
             }`}
           >
+            {/* Account + Wishlist shown here on mobile */}
+            <div className="flex items-center gap-5 pb-3 border-b border-current/10 sm:hidden">
+              <button aria-label="Account" className={iconClass}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+              <button aria-label="Wishlist" className={iconClass}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
+            </div>
+
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -264,9 +313,6 @@ useEffect(() => {
           </div>
         )}
       </header>
-
-      {/* Spacer for fixed header on non-home pages */}
-     
     </>
   );
 }

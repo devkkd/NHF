@@ -12,7 +12,7 @@ export default function ContactUsSection() {
         <h2 className="main-title">CONTACT US</h2>
 
         <h3 className="sub-title">
-          We'd Love To Hear From You
+            We&apos;d Love To Hear From You
         </h3>
 
         <p className="intro-text">
@@ -36,7 +36,7 @@ export default function ContactUsSection() {
               <strong>Phone:</strong> +91 9460387858
               <br />
               Available Mon–Sat, 9am–6pm IST. Call or WhatsApp,
-              we're responsive on both.
+              we&apos;re responsive on both.
             </p>
 
             <p>
@@ -74,8 +74,7 @@ export default function ContactUsSection() {
             </p>
 
             <p>
-              If you're interested in carrying our collection or placing
-              a wholesale order with custom sizing, printing, or
+                If you&apos;re interested in carrying our collection or placing
               labelling please reach out directly.
             </p>
 
@@ -107,7 +106,7 @@ export default function ContactUsSection() {
           </p>
 
           <p>
-            You'll find the production area where pieces are
+            You&apos;ll find the production area where pieces are
             hand-printed and assembled, the sample room where
             new designs are tested, and a full display of the
             current collection.
@@ -115,8 +114,8 @@ export default function ContactUsSection() {
 
           <p>
             Studio visits are by appointment simply call ahead
-            or send us a message, and we'll arrange everything.
-            There's always a pot of chai on.
+            or send us a message, and we&apos;ll arrange everything.
+            There&apos;s always a pot of chai on.
           </p>
 
           <button className="primary-btn">

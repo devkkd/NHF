@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 
 // ─── Countdown Timer ───────────────────────────────────────────────
 function useCountdown(target) {
-  const calc = () => {
+  const calc = useCallback(() => {
     const diff = new Date(target) - Date.now();
     if (diff <= 0) return { months: 0, days: 0, hours: 0, minutes: 0 };
     const total = Math.floor(diff / 1000);
@@ -14,12 +14,12 @@ function useCountdown(target) {
     const days = Math.floor(total / 86400) % 30;
     const months = Math.floor(total / (86400 * 30));
     return { months, days, hours, minutes };
-  };
+  }, [target]);
   const [time, setTime] = useState(calc);
   useEffect(() => {
     const id = setInterval(() => setTime(calc()), 60000);
     return () => clearInterval(id);
-  }, []);
+  }, [calc]);
   return time;
 }
 
@@ -66,7 +66,7 @@ export default function ExhibitionSection() {
       {/* ── Hero Header ── */}
       <section style={s.heroHeader}>
         <p style={s.eyebrow}>EXHIBITION / FAIR</p>
-        <h1 style={s.heroTitle}>Where The World, Comes To Find Jaipur's Finest</h1>
+        <h1 style={s.heroTitle}>Where The World, Comes To Find Jaipur&apos;s Finest</h1>
         <p style={s.heroSub}>
           From The Trade Halls Of Frankfurt To The Showrooms Of Paris, Hong Kong,
           And New York Nikita Home Furnishings Has Carried The Craft Of Rajasthan
@@ -90,7 +90,7 @@ export default function ExhibitionSection() {
       <section style={s.story}>
         <div style={s.storyLeft}>
           <h2 style={s.storyHeading}>
-            Not Just Present At The World's, Great Fairs Remembered There
+            Not Just Present At The World&apos;s, Great Fairs Remembered There
           </h2>
         </div>
         <div style={s.storyRight}>
@@ -116,9 +116,9 @@ export default function ExhibitionSection() {
       {/* ── Quote Band ── */}
       <section style={s.quoteBand}>
         <blockquote style={s.quoteText}>
-          "Every fair is a conversation. You don't ship boxes to Frankfurt you carry
-          the story of Jaipur's craftspeople into a room full of the world's most
-          discerning buyers, and you let the fabric speak first."
+          &quot;Every fair is a conversation. You don&apos;t ship boxes to Frankfurt; you carry
+          the story of Jaipur&apos;s craftspeople into a room full of the world&apos;s most
+          discerning buyers, and you let the fabric speak first.&quot;
         </blockquote>
         <p style={s.quoteAuthor}>
           — Jay Kumar Maheshwari, Founder, Nikita Home Furnishings
@@ -130,9 +130,8 @@ export default function ExhibitionSection() {
         <h2 style={s.upcomingTitle}>Upcoming Trade Fairs</h2>
         <p style={s.upcomingSub}>
           Explore Extraordinary Art Exhibitions Discover groundbreaking exhibitions
-          featuring the world's most innovative artists, designers, and creative minds.
+            featuring the world&apos;s most innovative artists, designers, and creative minds.
         </p>
-
         {/* Delhi Fair Card Image */}
         <div style={s.fairImgWrap}>
           <Image

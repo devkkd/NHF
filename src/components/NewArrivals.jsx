@@ -21,9 +21,9 @@ export default function NewArrivals() {
             because it was convenient but because it felt exactly right.
             These are the small, significant details that separate a house
             from a home and a life from a lifestyle. At Nikita, we make the
-            things that fill those moments: bedcovers that you'll reach for
+            things that fill those moments: bedcovers that you&apos;ll reach for
             every single night, throws that live on your sofa like old
-            friends, kaftans that make you feel dressed even when you're
+            friends, kaftans that make you feel dressed even when you&apos;re
             completely at ease.
           </p>
         </div>

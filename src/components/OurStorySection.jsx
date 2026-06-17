@@ -14,10 +14,10 @@ const OurStorySection = () => {
             fontSize: '30px'
           }}
         >
-          "Nikita Began With A Single Conviction:<br></br>{' '}
+          &quot;Nikita Began With A Single Conviction:<br></br>{' '}
           <span className="text-[#7B7F5C]">That The Finest Homes</span>{' '}
           <span className="text-[#8C906B]">Are Not Decorated, They Are Felt.</span>{' '}
-          <span className="text-[#B5B79C]">Felt In The Weight Of A Kantha Quilt On A Cold Morning. In The Softness Of Hand-block Cotton Against The Skin. In The Quiet Beauty Of An Ajrakh-printed Cushion That Catches The Evening Light."</span>
+          <span className="text-[#B5B79C]">Felt In The Weight Of A Kantha Quilt On A Cold Morning. In The Softness Of Hand-block Cotton Against The Skin. In The Quiet Beauty Of An Ajrakh-printed Cushion That Catches The Evening Light.&quot;</span>
         </h2>
       </div>
 

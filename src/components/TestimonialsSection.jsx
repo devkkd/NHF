@@ -76,7 +76,7 @@ export default function TestimonialsSection() {
         >
           {doubled.map((t, i) => (
             <div key={i} style={s.card}>
-              <p style={s.quote}>"{t.quote}"</p>
+              <p style={s.quote}>&quot;{t.quote}&quot;</p>
               <p style={s.name}>{t.name}</p>
               <p style={s.loc}>{t.location}</p>
             </div>
