@@ -1,6 +1,6 @@
 import "./globals.css";
-import Header from "@/components/Header.jsx";
-import Footer from "@/components/Footer.jsx";
+import Header from "@/components/Header";
+import LayoutWrapper from "@/components/LayoutWrapper";
 
 export const metadata = {
   title: "Nikita Home Furnishings",
@@ -11,11 +11,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
-      <body className="min-h-full flex flex-col antialiased">
-        {/* Header is absolutely positioned — floats over hero */}
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+      <body className="min-h-full antialiased">
+        <LayoutWrapper>
+          {children}
+        </LayoutWrapper>
       </body>
     </html>
   );

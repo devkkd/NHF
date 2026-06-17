@@ -62,8 +62,8 @@ export default function Header() {
 
   const navLinkClass = (href) => {
     const active = isActiveLink(href);
-    const base =
-      "text-[11.5px] tracking-[0.12em] uppercase font-light transition-colors duration-300 whitespace-nowrap border-b pb-0.5";
+  const base =
+  "text-[10px] font-bold tracking-normal uppercase transition-colors duration-300 whitespace-nowrap border-b pb-0.5 font-['Mona_Sans']";
 
     if (isSolid) {
       return `${base} ${
