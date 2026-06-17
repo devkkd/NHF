@@ -11,7 +11,7 @@ const navLinks = [
   { label: "Collection", href: "/" },
   { label: "Wardrobe", href: "/wardrobe" },
   { label: "Our Story", href: "/our-story" },
-  { label: "Exhibition / Fair", href: "/" },
+  { label: "Exhibition / Fair", href: "/exhibition" },
   { label: "Bulk Order", href: "/enquiry" },
   { label: "Contact Us", href: "/contact" },
 ];
@@ -28,17 +28,11 @@ export default function Header() {
   const [headerHeight, setHeaderHeight] = useState(0);
 
   const isSolid = !isHome || scrolled;
+useEffect(() => {
+  setMenuOpen(false);
+}, [pathname]);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 10);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
+ 
 
   useEffect(() => {
     const updateHeight = () => {
