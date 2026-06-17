@@ -85,15 +85,7 @@ export default function TestimonialsSection() {
       </div>
 
       {/* Marketplace logos — single PNG */}
-      <div style={s.logosWrapper}>
-        <Image
-  src="/images/marketplace-logos.png"
-  alt="Marketplace Logos"
-  width={560}
-  height={120}
-  style={s.logosImg}
-/>
-      </div>
+   
 
       <style>{`
         @keyframes scrollLeft {
@@ -183,16 +175,5 @@ const s = {
     margin: 0,
   },
 
-  /* Logos */
-  logosWrapper: {
-    display: "flex",
-    justifyContent: "center",
-    padding: "48px 24px 0",
-  },
-  logosImg: {
-    maxWidth: "560px",
-    width: "100%",
-    height: "auto",
-    objectFit: "contain",
-  },
+  
 };

@@ -96,7 +96,7 @@ export default function CollectionPage() {
         </div>
       </main>
 
-      <Footer />
+      
 
       <style jsx>{`
         .collection-page {

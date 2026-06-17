@@ -8,7 +8,7 @@ const navLinks = [
   { label: "Home", href: "/" },
   { label: "+ Customization", href: "/customization" },
   { label: "New Arrivals", href: "/new-arrivals" },
-  { label: "Collection", href: "/collection" },
+  { label: "Home Furnished", href: "/collection" },
   { label: "Wardrobe", href: "/wardrobe" },
   { label: "Our Story", href: "/our-story" },
   { label: "Exhibition / Fair", href: "/exhibition" },

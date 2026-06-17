@@ -126,7 +126,7 @@ export default function NewArrivalsPage() {
         </div>
       </main>
 
-      <Footer />
+     
 
       <style jsx>{`
         /* ── Hero ── */

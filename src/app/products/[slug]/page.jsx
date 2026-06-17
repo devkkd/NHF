@@ -200,7 +200,7 @@ export default function ProductDetailPage({ params }) {
         </div>
       </main>
 
-      <Footer />
+      
 
       <style jsx>{`
 
