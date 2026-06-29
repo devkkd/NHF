@@ -241,7 +241,7 @@ export default function Header() {
         >
           {navLinks.map((link) => (
             <Link
-              key={link.href}
+              key={link.label}
               href={link.href}
               className={navLinkClass(link.href)}
             >
@@ -296,7 +296,7 @@ export default function Header() {
 
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.label}
                 href={link.href}
                 className={`text-[12px] tracking-[0.15em] uppercase font-light transition-colors ${
                   isSolid

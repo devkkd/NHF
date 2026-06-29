@@ -457,7 +457,7 @@ export default function Footer() {
         <div className="f-cta-row f-pad">
           <div className="f-cta-inner">
             <div style={{ flexShrink: 0 }}>
-              <Image src="/images/footer/logo2.png" alt="NHF Logo" width={80} height={80} style={{ objectFit: "contain" }} />
+              <Image src="/images/footer/logo2.png" alt="NHF Logo" width={80} height={80} style={{ objectFit: "contain", width: "auto" }} />
             </div>
             <div className="f-v-line" />
             <div>
@@ -504,7 +504,7 @@ export default function Footer() {
         {/* ── BRAND + LINKS ── */}
         <div className="f-brand-sec f-pad">
           <div className="f-brand-row">
-            <Image src="/images/footer/Logo2.png" alt="Nikita Home Furnishings Logo" width={46} height={46} style={{ objectFit: "contain" }} />
+            <Image src="/images/footer/Logo2.png" alt="Nikita Home Furnishings Logo" width={46} height={46} style={{ objectFit: "contain", width: "auto" }} />
             <h2 style={{
               fontFamily: "'Tobias TRIAL', serif",
               fontWeight: 600,

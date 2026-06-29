@@ -18,10 +18,10 @@ export default function VirtualExperience() {
 
         <div className="virtual-image-wrap">
           <Image
-            src="/images/product/nikita.png"
+            src="/images/product/bedsheet.jpg"
             alt="Nikita Home Furnishing Virtual Experience"
             fill
-            priority
+            sizes="100vw"
             style={{
               objectFit: "cover",
             }}

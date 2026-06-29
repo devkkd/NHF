@@ -39,6 +39,7 @@ export default function NewArrivals() {
               src="/images/product/new2.png"
               alt="Hand Block Percale Printed Bedsheet"
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1180px) 360px, 440px"
               style={{ objectFit: "cover" }}
             />
             <button className="wishlist-btn" aria-label="Wishlist">♡</button>
@@ -58,6 +59,7 @@ export default function NewArrivals() {
             src="/images/product/new1.png"
             alt="Bedsheet showcase"
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1180px) calc(100vw - 500px), calc(100vw - 615px)"
             style={{ objectFit: "cover" }}
           />
         </div>

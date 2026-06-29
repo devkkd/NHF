@@ -1,6 +1,10 @@
+/**
+ * Root layout — ONLY html/body shell.
+ * Header and Footer live in (site)/layout.js so they never
+ * appear on admin routes.
+ */
+
 import "./globals.css";
-import Header from "@/components/Header";
-import LayoutWrapper from "@/components/LayoutWrapper";
 
 export const metadata = {
   title: "Nikita Home Furnishings",
@@ -12,9 +16,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className="h-full">
       <body className="min-h-full antialiased">
-        <LayoutWrapper>
-          {children}
-        </LayoutWrapper>
+        {children}
       </body>
     </html>
   );

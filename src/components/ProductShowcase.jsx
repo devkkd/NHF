@@ -13,6 +13,7 @@ export default function ProductShowcase() {
   alt="Bedroom background"
   fill
   priority
+  sizes="100vw"
   style={{
     objectFit: "cover",
     objectPosition: "center center",
@@ -29,6 +30,7 @@ export default function ProductShowcase() {
             src="/images/product/bedsheet.jpg"
             alt="Hand Block Percale Printed Bedsheet"
             fill
+            sizes="(max-width: 768px) 88vw, (max-width: 1024px) 320px, 380px"
             style={{ objectFit: "cover" }}
           />
           <button className="wishlist-btn" aria-label="Add to wishlist">
