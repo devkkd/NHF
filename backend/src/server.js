@@ -1,13 +1,16 @@
 import dns from "dns";
 import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 import app from "./app.js";
 import connectDB from "./config/db.js";
 
 // Force IPv4 resolution first for DNS lookups (fixes ECONNREFUSED on Windows Node.js)
 dns.setDefaultResultOrder("ipv4first");
 
-// Load environment variables
-dotenv.config();
+// Load environment variables — explicit path so it works regardless of cwd
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, "../.env") });
 
 // Connect to Database
 connectDB();

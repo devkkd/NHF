@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 
 const app = express();
 
@@ -24,7 +26,9 @@ app.use("/health", (req, res) => {
 });
 
 // Routes
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth",       authRoutes);
+app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/upload",     uploadRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

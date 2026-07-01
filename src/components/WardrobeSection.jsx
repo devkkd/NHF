@@ -1,23 +1,25 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
-const wardrobeItems = [
-  {
-    title: "Kaftans",
-    image: "/images/wardrobe/1.png",
-  },
-  {
-    title: "Jackets",
-    image: "/images/wardrobe/2.png",
-  },
-  {
-    title: "Bags",
-    image: "/images/wardrobe/3.png",
-  },
+// Static fallback — shown when no wardrobe categories in DB yet
+const FALLBACK = [
+  { _id: "1", name: "Kaftans",  image: "/images/category/7.png",  slug: "kaftans"  },
+  { _id: "2", name: "Jackets",  image: "/images/category/4.png",  slug: "jackets"  },
+  { _id: "3", name: "Bags",     image: "/images/category/5.png",  slug: "bags"     },
 ];
 
-export default function WardrobeSection() {
+/**
+ * WardrobeSection
+ * Accepts `categories` prop from the server (page.js).
+ * Falls back to static data when prop is empty.
+ *
+ * No useEffect/fetch here — data comes from server already.
+ */
+export default function WardrobeSection({ categories = [] }) {
+  const items = categories.length > 0 ? categories : FALLBACK;
+
   return (
     <section
       style={{
@@ -25,13 +27,7 @@ export default function WardrobeSection() {
         padding: "90px 40px",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
-        {/* Heading */}
+      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
 
         <h2
           style={{
@@ -48,38 +44,45 @@ export default function WardrobeSection() {
           THE WARDROBE
         </h2>
 
-        {/* Cards */}
-
         <div className="wardrobe-grid">
-          {wardrobeItems.map((item) => (
-            <div key={item.title} className="wardrobe-card">
-              <div className="image-wrapper">
-                <Image
-                  src={item.image}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width:768px) 100vw, 33vw"
-                  style={{
-                    objectFit: "cover",
-                  }}
-                />
+          {items.map((item) => (
+            <Link
+              key={item._id}
+              href={`/collection/${item.slug}`}
+              className="wardrobe-card-link"
+            >
+              <div className="wardrobe-card">
+                <div className="image-wrapper">
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="(max-width:768px) 100vw, 33vw"
+                      style={{ objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div className="img-placeholder" />
+                  )}
+                </div>
+                <h5>{item.name} →</h5>
               </div>
-
-              <h5>{item.title} →</h5>
-            </div>
+            </Link>
           ))}
         </div>
 
-        {/* Button */}
-
         <div className="wardrobe-btn-wrap">
-          <button className="wardrobe-btn">
+          <Link href="/wardrobe" className="wardrobe-btn">
             SEE FULL OUR WARDROBE →
-          </button>
+          </Link>
         </div>
       </div>
 
       <style jsx>{`
+        .wardrobe-card-link {
+          text-decoration: none;
+        }
+
         .wardrobe-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -88,6 +91,7 @@ export default function WardrobeSection() {
 
         .wardrobe-card {
           text-align: center;
+          cursor: pointer;
         }
 
         .image-wrapper {
@@ -97,6 +101,18 @@ export default function WardrobeSection() {
           height: 460px;
           overflow: hidden;
           margin: 0 auto;
+          background: #f0efea;
+          transition: transform 0.3s ease;
+        }
+
+        .wardrobe-card:hover .image-wrapper {
+          transform: scale(1.02);
+        }
+
+        .img-placeholder {
+          width: 100%;
+          height: 100%;
+          background: #e8e5dc;
         }
 
         .wardrobe-card h5 {
@@ -106,6 +122,11 @@ export default function WardrobeSection() {
           font-weight: 400;
           line-height: 160%;
           color: #7b7f5c;
+          transition: color 0.2s;
+        }
+
+        .wardrobe-card:hover h5 {
+          color: #4a4e38;
         }
 
         .wardrobe-btn-wrap {
@@ -124,6 +145,12 @@ export default function WardrobeSection() {
           font-size: 16px;
           cursor: pointer;
           letter-spacing: 0.02em;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .wardrobe-btn:hover {
+          opacity: 0.7;
         }
 
         @media (max-width: 1024px) {
@@ -137,12 +164,9 @@ export default function WardrobeSection() {
             grid-template-columns: 1fr;
             gap: 32px;
           }
-
           .image-wrapper {
             height: 320px;
-            <width: 100%;
           }
-
           .wardrobe-card h5 {
             font-size: 20px;
           }

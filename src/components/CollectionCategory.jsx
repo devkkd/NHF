@@ -1,59 +1,32 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
-const categories = [
-  {
-    title: "Kantha Bedcovers",
-    image: "/images/category/1.png",
-  },
-  {
-    title: "Quilts",
-    image: "/images/category/2.png",
-  },
-  {
-    title: "Bedsheets",
-    image: "/images/category/3.png",
-  },
-  {
-    title: "Jackets & Bathrobes",
-    image: "/images/category/4.png",
-  },
-  {
-    title: "Bags & Pouches",
-    image: "/images/category/5.png",
-  },
-  {
-    title: "Scarves",
-    image: "/images/category/6.png",
-  },
-  {
-    title: "Kaftans",
-    image: "/images/category/7.png",
-  },
-  {
-    title: "Dohar",
-    image: "/images/category/8.png",
-  },
-  {
-    title: "Throws / Gudri",
-    image: "/images/category/9.png",
-  },
-  {
-    title: "Cushion Covers",
-    image: "/images/category/10.png",
-  },
-  {
-    title: "Rugs & Dhurries",
-    image: "/images/category/11.png",
-  },
-  {
-    title: "Table Covers & Runners",
-    image: "/images/category/12.png",
-  },
+// Static fallback shown when API returns nothing
+const FALLBACK_CATEGORIES = [
+  { _id: "1",  name: "Kantha Bedcovers",       image: "/images/category/1.png",  slug: "kantha-bedcovers"       },
+  { _id: "2",  name: "Quilts",                  image: "/images/category/2.png",  slug: "quilts"                 },
+  { _id: "3",  name: "Bedsheets",               image: "/images/category/3.png",  slug: "bedsheets"              },
+  { _id: "4",  name: "Jackets & Bathrobes",     image: "/images/category/4.png",  slug: "jackets-bathrobes"      },
+  { _id: "5",  name: "Bags & Pouches",          image: "/images/category/5.png",  slug: "bags-pouches"           },
+  { _id: "6",  name: "Scarves",                 image: "/images/category/6.png",  slug: "scarves"                },
+  { _id: "7",  name: "Kaftans",                 image: "/images/category/7.png",  slug: "kaftans"                },
+  { _id: "8",  name: "Dohar",                   image: "/images/category/8.png",  slug: "dohar"                  },
+  { _id: "9",  name: "Throws / Gudri",          image: "/images/category/9.png",  slug: "throws-gudri"           },
+  { _id: "10", name: "Cushion Covers",          image: "/images/category/10.png", slug: "cushion-covers"         },
+  { _id: "11", name: "Rugs & Dhurries",         image: "/images/category/11.png", slug: "rugs-dhurries"          },
+  { _id: "12", name: "Table Covers & Runners",  image: "/images/category/12.png", slug: "table-covers-runners"   },
 ];
 
-export default function CollectionCategory() {
+/**
+ * CollectionCategory
+ * Accepts `categories` prop from the parent Server Component (page.js).
+ * Falls back to static data if prop is empty.
+ */
+export default function CollectionCategory({ categories = [] }) {
+  const items = categories.length > 0 ? categories : FALLBACK_CATEGORIES;
+
   return (
     <section
       style={{
@@ -61,14 +34,9 @@ export default function CollectionCategory() {
         padding: "90px 40px",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
-        {/* Heading */}
+      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
 
+        {/* Heading */}
         <h2
           style={{
             fontFamily: "'Tobias TRIAL', serif",
@@ -85,54 +53,76 @@ export default function CollectionCategory() {
         </h2>
 
         {/* Cards */}
-
         <div className="collection-grid">
-          {categories.map((item) => (
-            <div key={item.title} className="collection-card">
-              <div className="image-wrapper">
-                <Image
-                  src={item.image}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width:768px) 100vw, 33vw"
-                  style={{
-                    objectFit: "cover",
-                  }}
-                />
+          {items.map((item) => (
+            <Link
+              key={item._id}
+              href={`/collection/${item.slug}`}
+              className="collection-card-link"
+            >
+              <div className="collection-card">
+                <div className="image-wrapper">
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="(max-width:768px) 50vw, (max-width:1024px) 33vw, 25vw"
+                      style={{ objectFit: "cover" }}
+                    />
+                  ) : (
+                    <div className="img-placeholder" />
+                  )}
+                </div>
+                <h5>{item.name} →</h5>
               </div>
-
-              <h5>{item.title} →</h5>
-            </div>
+            </Link>
           ))}
         </div>
 
         {/* Button */}
-
         <div className="collection-btn-wrap">
-          <button className="collection-btn">
+          <Link href="/collection" className="collection-btn">
             SEE FULL OUR COLLECTION →
-          </button>
+          </Link>
         </div>
       </div>
 
       <style jsx>{`
         .collection-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 48px 24px;
-}
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 48px 24px;
+        }
+
+        .collection-card-link {
+          text-decoration: none;
+        }
 
         .collection-card {
           text-align: center;
+          cursor: pointer;
         }
 
         .image-wrapper {
-  position: relative;
-  width: 100%;
-  height: 300px;
-  overflow: hidden;
-  margin: 0 auto;
-}
+          position: relative;
+          width: 100%;
+          height: 300px;
+          overflow: hidden;
+          margin: 0 auto;
+          background: #f0efea;
+          transition: transform 0.3s ease;
+        }
+
+        .collection-card:hover .image-wrapper {
+          transform: scale(1.02);
+        }
+
+        .img-placeholder {
+          width: 100%;
+          height: 100%;
+          background: #e8e5dc;
+        }
 
         .collection-card h5 {
           margin-top: 18px;
@@ -141,6 +131,11 @@ export default function CollectionCategory() {
           font-weight: 400;
           line-height: 160%;
           color: #7b7f5c;
+          transition: color 0.2s;
+        }
+
+        .collection-card:hover h5 {
+          color: #4a4e38;
         }
 
         .collection-btn-wrap {
@@ -159,6 +154,12 @@ export default function CollectionCategory() {
           font-size: 16px;
           cursor: pointer;
           letter-spacing: 0.02em;
+          text-decoration: none;
+          transition: opacity 0.2s;
+        }
+
+        .collection-btn:hover {
+          opacity: 0.7;
         }
 
         @media (max-width: 1024px) {
@@ -168,38 +169,39 @@ export default function CollectionCategory() {
         }
 
         @media (max-width: 768px) {
-  .collection-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
+          .collection-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
 
-  .collection-card h5 {
-    font-size: 14px;
-  }
+          .collection-card h5 {
+            font-size: 14px;
+          }
 
-  h2 {
-    font-size: 28px;
-  }
+          h2 {
+            font-size: 28px;
+          }
 
-  .image-wrapper {
-    height: 180px;
-  }
-}
-  @media (max-width: 480px) {
-  .collection-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
+          .image-wrapper {
+            height: 180px;
+          }
+        }
 
-  .image-wrapper {
-    height: 150px;
-  }
+        @media (max-width: 480px) {
+          .collection-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
 
-  .collection-card h5 {
-    font-size: 12px;
-    margin-top: 10px;
-  }
-}
+          .image-wrapper {
+            height: 150px;
+          }
+
+          .collection-card h5 {
+            font-size: 12px;
+            margin-top: 10px;
+          }
+        }
       `}</style>
     </section>
   );
