@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function ProductShowcase() {
+  const router = useRouter();
+
   return (
     <section className="showcase-section">
 
@@ -31,19 +34,32 @@ export default function ProductShowcase() {
             fill
             style={{ objectFit: "cover" }}
           />
-          <button className="wishlist-btn" aria-label="Add to wishlist">
-            ♡
-          </button>
+       <button
+  className="wishlist-btn"
+  aria-label="Add to wishlist"
+  onClick={() => router.push("/saved")}
+>
+  ♡
+</button>
         </div>
 
         {/* Card content */}
         <div className="card-body">
-          <h3 className="card-title">
-            HAND BLOCK PERCALE PRINTED BEDSHEET
-          </h3>
+          <h3
+  className="card-title"
+  onClick={() => router.push("/product/hand-block-percale-printed-bedsheet")}
+  style={{ cursor: "pointer" }}
+>
+  HAND BLOCK PERCALE PRINTED BEDSHEET
+</h3>
           <div className="card-actions">
-            <button className="price-btn">PRICE ENQUIRY →</button>
-            <button className="bulk-btn">✦ BULK CUSTOMIZATION</button>
+           <button
+  className="price-btn"
+  onClick={() => router.push("/price-enquiry")}
+>
+  BULK PRICE ENQUIRY →
+</button>
+            <button className="bulk-btn" onClick={() => router.push("/cart")}>✦ ADD TO CART</button>
           </div>
         </div>
 

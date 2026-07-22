@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 const products = [
   {
     image: "/images/product-1.jpg",
@@ -18,6 +19,8 @@ const products = [
 ];
 
 export default function NewArrivalsGrid() {
+    const router = useRouter();
+
   return (
     <section className="arrival-section">
       <div className="container">
@@ -34,9 +37,13 @@ export default function NewArrivalsGrid() {
                   style={{ objectFit: "cover" }}
                 />
 
-                <button className="wishlist-btn">
-                  ♡
-                </button>
+                <button
+  className="wishlist-btn"
+  aria-label="Add to wishlist"
+  onClick={() => router.push("/saved")}
+>
+  ♡
+</button>
               </div>
 
               <h3 className="product-title">
@@ -45,11 +52,11 @@ export default function NewArrivalsGrid() {
 
               <div className="action-row">
                 <button className="price-btn">
-                  PRICE ENQUIRY →
+                 BULK PRICE ENQUIRY →
                 </button>
 
                 <span className="bulk-text">
-                  ✦ BULK CUSTOMIZATION
+                  ✦ ADD TO CART
                 </span>
               </div>
             </div>

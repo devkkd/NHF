@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 const categories = [
   {
@@ -54,6 +55,8 @@ const categories = [
 ];
 
 export default function CollectionCategory() {
+  const router = useRouter();
+
   return (
     <section
       style={{
@@ -109,9 +112,12 @@ export default function CollectionCategory() {
         {/* Button */}
 
         <div className="collection-btn-wrap">
-          <button className="collection-btn">
-            SEE FULL OUR COLLECTION →
-          </button>
+         <button
+  className="collection-btn"
+  onClick={() => router.push("/new-arrivals")}
+>
+  SEE FULL OUR COLLECTION →
+</button>
         </div>
       </div>
 

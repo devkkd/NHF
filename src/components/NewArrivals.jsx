@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function NewArrivals() {
+    const router = useRouter();
+
   return (
     <section className="arrival-section">
 
@@ -41,13 +44,19 @@ export default function NewArrivals() {
               fill
               style={{ objectFit: "cover" }}
             />
-            <button className="wishlist-btn" aria-label="Wishlist">♡</button>
+            <button
+  className="wishlist-btn"
+  aria-label="Add to wishlist"
+  onClick={() => router.push("/saved")}
+>
+  ♡
+</button>
           </div>
           <div className="card-body">
             <h4 className="card-title">HAND BLOCK PERCALE PRINTED BEDSHEET</h4>
             <div className="card-actions">
-              <button className="price-btn">PRICE ENQUIRY →</button>
-              <span className="bulk-btn">✦ BULK CUSTOMIZATION</span>
+              <button className="price-btn">BULK PRICE ENQUIRY →</button>
+              <span className="bulk-btn">✦ ADD TO CART</span>
             </div>
           </div>
         </div>
