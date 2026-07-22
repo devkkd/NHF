@@ -402,26 +402,33 @@ export default function Footer() {
         {/* ── MARKETPLACE LOGOS BAR ── */}
         <div className="f-marketplace f-pad">
           {marketplaceLogos.map((logo, idx) => (
-            <>
-              {idx !== 0 && <div key={`div-${idx}`} className="f-mkt-divider" />}
-              <Link
-                key={logo.name}
-                href={logo.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="f-mkt-item"
-                aria-label={logo.name}
-              >
-                <Image
-                  src={logo.src}
-                  alt={logo.name}
-                  width={logo.width}
-                  height={logo.height}
-                  style={{ objectFit: "contain", width: "auto", height: "36px" }}
-                />
-              </Link>
-            </>
-          ))}
+  <div
+    key={logo.name}
+    style={{ display: "flex", alignItems: "center" }}
+  >
+    {idx !== 0 && <div className="f-mkt-divider" />}
+
+    <Link
+      href={logo.href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="f-mkt-item"
+      aria-label={logo.name}
+    >
+      <Image
+        src={logo.src}
+        alt={logo.name}
+        width={logo.width}
+        height={logo.height}
+        style={{
+          objectFit: "contain",
+          width: "auto",
+          height: "36px",
+        }}
+      />
+    </Link>
+  </div>
+))}
         </div>
 
         {/* ── FOLLOW US ── */}

@@ -115,7 +115,7 @@ export default function Hero() {
             href="/our-story"
             className="text-[11px] tracking-[0.18em] uppercase bg-white/20 backdrop-blur-sm text-white border border-white/50 px-7 py-3 hover:bg-white/30 transition-colors duration-300"
           >
-            Our
+            Our Story
           </Link>
           <Link
             href="/collection"

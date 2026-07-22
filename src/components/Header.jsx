@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { getCart, CART_EVENT } from "@/lib/cart";
+import { getWishlist, WISHLIST_EVENT } from "@/lib/wishlist";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -26,7 +29,9 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const headerRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(0);
-
+const router = useRouter();
+const [cartCount, setCartCount] = useState(0);
+const [wishlistCount, setWishlistCount] = useState(0);
   const isSolid = !isHome || scrolled;
 
   useEffect(() => {
@@ -50,6 +55,35 @@ export default function Header() {
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, [isSolid, menuOpen]);
+  useEffect(() => {
+  const updateCartCount = () => {
+    const cart = getCart();
+
+    const total = cart.reduce((sum, item) => sum + item.qty, 0);
+
+    setCartCount(total);
+  };
+
+  updateCartCount();
+
+  window.addEventListener(CART_EVENT, updateCartCount);
+
+  return () => {
+    window.removeEventListener(CART_EVENT, updateCartCount);
+  };
+}, []);
+useEffect(() => {
+  const updateWishlist = () => {
+    setWishlistCount(getWishlist().length);
+  };
+
+  updateWishlist();
+
+  window.addEventListener(WISHLIST_EVENT, updateWishlist);
+
+  return () =>
+    window.removeEventListener(WISHLIST_EVENT, updateWishlist);
+}, []);
 
   const isActiveLink = (href) => {
     if (href === "/") return pathname === "/";
@@ -165,23 +199,74 @@ export default function Header() {
               </svg>
             </button>
 
-            <button aria-label="Wishlist" className={`hidden sm:block ${iconClass}`}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            </button>
+           <button
+  aria-label="Wishlist"
+  className={`hidden sm:block ${iconClass} relative`}
+  onClick={() => router.push("/saved")}
+>
+  {wishlistCount > 0 && (
+    <span
+      style={{
+        position: "absolute",
+        top: "-8px",
+        right: "-8px",
+        width: "18px",
+        height: "18px",
+        borderRadius: "50%",
+        background: "#8A8D67",
+        color: "#fff",
+        fontSize: "10px",
+        fontWeight: "700",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {wishlistCount}
+    </span>
+  )}
 
-            <button aria-label="Cart" className={iconClass}>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+  </svg>
+</button>
+
+           <button
+  aria-label="Cart"
+  className={`${iconClass} relative`}
+  onClick={() => router.push("/cart")}
+>
+  {cartCount > 0 && (
+    <span
+      style={{
+        position: "absolute",
+        top: "-8px",
+        right: "-8px",
+        width: "18px",
+        height: "18px",
+        borderRadius: "50%",
+        background: "#8A8D67",
+        color: "#fff",
+        fontSize: "10px",
+        fontWeight: "700",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {cartCount}
+    </span>
+  )}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="18"
@@ -277,7 +362,35 @@ export default function Header() {
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </button>
-              <button aria-label="Wishlist" className={iconClass}>
+             <button
+  aria-label="Wishlist"
+  className={`${iconClass} relative`}
+  onClick={() => {
+    setMenuOpen(false);
+    router.push("/saved");
+  }}
+>
+  {wishlistCount > 0 && (
+    <span
+      style={{
+        position: "absolute",
+        top: "-8px",
+        right: "-8px",
+        width: "18px",
+        height: "18px",
+        borderRadius: "50%",
+        background: "#8A8D67",
+        color: "#fff",
+        fontSize: "10px",
+        fontWeight: "700",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {wishlistCount}
+    </span>
+  )}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="18"
