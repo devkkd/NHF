@@ -1,59 +1,32 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
-const categories = [
-  {
-    title: "Kantha Bedcovers",
-    image: "/images/category/1.png",
-  },
-  {
-    title: "Quilts",
-    image: "/images/category/2.png",
-  },
-  {
-    title: "Bedsheets",
-    image: "/images/category/3.png",
-  },
-  {
-    title: "Jackets & Bathrobes",
-    image: "/images/category/4.png",
-  },
-  {
-    title: "Bags & Pouches",
-    image: "/images/category/5.png",
-  },
-  {
-    title: "Scarves",
-    image: "/images/category/6.png",
-  },
-  {
-    title: "Kaftans",
-    image: "/images/category/7.png",
-  },
-  {
-    title: "Dohar",
-    image: "/images/category/8.png",
-  },
-  {
-    title: "Throws / Gudri",
-    image: "/images/category/9.png",
-  },
-  {
-    title: "Cushion Covers",
-    image: "/images/category/10.png",
-  },
-  {
-    title: "Rugs & Dhurries",
-    image: "/images/category/11.png",
-  },
-  {
-    title: "Table Covers & Runners",
-    image: "/images/category/12.png",
-  },
+const FALLBACK_CATEGORIES = [
+  { title: "Kantha Bedcovers",      image: "/images/category/1.png",  slug: "kantha-bedcovers" },
+  { title: "Quilts",                image: "/images/category/2.png",  slug: "quilts" },
+  { title: "Bedsheets",             image: "/images/category/3.png",  slug: "bedsheets" },
+  { title: "Jackets & Bathrobes",   image: "/images/category/4.png",  slug: "jackets-bathrobes" },
+  { title: "Bags & Pouches",        image: "/images/category/5.png",  slug: "bags-pouches" },
+  { title: "Scarves",               image: "/images/category/6.png",  slug: "scarves" },
+  { title: "Kaftans",               image: "/images/category/7.png",  slug: "kaftans" },
+  { title: "Dohar",                 image: "/images/category/8.png",  slug: "dohar" },
+  { title: "Throws / Gudri",        image: "/images/category/9.png",  slug: "throws-gudri" },
+  { title: "Cushion Covers",        image: "/images/category/10.png", slug: "cushion-covers" },
+  { title: "Rugs & Dhurries",       image: "/images/category/11.png", slug: "rugs-dhurries" },
+  { title: "Table Covers & Runners",image: "/images/category/12.png", slug: "table-covers-runners" },
 ];
 
-export default function CollectionCategory() {
+export default function CollectionCategory({ categories = [] }) {
+  const items = categories.length > 0
+    ? categories.map((c, i) => ({
+        title: c.name,
+        image: c.image || `/images/category/${(i % 12) + 1}.png`,
+        slug:  c.slug,
+      }))
+    : FALLBACK_CATEGORIES;
+
   return (
     <section
       style={{
@@ -61,13 +34,7 @@ export default function CollectionCategory() {
         padding: "90px 40px",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-        }}
-      >
-        {/* Heading */}
+      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
 
         <h2
           style={{
@@ -84,55 +51,56 @@ export default function CollectionCategory() {
           ALL CATEGORY
         </h2>
 
-        {/* Cards */}
-
         <div className="collection-grid">
-          {categories.map((item) => (
-            <div key={item.title} className="collection-card">
-              <div className="image-wrapper">
-                <Image
-                  src={item.image}
-                  alt={item.title}
-                  fill
-                  sizes="(max-width:768px) 100vw, 33vw"
-                  style={{
-                    objectFit: "cover",
-                  }}
-                />
+          {items.map((item) => (
+            <Link key={item.slug} href={`/${item.slug}`} className="collection-card-link">
+              <div className="collection-card">
+                <div className="image-wrapper">
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    sizes="(max-width:768px) 50vw, 33vw"
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
+                <h5>{item.title} →</h5>
               </div>
-
-              <h5>{item.title} →</h5>
-            </div>
+            </Link>
           ))}
         </div>
 
-        {/* Button */}
-
         <div className="collection-btn-wrap">
-          <button className="collection-btn">
+          <Link href="/collection" className="collection-btn">
             SEE FULL OUR COLLECTION →
-          </button>
+          </Link>
         </div>
       </div>
 
       <style jsx>{`
+        .collection-card-link {
+          text-decoration: none;
+          display: block;
+        }
+
+        /* ── 3 columns on desktop ── */
         .collection-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 48px 24px;
-}
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 48px 24px;
+        }
 
         .collection-card {
           text-align: center;
         }
 
         .image-wrapper {
-  position: relative;
-  width: 100%;
-  height: 300px;
-  overflow: hidden;
-  margin: 0 auto;
-}
+          position: relative;
+          width: 100%;
+          height: 300px;
+          overflow: hidden;
+          margin: 0 auto;
+        }
 
         .collection-card h5 {
           margin-top: 18px;
@@ -159,47 +127,48 @@ export default function CollectionCategory() {
           font-size: 16px;
           cursor: pointer;
           letter-spacing: 0.02em;
+          text-decoration: none;
+          display: inline-block;
         }
 
+        /* ── Tablet: still 3 columns ── */
         @media (max-width: 1024px) {
           .collection-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px 16px;
+          }
+          .collection-card h5 {
+            font-size: 18px;
           }
         }
 
+        /* ── Small tablet / mobile: 2 columns ── */
         @media (max-width: 768px) {
-  .collection-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
+          .collection-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+          }
+          .collection-card h5 {
+            font-size: 14px;
+          }
+          .image-wrapper {
+            height: 180px;
+          }
+        }
 
-  .collection-card h5 {
-    font-size: 14px;
-  }
-
-  h2 {
-    font-size: 28px;
-  }
-
-  .image-wrapper {
-    height: 180px;
-  }
-}
-  @media (max-width: 480px) {
-  .collection-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-  }
-
-  .image-wrapper {
-    height: 150px;
-  }
-
-  .collection-card h5 {
-    font-size: 12px;
-    margin-top: 10px;
-  }
-}
+        @media (max-width: 480px) {
+          .collection-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+          }
+          .image-wrapper {
+            height: 150px;
+          }
+          .collection-card h5 {
+            font-size: 12px;
+            margin-top: 10px;
+          }
+        }
       `}</style>
     </section>
   );

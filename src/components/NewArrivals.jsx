@@ -1,8 +1,19 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
-export default function NewArrivals() {
+const FALLBACK_IMG_CARD = "/images/product/new2.png";
+const FALLBACK_IMG_BIG  = "/images/product/new1.png";
+const FALLBACK_NAME     = "HAND BLOCK PERCALE PRINTED BEDSHEET";
+const FALLBACK_SLUG     = "#";
+
+export default function NewArrivals({ product = null }) {
+  const cardImage = product?.mainImage || FALLBACK_IMG_CARD;
+  const bigImage  = product?.galleryImages?.[0] || product?.mainImage || FALLBACK_IMG_BIG;
+  const name      = product?.name?.toUpperCase() || FALLBACK_NAME;
+  const slug      = product?.slug || FALLBACK_SLUG;
+
   return (
     <section className="arrival-section">
 
@@ -36,18 +47,23 @@ export default function NewArrivals() {
         <div className="product-card">
           <div className="card-img-wrap">
             <Image
-              src="/images/product/new2.png"
-              alt="Hand Block Percale Printed Bedsheet"
+              src={cardImage}
+              alt={name}
               fill
+              sizes="(max-width:768px) 100vw, 440px"
               style={{ objectFit: "cover" }}
             />
             <button className="wishlist-btn" aria-label="Wishlist">♡</button>
           </div>
           <div className="card-body">
-            <h4 className="card-title">HAND BLOCK PERCALE PRINTED BEDSHEET</h4>
+            <h4 className="card-title">{name}</h4>
             <div className="card-actions">
-              <button className="price-btn">PRICE ENQUIRY →</button>
-              <span className="bulk-btn">✦ BULK CUSTOMIZATION</span>
+              <Link href={`/enquiry1/${slug}`} className="price-btn">
+                PRICE ENQUIRY →
+              </Link>
+              <Link href="/enquiry" className="bulk-btn">
+                ✦ BULK CUSTOMIZATION
+              </Link>
             </div>
           </div>
         </div>
@@ -55,9 +71,10 @@ export default function NewArrivals() {
         {/* Right — big showcase image */}
         <div className="big-img-wrap">
           <Image
-            src="/images/product/new1.png"
-            alt="Bedsheet showcase"
+            src={bigImage}
+            alt={name}
             fill
+            sizes="60vw"
             style={{ objectFit: "cover" }}
           />
         </div>
@@ -65,13 +82,10 @@ export default function NewArrivals() {
       </div>
 
       <style jsx>{`
-        /* ── SECTION ── */
         .arrival-section {
           background: #FDFFF1;
           padding: 72px 80px;
         }
-
-        /* ── TOP ROW ── */
         .top-row {
           display: grid;
           grid-template-columns: 420px 1fr;
@@ -79,7 +93,6 @@ export default function NewArrivals() {
           align-items: start;
           margin-bottom: 56px;
         }
-
         .main-heading {
           font-family: "Tobias TRIAL", serif;
           font-size: clamp(28px, 3.2vw, 46px);
@@ -88,7 +101,6 @@ export default function NewArrivals() {
           color: #7B7F5C;
           margin: 0;
         }
-
         .main-para {
           font-family: "Mona Sans", sans-serif;
           font-size: 15px;
@@ -96,22 +108,13 @@ export default function NewArrivals() {
           color: #111;
           margin: 0;
         }
-
-        /* ── BOTTOM ROW ── */
         .bottom-row {
           display: grid;
           grid-template-columns: 440px 1fr;
           gap: 95px;
           align-items: stretch;
         }
-
-        /* ── PRODUCT CARD ── */
-        .product-card {
-          display: flex;
-          flex-direction: column;
-          background: transparent;
-        }
-
+        .product-card { display: flex; flex-direction: column; background: transparent; }
         .card-img-wrap {
           position: relative;
           width: 100%;
@@ -119,7 +122,6 @@ export default function NewArrivals() {
           overflow: hidden;
           background: #f0f0eb;
         }
-
         .wishlist-btn {
           position: absolute;
           right: 12px;
@@ -137,16 +139,8 @@ export default function NewArrivals() {
           color: #555;
           transition: background 0.2s, color 0.2s;
         }
-        .wishlist-btn:hover {
-          background: #7B7F5C;
-          color: #fff;
-          border-color: #7B7F5C;
-        }
-
-        .card-body {
-          padding: 22px 0 0;
-        }
-
+        .wishlist-btn:hover { background: #7B7F5C; color: #fff; border-color: #7B7F5C; }
+        .card-body { padding: 22px 0 0; }
         .card-title {
           font-family: "Mona Sans", sans-serif;
           font-size: 14px;
@@ -156,14 +150,7 @@ export default function NewArrivals() {
           color: #0E0E0E;
           margin: 0 0 20px 0;
         }
-
-        .card-actions {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          flex-wrap: wrap;
-        }
-
+        .card-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
         .price-btn {
           background: #7B7F5C;
           color: #fff;
@@ -176,9 +163,10 @@ export default function NewArrivals() {
           cursor: pointer;
           transition: background 0.2s;
           white-space: nowrap;
+          text-decoration: none;
+          display: inline-block;
         }
         .price-btn:hover { background: #636749; }
-
         .bulk-btn {
           font-family: "Mona Sans", sans-serif;
           font-size: 13px;
@@ -187,119 +175,43 @@ export default function NewArrivals() {
           cursor: pointer;
           white-space: nowrap;
           transition: color 0.2s;
+          text-decoration: none;
         }
         .bulk-btn:hover { color: #7B7F5C; }
-
-        /* ── BIG IMAGE ── */
-  .big-img-wrap {
-  position: relative;
-  width: calc(100% + 120px);
-  margin-right: -120px;
-  min-height: 460px;
-  overflow: hidden;
-}
-
-        /* ════════════════════════════════
-           TABLET  769 – 1180px
-        ════════════════════════════════ */
+        .big-img-wrap {
+          position: relative;
+          width: calc(100% + 120px);
+          margin-right: -120px;
+          min-height: 460px;
+          overflow: hidden;
+        }
         @media (max-width: 1180px) {
           .arrival-section { padding: 56px 40px; }
-
-          .top-row {
-            grid-template-columns: 1fr 1fr;
-            gap: 48px;
-          }
-
-          .bottom-row {
-            grid-template-columns: 360px 1fr;
-            gap: 24px;
-          }
-
+          .top-row { grid-template-columns: 1fr 1fr; gap: 48px; }
+          .bottom-row { grid-template-columns: 360px 1fr; gap: 24px; }
           .card-img-wrap { height: 320px; }
-          .big-img-wrap { min-height: 400px; }
-           .big-img-wrap {
-    min-height: 400px;
-    width: 100%;
-  }
+          .big-img-wrap { min-height: 400px; width: 100%; }
         }
-
-        /* ════════════════════════════════
-           SMALL TABLET  769 – 900px
-        ════════════════════════════════ */
         @media (max-width: 900px) {
-          .top-row {
-            grid-template-columns: 1fr;
-            gap: 24px;
-            margin-bottom: 40px;
-          }
-
-          .bottom-row {
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-
-          /* On small tablet, card on top, big image below */
-            .big-img-wrap {
-    width: 100%;
-    min-height: 380px;
-    margin-top: 24px;
-  }
-
+          .top-row { grid-template-columns: 1fr; gap: 24px; margin-bottom: 40px; }
+          .bottom-row { grid-template-columns: 1fr; gap: 0; }
+          .big-img-wrap { width: 100%; min-height: 380px; margin-top: 24px; }
         }
-
-        /* ════════════════════════════════
-           MOBILE  ≤ 768px
-        ════════════════════════════════ */
         @media (max-width: 768px) {
           .arrival-section { padding: 44px 20px; }
-
-          .top-row {
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin-bottom: 32px;
-          }
-
+          .top-row { grid-template-columns: 1fr; gap: 20px; margin-bottom: 32px; }
           .main-heading { font-size: clamp(24px, 7vw, 32px); }
-
-          .bottom-row {
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-
+          .bottom-row { grid-template-columns: 1fr; gap: 0; }
           .card-img-wrap { height: 280px; }
-
-            .big-img-wrap {
-    width: 100%;
-    min-height: 280px;
-    margin-top: 20px;
-  }
-
-
-          .card-actions {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 12px;
-          }
-
+          .big-img-wrap { width: 100%; min-height: 280px; margin-top: 20px; }
+          .card-actions { flex-direction: column; align-items: stretch; gap: 12px; }
           .price-btn { width: 100%; text-align: center; }
           .bulk-btn { text-align: center; }
         }
-
-        /* ════════════════════════════════
-           LARGE DESKTOP  ≥ 1440px
-        ════════════════════════════════ */
         @media (min-width: 1440px) {
           .arrival-section { padding: 80px 120px; }
-
-          .top-row {
-            grid-template-columns: 480px 1fr;
-            gap: 100px;
-          }
-
-          .bottom-row {
-            grid-template-columns: 480px 1fr;
-          }
-
+          .top-row { grid-template-columns: 480px 1fr; gap: 100px; }
+          .bottom-row { grid-template-columns: 480px 1fr; }
           .card-img-wrap { height: 420px; }
           .big-img-wrap { min-height: 220px; }
         }
