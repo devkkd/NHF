@@ -35,12 +35,25 @@ export default function NewArrivalsPage() {
   const [quantities, setQuantities] = useState({});
   const [wishlist, setWishlist] = useState({});
 
-  useEffect(() => {
-    const saved = getWishlist();
-    const map = {};
-    saved.forEach((item) => { map[item.slug] = true; });
-    setWishlist(map);
-  }, []);
+ useEffect(() => {
+  const loadWishlist = async () => {
+    try {
+      const saved = await getWishlist();
+
+      const map = {};
+
+      saved.forEach((item) => {
+        map[item.slug] = true;
+      });
+
+      setWishlist(map);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  loadWishlist();
+}, []);
 
   useEffect(() => {
     setLoading(true);
@@ -52,17 +65,21 @@ export default function NewArrivalsPage() {
     });
   }, [page]);
 
-  const handleToggleWishlist = (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const nowSaved = toggleWishlist(product);
-    setWishlist((prev) => {
-      const copy = { ...prev };
-      if (nowSaved) copy[product.slug] = true;
-      else delete copy[product.slug];
-      return copy;
-    });
-  };
+ const handleToggleWishlist = async (e, product) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const nowSaved = await toggleWishlist(product);
+
+  setWishlist((prev) => {
+    const copy = { ...prev };
+
+    if (nowSaved) copy[product.slug] = true;
+    else delete copy[product.slug];
+
+    return copy;
+  });
+};
 
   const handleAddToCart = (e, product) => {
     e.preventDefault();
@@ -75,7 +92,7 @@ export default function NewArrivalsPage() {
     e.preventDefault();
     e.stopPropagation();
     const qty = (quantities[product.slug] || 1) + 1;
-    updateQty(product.slug, qty);
+  updateQty(product._id, qty);
     setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
   };
 
@@ -84,10 +101,12 @@ export default function NewArrivalsPage() {
     e.stopPropagation();
     const qty = (quantities[product.slug] || 1) - 1;
     if (qty <= 0) {
-      updateQty(product.slug, 0);
+    updateQty(product._id, 0);
+
       setQuantities((prev) => { const c = { ...prev }; delete c[product.slug]; return c; });
     } else {
-      updateQty(product.slug, qty);
+     updateQty(product._id, qty);
+
       setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
     }
   };
@@ -142,9 +161,14 @@ export default function NewArrivalsPage() {
                       {wishlist[product.slug] ? "♥" : "♡"}
                     </button>
                   </div>
-                  <div className="na-info">
-                    <h3 className="na-name">{product.name?.toUpperCase()}</h3>
-                    <div className="na-actions">
+                 <div className="na-info">
+  <h3 className="na-name">{product.name?.toUpperCase()}</h3>
+
+  <p className="na-price">
+    ₹{Number(product.price || 0).toLocaleString("en-IN")}
+  </p>
+
+  <div className="na-actions">
                       <button
                         className="na-btn-enquiry"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/enquiry1/${product.slug}`); }}
@@ -283,6 +307,15 @@ export default function NewArrivalsPage() {
         }
         .na-qty span { font-weight: 600; text-align: center; min-width: 18px; }
 
+        .na-price {
+  font-family: "Mona Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0e0e0e;
+  margin: 0 0 12px;
+  letter-spacing: 0.02em;
+}
+
         /* Pagination */
         .na-pagination {
           text-align: center; padding: 20px 60px 60px;
@@ -320,6 +353,9 @@ export default function NewArrivalsPage() {
           .na-actions { flex-direction: column; gap: 8px; align-items: stretch; }
           .na-btn-enquiry, .na-btn-cart { width: 100%; padding: 10px; font-size: 9px; }
           .na-pagination { padding: 12px 16px 40px; }
+          .na-price {
+  font-size: 15px;
+}
         }
       `}</style>
     </main>

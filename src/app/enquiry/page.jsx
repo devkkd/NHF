@@ -1,7 +1,7 @@
 // app/enquiry/page.jsx
 
-import BulkOrderForm from "@/components/Enquary";
+import EnquiryForm from "@/components/EnquiryForm";
 
 export default function EnquiryPage() {
-  return <BulkOrderForm />;
+  return <EnquiryForm />;
 }

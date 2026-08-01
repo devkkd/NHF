@@ -33,10 +33,17 @@ export default function CollectionGrid({ categories }) {
                 style={{ objectFit: "cover" }}
               />
             </div>
-            <h3 className="col-cat-name">{cat.name} →</h3>
-            {cat.description && (
-              <p className="col-cat-desc">{cat.description}</p>
-            )}
+           <h3 className="col-cat-name">{cat.name} →</h3>
+
+{cat.price && (
+  <p className="col-cat-price">
+    ₹{Number(cat.price || 0).toLocaleString("en-IN")}
+  </p>
+)}
+
+{cat.description && (
+  <p className="col-cat-desc">{cat.description}</p>
+)}
           </div>
         </Link>
       ))}

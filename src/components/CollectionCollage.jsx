@@ -107,6 +107,7 @@ function Ring({ ring, rotationValue }) {
   const fallbackRotation = useMotionValue(0);
   const usedRotation = rotationValue || fallbackRotation;
   const cardRotation = useTransform(usedRotation, (v) => -v);
+ 
 
   return (
     <motion.div
@@ -124,8 +125,8 @@ function Ring({ ring, rotationValue }) {
 
       {ring.products.map((product, i) => {
         const rad = (product.angle * Math.PI) / 180;
-        const x = ring.radius * Math.cos(rad);
-        const y = ring.radius * Math.sin(rad);
+      const x = Number((ring.radius * Math.cos(rad)).toFixed(3));
+const y = Number((ring.radius * Math.sin(rad)).toFixed(3));
 
         return (
           <motion.div
@@ -149,15 +150,20 @@ function Ring({ ring, rotationValue }) {
 export default function CircularCollection() {
   const containerRef = useRef(null);
   const [scale, setScale] = useState(1);
+  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    function update() {
-      setScale(getScale(window.innerWidth));
-    }
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
+ useEffect(() => {
+  setMounted(true);
+
+  function update() {
+    setScale(getScale(window.innerWidth));
+  }
+
+  update();
+
+  window.addEventListener("resize", update);
+  return () => window.removeEventListener("resize", update);
+}, []);
 
   const rings = getRings(scale);
 
@@ -182,7 +188,11 @@ export default function CircularCollection() {
   const titleSize      = scale < 0.5 ? "text-xl" : scale < 0.7 ? "text-2xl" : "text-3xl md:text-4xl";
   const descSize       = scale < 0.5 ? "text-[9px]" : "text-[11px] md:text-xs";
   const eyebrowSize    = scale < 0.5 ? "text-[8px]" : "text-[10px]";
-
+if (!mounted) {
+  return (
+    <div className="h-screen bg-[#FDFFF1]" />
+  );
+}
   return (
     <div
       ref={containerRef}

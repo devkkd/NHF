@@ -9,6 +9,7 @@ import { Plus, X, ArrowLeft } from "lucide-react";
 const EMPTY_FORM = {
   name: "",
   sku: "",
+  price: 0,
   category: "",
   mainImage: "",
   galleryImages: [],
@@ -203,6 +204,7 @@ export default function AdminProductForm({ productId }) {
           setForm({
             name: found.name ?? "",
             sku: found.sku ?? "",
+            price: found.price ?? 0,
             category: found.category?._id ?? found.category ?? "",
             mainImage: found.mainImage ?? "",
             galleryImages: found.galleryImages ?? [],
@@ -253,6 +255,7 @@ export default function AdminProductForm({ productId }) {
 
     const body = {
       ...form,
+        price: Number(form.price) || 0,
       sortOrder: Number(form.sortOrder) || 0,
       // filter out empty spec rows
       specs: form.specs.filter((s) => s.label.trim() && s.value.trim()),
@@ -326,6 +329,18 @@ export default function AdminProductForm({ productId }) {
               <label className="nhf-form-label">SKU</label>
               <input className="nhf-form-input" value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="e.g. HBBS-04" />
             </div>
+            <div className="nhf-form-group">
+  <label className="nhf-form-label">Price</label>
+
+  <input
+    type="number"
+    min="0"
+    className="nhf-form-input"
+    value={form.price}
+    onChange={(e) => set("price", e.target.value)}
+    placeholder="e.g. 2999"
+  />
+</div>
             <div className="nhf-form-group">
               <label className="nhf-form-label">Category</label>
               <select className="nhf-form-input" value={form.category} onChange={(e) => set("category", e.target.value)}>

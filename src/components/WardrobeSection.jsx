@@ -19,25 +19,9 @@ export default function WardrobeSection({ categories = [] }) {
     : FALLBACK;
 
   return (
-    <section
-      style={{
-        background: "#FDFFF1",
-        padding: "90px 40px",
-      }}
-    >
-      <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
-        <h2
-          style={{
-            fontFamily: "'Tobias TRIAL', serif",
-            fontSize: "40px",
-            fontWeight: 400,
-            lineHeight: "160%",
-            letterSpacing: "-0.02em",
-            color: "#7B7F5C",
-            textAlign: "center",
-            marginBottom: "40px",
-          }}
-        >
+    <section className="wardrobe-section">
+      <div className="wardrobe-container">
+        <h2 className="wardrobe-heading">
           THE WARDROBE
         </h2>
 
@@ -68,6 +52,25 @@ export default function WardrobeSection({ categories = [] }) {
       </div>
 
       <style jsx>{`
+        .wardrobe-section {
+          background: #FDFFF1;
+          padding: 90px 40px;
+          box-sizing: border-box;
+        }
+        .wardrobe-container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+        .wardrobe-heading {
+          font-family: "Tobias TRIAL", serif;
+          font-size: 40px;
+          font-weight: 400;
+          line-height: 160%;
+          letter-spacing: -0.02em;
+          color: #7B7F5C;
+          text-align: center;
+          margin: 0 0 40px;
+        }
         .wardrobe-card-link { text-decoration: none; display: block; }
         .wardrobe-grid {
           display: grid;
@@ -108,13 +111,33 @@ export default function WardrobeSection({ categories = [] }) {
           letter-spacing: 0.02em;
           text-decoration: none;
         }
+
+        /* ---------- TABLET ---------- */
         @media (max-width: 1024px) {
-          .wardrobe-grid { grid-template-columns: repeat(2, 1fr); }
+          .wardrobe-section { padding: 70px 28px; }
+          .wardrobe-heading { font-size: 34px; margin-bottom: 32px; }
+          .wardrobe-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .image-wrapper { height: 380px; }
         }
+
+        /* ---------- MOBILE ---------- */
         @media (max-width: 768px) {
-          .wardrobe-grid { grid-template-columns: 1fr; gap: 32px; }
-          .image-wrapper { height: 320px; width: 100%; }
-          .wardrobe-card h5 { font-size: 20px; }
+          .wardrobe-section { padding: 56px 20px; }
+          .wardrobe-heading { font-size: 28px; margin-bottom: 28px; }
+          .wardrobe-grid { grid-template-columns: fr; gap: 32px; }
+          .image-wrapper { height: 320px; width: 100%; max-width: 100%; }
+          .wardrobe-card h5 { font-size: 20px; margin-top: 14px; }
+          .wardrobe-btn-wrap { margin-top: 32px; }
+          .wardrobe-btn { font-size: 14px; }
+        }
+
+        /* ---------- SMALL MOBILE ---------- */
+        @media (max-width: 480px) {
+          .wardrobe-section { padding: 44px 16px; }
+          .wardrobe-heading { font-size: 24px; margin-bottom: 22px; }
+          .image-wrapper { height: 280px; }
+          .wardrobe-card h5 { font-size: 17px; }
+          .wardrobe-btn { font-size: 13px; }
         }
       `}</style>
     </section>

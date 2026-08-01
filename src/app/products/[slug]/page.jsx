@@ -271,8 +271,15 @@ export default function ProductDetailPage({ params }) {
               RIGHT COLUMN — Product Details, Swatches, Specs & Content
           ════════════════════════════════════════ */}
           <div className="info-col">
-            <h1 className="product-title">{product.name}</h1>
-            <p className="sku-line">SKU : {product.sku || "HBEE 04"}</p>
+           <h1 className="product-title">{product.name}</h1>
+
+<p className="product-price">
+  ₹{Number(product.price || 0).toLocaleString("en-IN")}
+</p>
+
+<p className="sku-line">
+  SKU : {product.sku || "HBEE 04"}
+</p>
 
             <div className="meta-lines">
               <p><strong>ITEM :</strong> {product.item || "100% HAND BLOCK COTTON PERCAL BEDSHEET WITH 2 PILLOW"}</p>
@@ -567,6 +574,14 @@ export default function ProductDetailPage({ params }) {
           margin: 0;
           letter-spacing: -0.2px;
         }
+          .product-price {
+  font-family: "Mona Sans", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #7b7f5c;
+  margin: 8px 0 6px;
+  line-height: 1;
+}
 
         .sku-line {
           font-size: 13px;
@@ -831,6 +846,10 @@ export default function ProductDetailPage({ params }) {
             padding-top: 80px;
             gap: 28px 0;
           }
+            .product-price {
+    font-size: 22px;
+  }
+
           .gallery-container {
             flex-direction: column-reverse;
           }

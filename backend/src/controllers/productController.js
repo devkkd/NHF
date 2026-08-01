@@ -1,11 +1,24 @@
 import Product from '../models/Product.js';
+import Category from '../models/Category.js';
 const paginate = (page=1, limit=20) => { const pg=Math.max(Number(page),1); const lim=Math.min(Number(limit),100); return {skip:(pg-1)*lim,limit:lim,page:pg}; };
 export const getProducts = async (req, res, next) => {
   try {
     const { category, featured, newArrivals, page, limit, search } = req.query;
     const { skip, limit:lim, page:pg } = paginate(page, limit);
     const filter = { isActive:true };
-    if (category) filter.category=category;
+    if (req.query.wardrobe === "true") {
+  const wardrobeCategories = await Category.find({
+    isActive: true,
+    showInWardrobe: true,
+  }).select("_id");
+
+  filter.category = {
+    $in: wardrobeCategories.map((c) => c._id),
+  };
+}
+    if (category && req.query.wardrobe !== "true") {
+  filter.category = category;
+}
     if (featured==='true') filter.isFeatured=true;
     if (newArrivals==='true') filter.showInNewArrivals=true;
     if (search) filter.$or=[{ name:{$regex:search,$options:'i'} },{ sku:{$regex:search,$options:'i'} }];

@@ -1,78 +1,119 @@
-// lib/cart.js
-// Simple localStorage-based cart. No external state library needed.
-// Dispatches "cart-updated" so any mounted component (Header badge, Cart page) can react.
+"use client";
+const BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  "http://localhost:5001/api/v1";
 
-const CART_KEY = "tukdi_cart";
-const EVENT_NAME = "cart-updated";
+export const CART_EVENT = "cart-updated";
 
-export function getCart() {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(CART_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("accessToken");
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+// =====================
+// Get Cart
+// =====================
+export async function getCart() {
+ const res = await fetch(`${BASE}/cart`, {
+  credentials: "include",
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+  },
+});
+
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  return data.cart?.items || [];
 }
 
-function saveCart(cart) {
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-  window.dispatchEvent(new Event(EVENT_NAME));
+// =====================
+// Add To Cart
+// =====================
+export async function addToCart(product, qty = 1) {
+  const res = await fetch(`${BASE}/cart/add`, {
+    method: "POST",
+    credentials: "include",
+   headers: getAuthHeaders(),
+    body: JSON.stringify({
+      productId: product._id,
+      quantity: qty,
+    }),
+  });
+
+  if (!res.ok) throw new Error("Failed to add product to cart");
+
+  window.dispatchEvent(new Event(CART_EVENT));
+  return await res.json();
 }
 
-/**
- * product = { slug, name, item (used as short description), images: [], price }
- */
-export function addToCart(product, qty = 1) {
-  const cart = getCart();
-  const existing = cart.find((i) => i.slug === product.slug);
+// =====================
+// Update Quantity
+// =====================
+export async function updateQty(productId, qty) {
+  const res = await fetch(`${BASE}/cart/update`, {
+    method: "PUT",
+    credentials: "include",
+  headers: getAuthHeaders(),
+    body: JSON.stringify({
+      productId,
+      quantity: qty,
+    }),
+  });
 
-  if (existing) {
-    existing.qty += qty;
-  } else {
-    cart.push({
-      slug: product.slug,
-      name: product.name,
-      description: product.item || "",
-      image: product.images?.[0] || "",
-      price: product.price || 0,
-      qty,
-    });
-  }
-  saveCart(cart);
-  return cart;
+  if (!res.ok) throw new Error("Failed to update cart");
+
+  window.dispatchEvent(new Event(CART_EVENT));
+  return await res.json();
 }
 
-export function updateQty(slug, qty) {
-  let cart = getCart();
-  if (qty <= 0) {
-    cart = cart.filter((i) => i.slug !== slug);
-  } else {
-    cart = cart.map((i) => (i.slug === slug ? { ...i, qty } : i));
-  }
-  saveCart(cart);
-  return cart;
+// =====================
+// Remove Item
+// =====================
+export async function removeFromCart(productId) {
+  const res = await fetch(`${BASE}/cart/remove`, {
+    method: "DELETE",
+    credentials: "include",
+   headers: getAuthHeaders(),
+    body: JSON.stringify({
+      productId,
+    }),
+  });
+
+  if (!res.ok) throw new Error("Failed to remove item");
+
+  window.dispatchEvent(new Event(CART_EVENT));
+  return await res.json();
 }
 
-export function removeFromCart(slug) {
-  const cart = getCart().filter((i) => i.slug !== slug);
-  saveCart(cart);
-  return cart;
+// =====================
+// Cart Count
+// =====================
+export function getCartCount(cart = []) {
+  return cart.reduce((sum, item) => sum + item.quantity, 0);
 }
 
-export function getCartCount(cart = getCart()) {
-  return cart.reduce((sum, i) => sum + i.qty, 0);
+// =====================
+// Cart Total
+// =====================
+export function getCartSubtotal(cart = []) {
+  return cart.reduce(
+    (sum, item) =>
+      sum + ((item.product?.price || 0) * item.quantity),
+    0
+  );
 }
 
-export function getCartSubtotal(cart = getCart()) {
-  return cart.reduce((sum, i) => sum + i.price * i.qty, 0);
-}
-
-export function formatPrice(n) {
-  return `$${Number(n || 0).toLocaleString("en-US", {
+// =====================
+// Format Price
+// =====================
+export function formatPrice(price) {
+  return `₹${Number(price || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 }
-
-export const CART_EVENT = EVENT_NAME;

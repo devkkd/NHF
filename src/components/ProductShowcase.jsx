@@ -19,13 +19,15 @@ export default function ProductShowcase({ product = null }) {
       {/* ── Full-width background image ── */}
       <div className="showcase-bg">
         <Image
-          src={bgImage}
-          alt={name}
-          fill
-          priority
-          sizes="100vw"
-          style={{ objectFit: "cover", objectPosition: "center center" }}
-        />
+  src={bgImage}
+  alt={name}
+  fill
+  sizes="100vw"
+  style={{
+    objectFit: "cover",
+    objectPosition: "center",
+  }}
+/>
       </div>
 
       {/* ── Floating product card (left side) ── */}
@@ -40,20 +42,20 @@ export default function ProductShowcase({ product = null }) {
             sizes="420px"
             style={{ objectFit: "cover" }}
           />
-          <button className="wishlist-btn" aria-label="Add to wishlist">♡</button>
+          {/* <button className="wishlist-btn" aria-label="Add to wishlist">♡</button> */}
         </div>
 
         {/* Card content */}
         <div className="card-body">
           <h3 className="card-title">{name}</h3>
-          <div className="card-actions">
+          {/* <div className="card-actions">
             <Link href={`/enquiry1/${slug}`} className="price-btn">
               PRICE ENQUIRY →
             </Link>
             <Link href="/enquiry" className="bulk-btn">
               ✦ BULK CUSTOMIZATION
             </Link>
-          </div>
+          </div> */}
         </div>
 
       </div>

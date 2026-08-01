@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { getCart, CART_EVENT } from "@/lib/cart";
 import { getWishlist, WISHLIST_EVENT } from "@/lib/wishlist";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -30,7 +31,11 @@ export default function Header() {
   const headerRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(0);
 const router = useRouter();
+const { isAuthenticated } = useAuth();
 const [cartCount, setCartCount] = useState(0);
+const [search, setSearch] = useState("");
+const [results, setResults] = useState([]);
+const [showResults, setShowResults] = useState(false);
 const [wishlistCount, setWishlistCount] = useState(0);
   const isSolid = !isHome || scrolled;
 
@@ -55,11 +60,14 @@ const [wishlistCount, setWishlistCount] = useState(0);
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, [isSolid, menuOpen]);
-  useEffect(() => {
-  const updateCartCount = () => {
-    const cart = getCart();
+ useEffect(() => {
+  const updateCartCount = async () => {
+    const cart = await getCart();
 
-    const total = cart.reduce((sum, item) => sum + item.qty, 0);
+    const total = cart.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
 
     setCartCount(total);
   };
@@ -73,17 +81,43 @@ const [wishlistCount, setWishlistCount] = useState(0);
   };
 }, []);
 useEffect(() => {
-  const updateWishlist = () => {
-    setWishlistCount(getWishlist().length);
+  const updateWishlist = async () => {
+    const items = await getWishlist();
+    setWishlistCount(items.length);
   };
 
   updateWishlist();
 
   window.addEventListener(WISHLIST_EVENT, updateWishlist);
 
-  return () =>
+  return () => {
     window.removeEventListener(WISHLIST_EVENT, updateWishlist);
+  };
 }, []);
+useEffect(() => {
+  if (!search.trim()) {
+    setResults([]);
+    setShowResults(false);
+    return;
+}
+
+  const timer = setTimeout(async () => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/products?search=${encodeURIComponent(search)}`
+      );
+
+      const data = await res.json();
+
+      setResults(data.data.products || []);
+      setShowResults(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }, 300);
+
+  return () => clearTimeout(timer);
+}, [search]);
 
   const isActiveLink = (href) => {
     if (href === "/") return pathname === "/";
@@ -94,6 +128,32 @@ useEffect(() => {
     ? "text-[#8a9071] hover:text-[#6f7459] transition-colors"
     : "text-white/80 hover:text-white transition-colors";
 
+    const goToWishlist = () => {
+  if (!isAuthenticated) {
+    router.push("/login?redirect=/saved");
+    return;
+  }
+
+  router.push("/saved");
+};
+
+const goToCart = () => {
+  if (!isAuthenticated) {
+    router.push("/login?redirect=/cart");
+    return;
+  }
+
+  router.push("/cart");
+};
+
+const goToAccount = () => {
+  if (!isAuthenticated) {
+    router.push("/login?redirect=/profile");
+    return;
+  }
+
+  router.push("/profile");
+};
   const navLinkClass = (href) => {
     const active = isActiveLink(href);
   const base =
@@ -154,16 +214,65 @@ useEffect(() => {
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
             </svg>
-            <input
-           
-              type="text"
-              placeholder="SEARCH"
-              className={`hidden lg:block bg-transparent text-[10px] sm:text-[11px] tracking-[0.18em] sm:tracking-[0.22em] uppercase outline-none w-full font-light transition-colors duration-300 ${
-                isSolid
-                  ? "text-[#8a9071] placeholder-[#8a9071]/60"
-                  : "text-white placeholder-white/70"
-              }`}
+           <div className="relative w-full">
+  <input
+    type="text"
+    placeholder="SEARCH"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    onFocus={() => setShowResults(true)}
+    onBlur={() => {
+      setTimeout(() => setShowResults(false), 200);
+    }}
+    className={`hidden lg:block bg-transparent text-[10px] sm:text-[11px] tracking-[0.18em] sm:tracking-[0.22em] uppercase outline-none w-full font-light transition-colors duration-300 ${
+      isSolid
+        ? "text-[#8a9071] placeholder-[#8a9071]/60"
+        : "text-white placeholder-white/70"
+    }`}
+  />
+
+  {showResults && (
+    <div
+      className="absolute left-0 top-full mt-2 w-[380px] bg-white border border-gray-200 shadow-lg rounded-md max-h-[420px] overflow-y-auto z-[9999]"
+    >
+      {results.length > 0 ? (
+        results.map((product) => (
+          <Link
+            key={product._id}
+            href={`/products/${product.slug}`}
+            onClick={() => {
+              setSearch("");
+              setShowResults(false);
+            }}
+            className="flex items-center gap-3 p-3 hover:bg-gray-100 transition"
+          >
+            <img
+              src={product.mainImage}
+              alt={product.name}
+              className="w-14 h-14 object-cover rounded"
             />
+
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                {product.name}
+              </p>
+
+              <p className="text-xs text-[#8a9071] font-semibold mt-1">
+                ₹{product.price}
+              </p>
+            </div>
+          </Link>
+        ))
+      ) : (
+        search.trim() !== "" && (
+          <div className="p-4 text-sm text-gray-500 text-center">
+            No products found
+          </div>
+        )
+      )}
+    </div>
+  )}
+</div>
           </div>
 
           {/* Center — Logo */}
@@ -182,7 +291,11 @@ useEffect(() => {
 
           {/* Right — Profile / Wishlist / Cart / Hamburger */}
           <div className="flex items-center gap-3 sm:gap-5">
-            <button aria-label="Account" className={`hidden sm:block ${iconClass}`}>
+          <button
+  aria-label="Account"
+  className={`hidden sm:block ${iconClass}`}
+  onClick={goToAccount}
+>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="18"
@@ -346,7 +459,14 @@ useEffect(() => {
           >
             {/* Account + Wishlist shown here on mobile */}
             <div className="flex items-center gap-5 pb-3 border-b border-current/10 sm:hidden">
-              <button aria-label="Account" className={iconClass}>
+            <button
+  aria-label="Account"
+  className={iconClass}
+  onClick={() => {
+    setMenuOpen(false);
+    goToAccount();
+  }}
+>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="18"

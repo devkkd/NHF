@@ -4,6 +4,11 @@ const productSchema = new mongoose.Schema({
   name:             { type: String, required: true, trim: true, maxlength: 200 },
   slug:             { type: String, unique: true, lowercase: true, trim: true },
   sku:              { type: String, trim: true, default: '' },
+  price: {
+  type: Number,
+  default: 0,
+  min: 0,
+},
   category:         { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null },
   mainImage:        { type: String, default: '' },
   galleryImages:    { type: [String], default: [] },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { submitEnquiry } from "@/lib/api";
 
 const PRODUCT_CATEGORIES = [
   "Bed Sheets",
@@ -37,25 +38,44 @@ const BUSINESS_TYPES = [
 ];
 
 export default function EnquiryForm({ slug, product }) {
-  const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    country: "",
-    businessTypes: [],
-    productCategory: "",
-    productSubCategory: "",
-    companyName: "",
-    mobile: "",
-    message: "",
-  });
+const [form, setForm] = useState({
+  fullName: "",
+  email: "",
+  country: "",
+  businessTypes: [],
+  productCategory: product?.category?.name || "",
+  productSubCategory:
+    product?.type ||
+    product?.item ||
+    product?.bedSize ||
+    product?.size ||
+    "",
+  companyName: "",
+  mobile: "",
+  message: "",
+});
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const productName = product?.name || "Percal Hand Block Cotton Double Bed Sheets with 2 pillow KING SIZE";
-  const productSku = product?.sku || "HBBS-04";
-  const productItem = product?.item || "100% HAND BLOCK COTTON PERCAL BEDSHEET WITH 2 PILLOW";
-  const productThread = product?.threadCount || "210 TC";
-  const productImage = product?.image || "/images/new-arrivals-hero.jpg";
+ const productName = product?.name || "";
+const productSku = product?.sku || "";
+const productItem = product?.item || "";
+const productThread = product?.threadCount || "";
+const productImage = product?.mainImage || product?.image || "";
+useEffect(() => {
+  if (!product) return;
+
+  setForm((prev) => ({
+    ...prev,
+    productCategory: product?.category?.name || "",
+    productSubCategory:
+      product?.type ||
+      product?.item ||
+      product?.bedSize ||
+      product?.size ||
+      "",
+  }));
+}, [product]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -75,13 +95,63 @@ export default function EnquiryForm({ slug, product }) {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    setSubmitted(true);
-  };
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!form.fullName.trim()) {
+  return alert("Please enter your full name.");
+}
+
+if (!form.email.trim()) {
+  return alert("Please enter your email.");
+}
+
+if (!form.companyName.trim()) {
+  return alert("Please enter your company name.");
+}
+
+if (!form.productCategory) {
+  return alert("Please select product category.");
+}
+
+if (!form.productSubCategory) {
+  return alert("Please select product sub category.");
+}
+
+if (form.businessTypes.length === 0) {
+  return alert("Please select at least one business type.");
+}
+
+  setLoading(true);
+
+  try {
+    const res = await submitEnquiry({
+      ...form,
+      slug,
+    });
+
+    if (res.ok) {
+      setSubmitted(true);
+
+      setForm({
+        fullName: "",
+        email: "",
+        country: "",
+        businessTypes: [],
+        productCategory: "",
+        productSubCategory: "",
+        companyName: "",
+        mobile: "",
+        message: "",
+      });
+    } else {
+      alert(res.data?.message || "Failed to submit enquiry.");
+    }
+  } catch (err) {
+    alert("Something went wrong.");
+  }
+
+  setLoading(false);
+};
 
   if (submitted) {
     return (
@@ -122,7 +192,8 @@ export default function EnquiryForm({ slug, product }) {
         </p>
 
         {/* Product Card */}
-        <div style={styles.productCard}>
+      {slug && (
+  <div style={styles.productCard}>
           <img
             src={productImage}
             alt={productName}
@@ -140,7 +211,7 @@ export default function EnquiryForm({ slug, product }) {
             </p>
           </div>
         </div>
-
+)}
         {/* Form */}
         <div style={styles.formCard}>
           <h3 style={styles.formTitle}>Your Contact Details</h3>

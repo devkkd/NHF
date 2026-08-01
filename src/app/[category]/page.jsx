@@ -56,50 +56,143 @@ export default function CategoryPage() {
   const [wishlist, setWishlist] = useState({});
 
   // Load wishlist
-  useEffect(() => {
-    const saved = getWishlist();
-    const map = {};
-    saved.forEach((item) => { map[item.slug] = true; });
-    setWishlist(map);
-  }, []);
+ useEffect(() => {
+  const loadWishlist = async () => {
+    try {
+      const saved = await getWishlist();
+
+      const map = {};
+
+      saved.forEach((item) => {
+        map[item.slug] = true;
+      });
+
+      setWishlist(map);
+    } catch (err) {
+      console.error("Wishlist load error:", err);
+    }
+  };
+
+  loadWishlist();
+}, []);
 
   // Load category on slug change
-  useEffect(() => {
-    if (!slug) return;
-    setLoadingCat(true);
-    setNotFound(false);
-    setPage(1);
-    fetchCategoryBySlug(slug).then((cat) => {
-      if (!cat) setNotFound(true);
-      setCategory(cat);
-      setLoadingCat(false);
+ useEffect(() => {
+  if (!slug) return;
+
+  // ✅ Wardrobe page
+  if (slug === "wardrobe") {
+    setCategory({
+      _id: null,
+      name: "Wardrobe",
+      image: "/images/new-arrivals-hero.jpg",
     });
-  }, [slug]);
+
+    setNotFound(false);
+    setLoadingCat(false);
+    setPage(1);
+    return;
+  }
+
+  // ✅ Normal category page
+  setLoadingCat(true);
+  setNotFound(false);
+  setPage(1);
+
+  fetchCategoryBySlug(slug).then((cat) => {
+    if (!cat) {
+      setNotFound(true);
+      setLoadingCat(false);
+      return;
+    }
+
+    setCategory(cat);
+    setLoadingCat(false);
+  });
+}, [slug]);
+  async function fetchWardrobeProducts(page = 1, sort = "Recommended") {
+  try {
+    const params = new URLSearchParams({
+      page,
+      limit: LIMIT,
+      wardrobe: "true",
+    });
+
+    if (sort === "Newest") {
+      params.set("sort", "newest");
+    }
+
+    const res = await fetch(`${BASE}/products?${params}`);
+
+    if (!res.ok) {
+      return { products: [], total: 0, pages: 1 };
+    }
+
+    const body = await res.json();
+
+    return body?.data ?? {
+      products: [],
+      total: 0,
+      pages: 1,
+    };
+  } catch {
+    return {
+      products: [],
+      total: 0,
+      pages: 1,
+    };
+  }
+}
 
   // Load products when category or page/sort changes
   useEffect(() => {
-    if (loadingCat) return;
-    if (notFound) return;
-    setLoadingProducts(true);
+  if (loadingCat) return;
+  if (notFound && slug !== "wardrobe") return;
+
+  setLoadingProducts(true);
+
+  // Wardrobe page
+  if (slug === "wardrobe") {
+    fetchWardrobeProducts(page, selectedSort).then((data) => {
+      setProducts(data.products ?? []);
+      setTotal(data.total ?? 0);
+      setPages(data.pages ?? 1);
+      setLoadingProducts(false);
+    });
+  } 
+  // Normal category pages
+  else {
     fetchProductsByCategory(category?._id ?? null, page, selectedSort).then((data) => {
       setProducts(data.products ?? []);
       setTotal(data.total ?? 0);
       setPages(data.pages ?? 1);
       setLoadingProducts(false);
     });
-  }, [category, page, selectedSort, loadingCat, notFound]);
+  }
+}, [
+  slug,
+  category,
+  page,
+  selectedSort,
+  loadingCat,
+  notFound,
+]);
 
-  const handleToggleWishlist = (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const nowSaved = toggleWishlist(product);
-    setWishlist((prev) => {
-      const copy = { ...prev };
-      if (nowSaved) copy[product.slug] = true;
-      else delete copy[product.slug];
-      return copy;
-    });
-  };
+ const handleToggleWishlist = async (e, product) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const nowSaved = await toggleWishlist(product);
+
+  setWishlist((prev) => {
+    const copy = { ...prev };
+
+    if (nowSaved) copy[product.slug] = true;
+    else delete copy[product.slug];
+
+    return copy;
+  });
+};
 
   const handleAddToCart = (e, product) => {
     e.preventDefault();
@@ -112,7 +205,7 @@ export default function CategoryPage() {
     e.preventDefault();
     e.stopPropagation();
     const qty = (quantities[product.slug] || 1) + 1;
-    updateQty(product.slug, qty);
+   updateQty(product._id, qty);
     setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
   };
 
@@ -121,19 +214,46 @@ export default function CategoryPage() {
     e.stopPropagation();
     const qty = (quantities[product.slug] || 1) - 1;
     if (qty <= 0) {
-      updateQty(product.slug, 0);
+      updateQty(product._id, 0);
       setQuantities((prev) => { const c = { ...prev }; delete c[product.slug]; return c; });
     } else {
-      updateQty(product.slug, qty);
+      updateQty(product._id, qty);
       setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
     }
   };
 
+  function goToPage(p) {
+    if (p < 1 || p > pages || p === page) return;
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function getPageNumbers() {
+    const maxVisible = 5;
+    const result = [];
+
+    if (pages <= maxVisible) {
+      for (let i = 1; i <= pages; i++) result.push(i);
+      return result;
+    }
+
+    if (page <= 3) {
+      result.push(1, 2, 3, 4, "...", pages);
+    } else if (page >= pages - 2) {
+      result.push(1, "...", pages - 3, pages - 2, pages - 1, pages);
+    } else {
+      result.push(1, "...", page - 1, page, page + 1, "...", pages);
+    }
+
+    return result;
+  }
+
   const isLoading = loadingCat || loadingProducts;
-  const showing = Math.min(page * LIMIT, total);
+  const rangeStart = total === 0 ? 0 : (page - 1) * LIMIT + 1;
+  const rangeEnd = Math.min(page * LIMIT, total);
 
   // ── Not found ──
-  if (!loadingCat && notFound) {
+ if (!loadingCat && notFound && slug !== "wardrobe") {
     return (
       <main style={{ background: BG, minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
@@ -252,6 +372,9 @@ export default function CategoryPage() {
                   </div>
                   <div className="cat-product-info">
                     <h6 className="cat-product-name">{product.name}</h6>
+                    <p className="cat-product-price">
+  ₹{Number(product.price || 0).toLocaleString("en-IN")}
+</p>
                     <div className="cat-product-actions">
                       <button
                         className="cat-btn-enquiry"
@@ -285,15 +408,42 @@ export default function CategoryPage() {
       {/* ── Pagination ── */}
       {!isLoading && total > 0 && (
         <div className="cat-pagination-area">
-          <p className="cat-showing-text">Showing 1 – {showing} of {total}</p>
-          {page < pages && (
-            <button
-              className="cat-see-more-btn"
-              onClick={() => setPage((p) => p + 1)}
-            >
-              SEE MORE
-            </button>
+          <p className="cat-showing-text">Showing {rangeStart} – {rangeEnd} of {total}</p>
+
+          {pages > 1 && (
+            <div className="cat-pagination-nav">
+              <button
+                className="cat-page-btn cat-page-nav"
+                onClick={() => goToPage(page - 1)}
+                disabled={page === 1}
+              >
+                ← PREV
+              </button>
+
+              {getPageNumbers().map((p, idx) =>
+                p === "..." ? (
+                  <span key={`dots-${idx}`} className="cat-page-dots">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={`cat-page-btn${p === page ? " cat-page-active" : ""}`}
+                    onClick={() => goToPage(p)}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+              <button
+                className="cat-page-btn cat-page-nav"
+                onClick={() => goToPage(page + 1)}
+                disabled={page === pages}
+              >
+                NEXT →
+              </button>
+            </div>
           )}
+
           <button
             className="cat-back-to-top"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -338,6 +488,13 @@ export default function CategoryPage() {
           display: flex; justify-content: space-between; align-items: center;
           padding: 14px 60px; position: relative;
         }
+          .cat-product-price {
+  margin: -2px 0 12px;
+  font-family: "Mona Sans", "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
         .cat-sort-wrapper { position: relative; }
         .cat-sort-btn, .cat-filters-btn {
           font-family: "Mona Sans", "Inter", sans-serif;
@@ -418,14 +575,28 @@ export default function CategoryPage() {
 
         .cat-pagination-area {
           text-align: center; padding: 20px 60px 60px;
-          display: flex; flex-direction: column; align-items: center; gap: 14px;
+          display: flex; flex-direction: column; align-items: center; gap: 18px;
         }
         .cat-showing-text { font-family: "Mona Sans", sans-serif; font-size: 13px; color: #777; margin: 0; }
-        .cat-see-more-btn {
-          font-family: "Mona Sans", sans-serif; font-size: 13px; font-weight: 600;
-          background: ${BG}; border: 1px solid ${BORDER}; padding: 10px 40px;
-          cursor: pointer; letter-spacing: 0.08em; color: #0e0e0e;
+
+        .cat-pagination-nav {
+          display: flex; align-items: center; justify-content: center;
+          flex-wrap: wrap; gap: 8px;
         }
+        .cat-page-btn {
+          font-family: "Mona Sans", sans-serif; font-size: 13px; font-weight: 600;
+          background: ${BG}; border: 1px solid ${BORDER}; color: #0e0e0e;
+          padding: 9px 15px; min-width: 38px; cursor: pointer;
+          letter-spacing: 0.02em; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+        }
+        .cat-page-btn:hover:not(:disabled) { background: #f0f2de; }
+        .cat-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .cat-page-active {
+          background: ${ACCENT}; border-color: ${ACCENT}; color: ${BG};
+        }
+        .cat-page-nav { padding: 9px 18px; }
+        .cat-page-dots { font-family: "Mona Sans", sans-serif; color: #999; padding: 0 4px; }
+
         .cat-back-to-top {
           font-family: "Mona Sans", sans-serif; font-size: 12px;
           color: ${ACCENT}; background: none; border: none;
@@ -482,7 +653,9 @@ export default function CategoryPage() {
           .cat-btn-enquiry, .cat-btn-bulk { width: 100%; font-size: 9px; }
           .cat-qty-control { width: 100%; min-width: 100%; height: 36px; padding: 4px 10px; }
           .cat-pagination-area { padding: 8px 16px 40px; }
-          .cat-see-more-btn { width: 100%; }
+          .cat-pagination-nav { gap: 6px; }
+          .cat-page-btn { font-size: 12px; padding: 7px 11px; min-width: 32px; }
+          .cat-page-nav { padding: 7px 13px; }
         }
       `}</style>
     </main>

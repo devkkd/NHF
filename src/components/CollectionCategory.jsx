@@ -19,11 +19,17 @@ const FALLBACK_CATEGORIES = [
 ];
 
 export default function CollectionCategory({ categories = [] }) {
-  const items = categories.length > 0
-    ? categories.map((c, i) => ({
-        title: c.name,
-        image: c.image || `/images/category/${(i % 12) + 1}.png`,
-        slug:  c.slug,
+ const items =
+  categories?.length > 0
+    ? categories.map((category, index) => ({
+        _id: category._id,
+        title: category.name,
+        slug: category.slug,
+        image:
+          category.image ||
+          category.thumbnail ||
+          category.banner ||
+          `/images/category/${(index % 12) + 1}.png`,
       }))
     : FALLBACK_CATEGORIES;
 
@@ -37,19 +43,20 @@ export default function CollectionCategory({ categories = [] }) {
       <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
 
         <h2
-          style={{
-            fontFamily: "'Tobias TRIAL', serif",
-            fontSize: "40px",
-            fontWeight: 600,
-            lineHeight: "160%",
-            letterSpacing: "-0.02em",
-            color: "#7B7F5C",
-            textAlign: "center",
-            marginBottom: "40px",
-          }}
-        >
-          ALL CATEGORY
-        </h2>
+  className="collection-heading"
+  style={{
+    fontFamily: "'Tobias TRIAL', serif",
+    fontSize: "40px",
+    fontWeight: 600,
+    lineHeight: "160%",
+    letterSpacing: "-0.02em",
+    color: "#7B7F5C",
+    textAlign: "center",
+    marginBottom: "40px",
+  }}
+>
+  ALL CATEGORY
+</h2>
 
         <div className="collection-grid">
           {items.map((item) => (
@@ -78,97 +85,165 @@ export default function CollectionCategory({ categories = [] }) {
       </div>
 
       <style jsx>{`
-        .collection-card-link {
-          text-decoration: none;
-          display: block;
-        }
+   .collection-card-link {
+  text-decoration: none;
+  display: block;
+  color: inherit;
+}
 
-        /* ── 3 columns on desktop ── */
-        .collection-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 48px 24px;
-        }
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 48px 24px;
+}
 
-        .collection-card {
-          text-align: center;
-        }
+.collection-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
 
-        .image-wrapper {
-          position: relative;
-          width: 100%;
-          height: 300px;
-          overflow: hidden;
-          margin: 0 auto;
-        }
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #ecefdd;
+}
 
-        .collection-card h5 {
-          margin-top: 18px;
-          font-family: "Mona Sans", sans-serif;
-          font-size: 24px;
-          font-weight: 400;
-          line-height: 160%;
-          color: #7b7f5c;
-        }
+.collection-card h5 {
+  margin: 18px 0 0;
+  font-family: "Mona Sans", sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #7b7f5c;
+  text-align: center;
 
-        .collection-btn-wrap {
-          display: flex;
-          justify-content: center;
-          margin-top: 40px;
-        }
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
-        .collection-btn {
-          background: transparent;
-          border: none;
-          border-bottom: 1px solid #7b7f5c;
-          padding-bottom: 8px;
-          color: #7b7f5c;
-          font-family: "Mona Sans", sans-serif;
-          font-size: 16px;
-          cursor: pointer;
-          letter-spacing: 0.02em;
-          text-decoration: none;
-          display: inline-block;
-        }
+.collection-btn-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 56px;
+}
 
-        /* ── Tablet: still 3 columns ── */
-        @media (max-width: 1024px) {
-          .collection-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 32px 16px;
-          }
-          .collection-card h5 {
-            font-size: 18px;
-          }
-        }
+.collection-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #7b7f5c;
+  padding-bottom: 8px;
+  color: #7b7f5c;
+  font-family: "Mona Sans", sans-serif;
+  font-size: 15px;
+  letter-spacing: .04em;
+  text-decoration: none;
+  transition: .25s;
+}
 
-        /* ── Small tablet / mobile: 2 columns ── */
-        @media (max-width: 768px) {
-          .collection-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-          }
-          .collection-card h5 {
-            font-size: 14px;
-          }
-          .image-wrapper {
-            height: 180px;
-          }
-        }
+.collection-btn:hover {
+  opacity: .75;
+}
 
-        @media (max-width: 480px) {
-          .collection-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-          }
-          .image-wrapper {
-            height: 150px;
-          }
-          .collection-card h5 {
-            font-size: 12px;
-            margin-top: 10px;
-          }
-        }
+/* =================== Tablet =================== */
+
+@media (max-width:1024px){
+
+  section{
+    padding:70px 24px !important;
+  }
+
+  .collection-grid{
+    grid-template-columns:repeat(3,1fr);
+    gap:28px 16px;
+  }
+
+  .image-wrapper{
+    aspect-ratio:4/3;
+  }
+
+  .collection-card h5{
+    font-size:17px;
+    margin-top:14px;
+  }
+
+}
+
+/* =================== Mobile =================== */
+
+@media (max-width:768px){
+.collection-heading {
+  font-size: 28px !important;
+  margin-bottom: 24px !important;
+  line-height: 1.3 !important;
+}
+
+
+  section{
+    padding:25px 20px !important;
+  }
+
+  .collection-grid{
+    grid-template-columns:repeat(2,1fr);
+    gap:18px 12px;
+  }
+
+  .image-wrapper{
+    aspect-ratio:4/5;
+    border-radius:4px;
+  }
+
+  .collection-card h5{
+    margin-top:10px;
+    font-size:13px;
+    line-height:1.4;
+    min-height:36px;
+    padding:0 2px;
+  }
+
+  .collection-btn-wrap{
+    margin-top:40px;
+  }
+
+  .collection-btn{
+    font-size:12px;
+    padding-bottom:6px;
+  }
+
+}
+
+/* =================== Small Mobile =================== */
+
+@media (max-width:480px){
+
+  section{
+    padding:48px 20px !important;
+  }
+
+  .collection-grid{
+    gap:16px 10px;
+  }
+
+  .image-wrapper{
+    aspect-ratio:4/5;
+  }
+
+  .collection-card h5{
+    font-size:12px;
+    min-height:34px;
+    margin-top:8px;
+  }
+
+  .collection-btn{
+    font-size:11px;
+    text-align:center;
+  }
+
+}
       `}</style>
     </section>
   );

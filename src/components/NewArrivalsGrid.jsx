@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { addToCart, updateQty } from "@/lib/cart";
 
 const FALLBACK = [
   { slug: "product-1", mainImage: "/images/product-1.jpg", name: "HAND BLOCK PERCALE PRINTED BEDSHEET" },
@@ -10,12 +13,69 @@ const FALLBACK = [
 ];
 
 export default function NewArrivalsGrid({ products = [] }) {
-  const items = products.length > 0
-    ? products.slice(0, 3).map((p) => ({
-        slug:      p.slug,
-        mainImage: p.mainImage || "/images/product-1.jpg",
-        name:      p.name?.toUpperCase() || "NEW ARRIVAL",
-      }))
+  const router = useRouter();
+const [quantities, setQuantities] = useState({});
+const handleAddToCart = (e, product) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  addToCart(product, 1);
+
+  setQuantities((prev) => ({
+    ...prev,
+    [product.slug]: 1,
+  }));
+};
+
+const increaseQty = (e, product) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const qty = (quantities[product.slug] || 1) + 1;
+
+  updateQty(product._id, qty);
+
+  setQuantities((prev) => ({
+    ...prev,
+    [product.slug]: qty,
+  }));
+};
+
+const decreaseQty = (e, product) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const qty = (quantities[product.slug] || 1) - 1;
+
+  if (qty <= 0) {
+    updateQty(product._id, 0);
+
+    setQuantities((prev) => {
+      const copy = { ...prev };
+      delete copy[product.slug];
+      return copy;
+    });
+  } else {
+    updateQty(product._id, qty);
+
+    setQuantities((prev) => ({
+      ...prev,
+      [product.slug]: qty,
+    }));
+  }
+};
+ const items =
+  products?.length > 0
+    ? products
+        .filter((p) => p.showInNewArrivals)
+        .slice(0, 3)
+        .map((p) => ({
+          _id: p._id,
+          slug: p.slug,
+          mainImage: p.mainImage || "/images/product-1.jpg",
+          name: p.name?.toUpperCase() || "NEW ARRIVAL",
+          price: p.price || 0,
+        }))
     : FALLBACK;
 
   return (
@@ -32,7 +92,7 @@ export default function NewArrivalsGrid({ products = [] }) {
                     src={item.mainImage}
                     alt={item.name}
                     fill
-                    sizes="(max-width:768px) 100vw, 33vw"
+                    sizes="(max-width:480px) 50vw, (max-width:768px) 50vw, 33vw"
                     style={{ objectFit: "cover" }}
                   />
                   <button
@@ -43,18 +103,44 @@ export default function NewArrivalsGrid({ products = [] }) {
                     ♡
                   </button>
                 </div>
+<h3 className="product-title">{item.name}</h3>
 
-                <h3 className="product-title">{item.name}</h3>
+<p className="product-price">
+  ₹{Number(item.price || 0).toLocaleString("en-IN")}
+</p>
 
-                <div className="action-row">
-                  <button
-                    className="price-btn"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    PRICE ENQUIRY →
-                  </button>
-                  <span className="bulk-text">✦ BULK CUSTOMIZATION</span>
-                </div>
+<div className="action-row">
+  <button
+    className="price-btn"
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      router.push(`/enquiry1/${item.slug}`);
+    }}
+  >
+    BULK PRICE ENQUIRY ↗
+  </button>
+
+  {!quantities[item.slug] ? (
+    <button
+      className="cart-btn"
+      onClick={(e) => handleAddToCart(e, item)}
+    >
+      ● ADD TO CART
+    </button>
+  ) : (
+    <div
+      className="qty-control"
+      onClick={(e) => e.preventDefault()}
+    >
+      <button onClick={(e) => decreaseQty(e, item)}>−</button>
+
+      <span>{quantities[item.slug]}</span>
+
+      <button onClick={(e) => increaseQty(e, item)}>+</button>
+    </div>
+  )}
+</div>
               </div>
             </Link>
           ))}
@@ -71,6 +157,7 @@ export default function NewArrivalsGrid({ products = [] }) {
         .arrival-section {
           background: #FDFFF1;
           padding: 90px 40px;
+          box-sizing: border-box;
         }
         .container {
           max-width: 1400px;
@@ -109,6 +196,10 @@ export default function NewArrivalsGrid({ products = [] }) {
           background: #fff;
           cursor: pointer;
           font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
         }
         .product-title {
           margin-top: 16px;
@@ -119,6 +210,14 @@ export default function NewArrivalsGrid({ products = [] }) {
           line-height: 160%;
           color: #0E0E0E;
         }
+          .product-price {
+  margin: -8px 0 18px;
+  font-family: "Mona Sans", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #7B7F5C;
+  line-height: 1.2;
+}
         .action-row {
           display: flex;
           align-items: center;
@@ -133,7 +232,52 @@ export default function NewArrivalsGrid({ products = [] }) {
           font-family: "Mona Sans", sans-serif;
           font-size: 14px;
           cursor: pointer;
+          box-sizing: border-box;
         }
+          .cart-btn {
+  font-family: "Mona Sans", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  color: #0e0e0e;
+  border: 1px solid #c8cab4;
+  padding: 14px 28px;
+  cursor: pointer;
+  letter-spacing: .03em;
+  box-sizing: border-box;
+}
+
+.qty-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #c8cab4;
+  padding: 6px 12px;
+  min-width: 115px;
+  height: 41px;
+  box-sizing: border-box;
+}
+
+.qty-control button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.qty-control span {
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+  font-family: "Mona Sans", sans-serif;
+}
         .bulk-text {
           font-family: "Mona Sans", sans-serif;
           font-size: 16px;
@@ -156,18 +300,81 @@ export default function NewArrivalsGrid({ products = [] }) {
           cursor: pointer;
           text-decoration: none;
         }
+
+        /* ---------- TABLET ---------- */
         @media (max-width: 1024px) {
-          .product-grid { grid-template-columns: repeat(2, 1fr); }
+          .arrival-section { padding: 70px 28px; }
+          .product-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
           .image-wrap { height: 360px; }
         }
+
+        /* ---------- MOBILE: 2 COLUMNS ---------- */
         @media (max-width: 768px) {
-          .arrival-section { padding: 60px 20px; }
-          .product-grid { grid-template-columns: 1fr; gap: 40px; }
-          .image-wrap { height: 340px; }
-          .section-title { font-size: 28px; }
-          .product-title { font-size: 16px; }
-          .action-row { flex-direction: column; align-items: flex-start; gap: 14px; }
-          .price-btn { width: 100%; }
+          .arrival-section { padding: 48px 14px; }
+          .container { max-width: 100%; }
+          .product-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+          }
+          .image-wrap { height: 220px; }
+          .section-title { font-size: 24px; margin-bottom: 26px; }
+          .product-title {
+            font-size: 12px;
+            margin-top: 10px;
+            margin-bottom: 6px;
+            line-height: 1.4;
+          }
+          .product-price {
+            font-size: 13px;
+            margin: 0 0 10px;
+          }
+          .action-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+          .price-btn {
+            width: 100%;
+            padding: 10px 10px;
+            font-size: 10px;
+            text-align: center;
+            letter-spacing: 0;
+          }
+          .cart-btn {
+            width: 100%;
+            padding: 10px 10px;
+            font-size: 10px;
+            text-align: center;
+          }
+          .qty-control {
+            width: 100%;
+            min-width: 100%;
+            height: 38px;
+            padding: 4px 12px;
+          }
+          .wishlist-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 13px;
+            right: 8px;
+            bottom: 8px;
+          }
+          .bottom-btn-wrap { margin-top: 36px; }
+          .bottom-btn { font-size: 13px; }
+        }
+
+        /* ---------- SMALL MOBILE ---------- */
+        @media (max-width: 400px) {
+          .arrival-section { padding: 40px 10px; }
+          .product-grid { gap: 10px; }
+          .image-wrap { height: 190px; }
+          .section-title { font-size: 20px; margin-bottom: 22px; }
+          .product-title { font-size: 11px; }
+          .product-price { font-size: 12px; }
+          .price-btn, .cart-btn { font-size: 9px; padding: 9px 8px; }
+          .qty-control { height: 34px; padding: 4px 8px; }
+          .qty-control button { font-size: 15px; }
+          .bottom-btn { font-size: 12px; }
         }
       `}</style>
     </section>

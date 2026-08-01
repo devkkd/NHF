@@ -53,18 +53,18 @@ export default function NewArrivals({ product = null }) {
               sizes="(max-width:768px) 100vw, 440px"
               style={{ objectFit: "cover" }}
             />
-            <button className="wishlist-btn" aria-label="Wishlist">♡</button>
+            {/* <button className="wishlist-btn" aria-label="Wishlist">♡</button> */}
           </div>
           <div className="card-body">
             <h4 className="card-title">{name}</h4>
-            <div className="card-actions">
+            {/* <div className="card-actions">
               <Link href={`/enquiry1/${slug}`} className="price-btn">
                 PRICE ENQUIRY →
               </Link>
               <Link href="/enquiry" className="bulk-btn">
                 ✦ BULK CUSTOMIZATION
               </Link>
-            </div>
+            </div> */}
           </div>
         </div>
 

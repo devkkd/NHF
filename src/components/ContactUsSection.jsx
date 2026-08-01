@@ -1,8 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function ContactUsSection() {
+  const router = useRouter();
+
   return (
     <section className="contact-section">
 
@@ -83,9 +86,14 @@ export default function ContactUsSection() {
               attention as our individual orders.
             </p>
 
-            <button className="primary-btn">
-              BULK ORDER →
-            </button>
+       
+
+<button
+  className="primary-btn"
+  onClick={() => router.push("/enquiry")}
+>
+  BULK ORDER →
+</button>
           </div>
         </div>
 

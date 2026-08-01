@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addToCart, updateQty } from "@/lib/cart";
 import { getWishlist, removeFromWishlist } from "@/lib/wishlist";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Same theme values used across the category pages — adjust if your
 // brand colors live elsewhere (e.g. a shared theme/constants file).
@@ -23,17 +24,30 @@ export default function SavedPage() {
   const [quantities, setQuantities] = useState({});
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    setProducts(getWishlist());
-    setIsLoading(false);
-  }, []);
-
-  const handleRemove = (e, slug) => {
-    e.preventDefault();
-    e.stopPropagation();
-    removeFromWishlist(slug);
-    setProducts((prev) => prev.filter((p) => p.slug !== slug));
+useEffect(() => {
+  const loadWishlist = async () => {
+    try {
+      const items = await getWishlist();
+      setProducts(items);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  loadWishlist();
+}, []);
+
+ const handleRemove = async (e, productId) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  await removeFromWishlist(productId);
+
+  const items = await getWishlist();
+  setProducts(items);
+};
 
   const handleAddToCart = (product) => {
     addToCart(product, 1);
@@ -42,14 +56,14 @@ export default function SavedPage() {
 
   const increaseQty = (product) => {
     const qty = (quantities[product.slug] || 1) + 1;
-    updateQty(product.slug, qty);
+   updateQty(product._id, qty);
     setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
   };
 
   const decreaseQty = (product) => {
     const qty = (quantities[product.slug] || 1) - 1;
     if (qty <= 0) {
-      updateQty(product.slug, 0);
+     updateQty(product._id, 0);
       setQuantities((prev) => {
         const copy = { ...prev };
         delete copy[product.slug];
@@ -57,11 +71,13 @@ export default function SavedPage() {
       });
       return;
     }
-    updateQty(product.slug, qty);
+    updateQty(product._id, qty);
     setQuantities((prev) => ({ ...prev, [product.slug]: qty }));
   };
 
   return (
+      <ProtectedRoute>
+
     <>
       <Header />
 
@@ -88,7 +104,7 @@ export default function SavedPage() {
                 <div className="cat-product-card">
                   <div className="cat-product-img-wrapper">
                     <img
-                      src={product.image}
+                   src={product.mainImage}
                       alt={product.name}
                       className="cat-product-img"
                       onError={(e) => {
@@ -100,13 +116,16 @@ export default function SavedPage() {
                     <button
                       className="cat-wishlist-btn cat-wishlist-btn-active"
                       aria-label="Remove from wishlist"
-                      onClick={(e) => handleRemove(e, product.slug)}
+                     onClick={(e) => handleRemove(e, product._id)}
                     >
                       ♥
                     </button>
                   </div>
                   <div className="cat-product-info">
                     <h6 className="cat-product-name">{product.name}</h6>
+                    <p className="cat-product-price">
+  ₹{product.price}
+</p>
                     <div className="cat-product-actions">
                       <button
                         className="cat-btn-enquiry"
@@ -282,6 +301,13 @@ export default function SavedPage() {
           color: ${THEME.accent};
           transition: color 0.15s ease, transform 0.15s ease;
         }
+          .cat-product-price{
+  margin:0 0 12px;
+  font-family:"Mona Sans","Inter",sans-serif;
+  font-size:14px;
+  font-weight:600;
+  color:#3f4a2b;
+}
         .cat-wishlist-btn-active {
           color: #e0304a; /* red heart, already saved */
         }
@@ -529,5 +555,6 @@ export default function SavedPage() {
 }
       `}</style>
     </>
+      </ProtectedRoute>
   );
 }

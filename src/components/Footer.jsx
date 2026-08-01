@@ -8,16 +8,16 @@ import { useState } from "react";
 ───────────────────────────────────────────── */
 const footerLinks = {
   company: [
-    { label: "Company", href: "/company" },
+    { label: "Company", href: "#" },
     { label: "Customization", href: "/customization" },
     { label: "Our Story", href: "/our-story" },
-    { label: "Exhibition / Fair", href: "/exhibition-fair" },
-    { label: "Company Profile", href: "/company-profile" },
+    { label: "Exhibition / Fair", href: "/exhibition" },
+    { label: "Company Profile", href: "/contact" },
     { label: "Manufacturing", href: "/manufacturing" },
-    { label: "Contact Us", href: "/contact" },
-    { label: "Shipping Policy", href: "/shipping-policy" },
-    { label: "Return Policy", href: "/return-policy" },
-    { label: "Terms & Conditions", href: "/terms-conditions" },
+    { label: "Contact Us", href: "/our-story" },
+    { label: "Shipping Policy", href: "#" },
+    { label: "Return Policy", href: "#" },
+    { label: "Terms & Conditions", href: "#" },
   ],
   garments: [
     { label: "Kaftans", href: "/kaftans" },
@@ -84,28 +84,28 @@ const footerLinks = {
 const marketplaceLogos = [
   {
     name: "TradeIndia",
-    href: "https://www.tradeindia.com",
+    href: "https://www.tradeindia.com/nikita-home-furnishings-2288943/",
     src: "/images/footer/tradeindia.png",
     width: 130,
     height: 36,
   },
-  {
-    name: "IndiaMART",
-    href: "https://www.indiamart.com",
-    src: "/images/footer/indiamart.png",
-    width: 130,
-    height: 36,
-  },
+  // {
+  //   name: "IndiaMART",
+  //   href: "https://www.indiamart.com",
+  //   src: "/images/footer/indiamart.png",
+  //   width: 130,
+  //   height: 36,
+  // },
   {
     name: "eBay",
-    href: "https://www.ebay.com",
+    href: "#",
     src: "/images/footer/ebay.png",
     width: 80,
     height: 36,
   },
   {
     name: "Etsy",
-    href: "https://www.etsy.com",
+    href: "https://www.etsy.com/in-en/shop/Nhfhandicraft?ref=shop_sugg_market",
     src: "/images/footer/etsy.png",
     width: 80,
     height: 36,
@@ -582,6 +582,33 @@ export default function Footer() {
 
         {/* ── TAGLINE + COPYRIGHT ── */}
         <div className="f-tagline f-pad">
+          <div
+  style={{
+    marginTop: "14px",
+    textAlign: "center",
+    fontFamily: "'Mona Sans', sans-serif",
+    fontSize: "13px",
+    color: "#7B7F5C",
+    letterSpacing: "0.04em",
+  }}
+>
+  Crafted by{" "}
+  <a
+    href="https://www.kontentkraftdigital.com/"
+    target="_blank"
+    rel="noopener noreferrer"
+    style={{
+      color: "#556B2F",
+      fontWeight: 700,
+      textDecoration: "none",
+      transition: "opacity 0.2s ease",
+    }}
+    onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.75")}
+    onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+  >
+    Kontent Kraft Digital
+  </a>
+</div>
           <p style={{
             fontFamily: "'Tobias TRIAL', serif",
             fontWeight: 400,

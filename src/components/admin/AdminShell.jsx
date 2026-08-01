@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   Tag,
   Package,
+  ShoppingBag,
+  Mail,
   LogOut,
   Menu,
   X,
@@ -17,16 +19,45 @@ const NAV = [
   {
     group: "Overview",
     items: [
-      { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+      {
+        label: "Dashboard",
+        href: "/admin/dashboard",
+        icon: LayoutDashboard,
+      },
     ],
   },
+
   {
     group: "Catalogue",
     items: [
-      { label: "Categories", href: "/admin/categories", icon: Tag },
-      { label: "Products", href: "/admin/products", icon: Package },
+      {
+        label: "Categories",
+        href: "/admin/categories",
+        icon: Tag,
+      },
+      {
+        label: "Products",
+        href: "/admin/products",
+        icon: Package,
+      },
     ],
   },
+
+{
+  group: "Sales",
+  items: [
+    {
+      label: "Orders",
+      href: "/admin/orders",
+      icon: ShoppingBag,
+    },
+    {
+      label: "Enquiries",
+      href: "/admin/enquiries",
+      icon: Mail,
+    },
+  ],
+},
 ];
 
 export default function AdminShell({ children, pageTitle }) {
@@ -86,14 +117,17 @@ export default function AdminShell({ children, pageTitle }) {
             <div className="nhf-sb-uname">{user?.name ?? "Admin"}</div>
             <div className="nhf-sb-urole">Administrator</div>
           </div>
-          <button
-            className="nhf-sb-logout"
-            onClick={logout}
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <LogOut size={15} strokeWidth={1.8} />
-          </button>
+         <button
+  className="nhf-sb-logout"
+  onClick={async () => {
+    await logout();
+    window.location.href = "/admin/login"; // ya "/" agar home page par bhejna hai
+  }}
+  title="Sign out"
+  aria-label="Sign out"
+>
+  <LogOut size={15} strokeWidth={1.8} />
+</button>
         </div>
       </aside>
 

@@ -14,6 +14,7 @@ import {
 } from "@/lib/cart";
 import { addToWishlist } from "@/lib/wishlist";
 import { useRouter } from "next/navigation";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function CartPage() {
 
@@ -23,7 +24,10 @@ export default function CartPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const sync = () => setCart(getCart());
+   const sync = async () => {
+  const data = await getCart();
+  setCart(data);
+};
     sync();
     setLoaded(true);
     window.addEventListener(CART_EVENT, sync);
@@ -37,26 +41,31 @@ export default function CartPage() {
   const subtotal = getCartSubtotal(cart);
   const total = subtotal; // delivery + tax = 0 for now
 
-  const handleQty = (slug, qty) => {
-    updateQty(slug, qty);
-    setCart(getCart());
-  };
+ const handleQty = async (productId, qty) => {
+  await updateQty(productId, qty);
 
-  const handleRemove = (slug) => {
-    removeFromCart(slug);
-    setCart(getCart());
-  };
-  const handleSaveForLater = (item) => {
-  addToWishlist(item);
+  const data = await getCart();
+  setCart(data);
+};
+  const handleRemove = async (productId) => {
+  await removeFromCart(productId);
 
-  removeFromCart(item.slug);
+  const data = await getCart();
+  setCart(data);
+};
+ const handleSaveForLater = async (item) => {
+  addToWishlist(item.product);
 
-  setCart(getCart());
+  await removeFromCart(item.product._id);
+
+  const data = await getCart();
+  setCart(data);
 
   router.push("/saved");
 };
 
   return (
+      <ProtectedRoute>
     <>
       <Header />
 
@@ -78,23 +87,24 @@ export default function CartPage() {
                 <div className="crt-hr" />
 
                 {cart.map((item) => (
-                  <div className="crt-item-row" key={item.slug}>
+                  <div className="crt-item-row" key={item.product._id}>
                     <div className="crt-item-image">
-                      {item.image && (
-                        <img src={item.image} alt={item.name} />
+                    {item.product.mainImage && (
+                        <img src={item.product.mainImage}
+alt={item.product.name}/>
                       )}
                     </div>
 
                     <div className="crt-item-body">
                       <div className="crt-item-top">
-                        <h2 className="crt-item-name">{item.name}</h2>
+                        <h2 className="crt-item-name">{item.product.name}</h2>
                         <p className="crt-item-price">
-                          {formatPrice(item.price * item.qty)}
+                          {formatPrice((item.product.price || 0) * item.quantity)}
                         </p>
                       </div>
 
-                      {item.description && (
-                        <p className="crt-item-desc">{item.description}</p>
+                      {item.product.item && (
+                      <p className="crt-item-desc">{item.product.item}</p>
                       )}
 
                       <div className="crt-item-controls">
@@ -102,15 +112,15 @@ export default function CartPage() {
                           <button
                             className="crt-qty-btn"
                             aria-label="Decrease quantity"
-                            onClick={() => handleQty(item.slug, item.qty - 1)}
+                            onClick={() => handleQty(item.product._id, item.quantity - 1)}
                           >
                             −
                           </button>
-                          <span className="crt-qty-value">{item.qty}</span>
+                          <span className="crt-qty-value">{item.quantity}</span>
                           <button
                             className="crt-qty-btn"
                             aria-label="Increase quantity"
-                            onClick={() => handleQty(item.slug, item.qty + 1)}
+                            onClick={() => handleQty(item.product._id, item.quantity + 1)}
                           >
                             +
                           </button>
@@ -118,7 +128,7 @@ export default function CartPage() {
 
                         <button
                           className="crt-text-link"
-                          onClick={() => handleRemove(item.slug)}
+                          onClick={() => handleRemove(item.product._id)}
                         >
                           Remove
                         </button>
@@ -168,7 +178,12 @@ export default function CartPage() {
                   Complimentary Delivery with Effortless Returns
                 </p>
 
-                <button className="crt-checkout-btn">CHECKOUT</button>
+              <button
+  className="crt-checkout-btn"
+  onClick={() => router.push("/checkout")}
+>
+  CHECKOUT
+</button>
               </div>
             </div>
           )}
@@ -363,6 +378,10 @@ export default function CartPage() {
         }
 
         .crt-checkout-btn {
+        display: flex;
+align-items: center;
+justify-content: center;
+text-decoration: none;
           width: 100%;
           height: 56px;
           background: #8A8D67;
@@ -615,5 +634,6 @@ body{
 }
       `}</style>
     </>
+    </ProtectedRoute>
   );
 }

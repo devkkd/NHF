@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";import Image from "next/image";
 import Link from "next/link";
 
 const slides = [
@@ -30,25 +30,47 @@ const slides = [
 
 export default function Hero() {
   const [current, setCurrent] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+useEffect(() => {
+  const img = new window.Image();
+
+  img.src = slides[current].bg;
+
+  img.onload = () => {
+    setLoaded(true);
+  };
+}, [current]);
 
   return (
     <section className="relative w-full h-screen min-h-[600px] overflow-hidden">
+      {!loaded && (
+  <div className="absolute inset-0 z-50 animate-pulse bg-[#ece9df]" />
+)}
       {/* ── Background Slides ─────────────────────────────────── */}
-      {slides.map((slide, i) => (
-        <div
-          key={slide.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ${
-            i === current ? "opacity-100" : "opacity-0"
-          }`}
-          style={{
-            backgroundImage: `url(${slide.bg})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-          role="img"
-          aria-label={slide.headline}
-        />
-      ))}
+    {slides.map((slide, i) => (
+  <div
+    key={slide.id}
+    className={`absolute inset-0 transition-opacity duration-1000 ${
+      i === current ? "opacity-100" : "opacity-0"
+    }`}
+  >
+    <Image
+  src={slide.bg}
+  className={`transition-opacity duration-500 ${
+    loaded ? "opacity-100" : "opacity-0"
+  }`}
+      alt={slide.headline}
+      fill
+      priority={i === 0}
+      sizes="100vw"
+      style={{
+        objectFit: "cover",
+        objectPosition: "center",
+      }}
+    />
+  </div>
+))}
 
       {/* ── Dark overlay ──────────────────────────────────────── */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-black/60" />

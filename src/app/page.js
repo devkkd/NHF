@@ -30,11 +30,11 @@ export default async function Home() {
       <Hero />
       <OurStorySection />
       <CollectionCollage />
-      <CollectionCategory categories={allCategories} />
-      <ProductShowcase product={featuredProducts[0] ?? null} />
-      <WardrobeSection categories={wardrobeCategories} />
+      <CollectionCategory categories={allCategories.slice(0, 3)} />
+      <ProductShowcase />
+      <WardrobeSection categories={wardrobeCategories.slice(0, 3)} />
       <VirtualExperience />
-      <NewArrivals product={newArrivalProducts[0] ?? null} />
+      <NewArrivals />
       <NewArrivalsGrid products={newArrivalProducts.slice(0, 3)} />
       <TestimonialsSection />
     </>

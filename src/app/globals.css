@@ -89,6 +89,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+img[data-nimg="fill"] {
+  height: 100% !important;
+}
 /* Ensure all elements inherit the Tobias font */
 *,
 input,
