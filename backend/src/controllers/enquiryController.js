@@ -76,31 +76,48 @@ export const createEnquiry = async (req, res, next) => {
     // SEND EMAILS
     // ==========================
 
-    try {
-      // CUSTOMER EMAIL
- await sendMail({
-  to: enquiry.email,
-  subject: "Enquiry Received | Nikita Home Furnishings",
-  html: enquiryCustomerTemplate({
-    enquiry,
-    productSnapshot,
-  }),
-});
 
-await sendMail({
-  to: process.env.ADMIN_EMAIL,
-  subject:
-    enquiry.type === "product"
-      ? "New Product Enquiry"
-      : "New Bulk Enquiry",
-  html: enquiryAdminTemplate({
-    enquiry,
-    productSnapshot,
-  }),
-});
-    } catch (mailError) {
-      console.error("Enquiry mail error:", mailError);
-    }
+
+// ==========================
+// CUSTOMER EMAIL
+// ==========================
+
+try {
+  await sendMail({
+    to: enquiry.email,
+    subject: "Enquiry Received | Nikita Home Furnishings",
+    html: enquiryCustomerTemplate({
+      enquiry,
+      productSnapshot,
+    }),
+  });
+
+  console.log("✅ Customer email sent to:", enquiry.email);
+} catch (mailError) {
+  console.error("❌ Customer email failed:", mailError);
+}
+
+// ==========================
+// ADMIN EMAIL
+// ==========================
+
+try {
+  await sendMail({
+    to: process.env.ADMIN_EMAIL,
+    subject:
+      enquiry.type === "product"
+        ? "New Product Enquiry"
+        : "New Bulk Enquiry",
+    html: enquiryAdminTemplate({
+      enquiry,
+      productSnapshot,
+    }),
+  });
+
+  console.log("✅ Admin email sent to:", process.env.ADMIN_EMAIL);
+} catch (mailError) {
+  console.error("❌ Admin email failed:", mailError);
+}
 
     return res.status(201).json({
       success: true,

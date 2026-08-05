@@ -109,13 +109,13 @@ window.location.href = "/";
           </button>
 
         </form>
-
+{/* 
         <div className="my-6 flex justify-center">
           <GoogleLogin
             onSuccess={handleGoogle}
             onError={() => alert("Google Login Failed")}
           />
-        </div>
+        </div> */}
 
         <div className="text-center mt-4">
           <Link
