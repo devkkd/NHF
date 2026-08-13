@@ -117,12 +117,12 @@ export default function RegisterPage() {
           </button>
         </form>
 
-        <div className="my-6 flex justify-center">
+        {/* <div className="my-6 flex justify-center">
           <GoogleLogin
             onSuccess={handleGoogle}
             onError={() => setError("Google Login Failed")}
           />
-        </div>
+        </div> */}
 
         <p className="mt-6 text-center text-sm">
           Already have an account?{" "}

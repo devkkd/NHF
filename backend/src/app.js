@@ -7,6 +7,7 @@ import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
+import bulkProductRoutes from "./routes/bulkProductRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoutes.js";
@@ -75,7 +76,10 @@ app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/user/addresses", addressRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/enquiries", enquiryRoutes);
-
+app.use(
+  "/api/v1/products",
+  bulkProductRoutes
+);
 
 /* ---------------- 404 ---------------- */
 

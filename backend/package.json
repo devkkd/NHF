@@ -124,6 +124,7 @@
     "mpath": "0.9.0",
     "mquery": "5.0.0",
     "ms": "2.0.0",
+    "multer": "^2.2.0",
     "negotiator": "0.6.3",
     "nodemailer": "^9.0.3",
     "object-assign": "4.1.1",
@@ -163,7 +164,8 @@
     "validator": "^13.15.35",
     "vary": "1.1.2",
     "webidl-conversions": "7.0.0",
-    "whatwg-url": "14.2.0"
+    "whatwg-url": "14.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

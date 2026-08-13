@@ -1,5 +1,15 @@
+// ======================================================
+// FRONTEND API
+// src/lib/api.js
+// ======================================================
+
 const BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5001/api/v1";
+
+// ======================================================
+// COMMON API FETCH
+// ======================================================
 
 export async function apiFetch(path, opts = {}) {
   let token =
@@ -8,18 +18,24 @@ export async function apiFetch(path, opts = {}) {
       : null;
 
   const makeRequest = async (accessToken) => {
+    const headers = {
+      ...(accessToken
+        ? {
+            Authorization: `Bearer ${accessToken}`,
+          }
+        : {}),
+      ...(opts.headers || {}),
+    };
+
+    // FormData ke case mein Content-Type manually mat lagana
+    if (!(opts.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const res = await fetch(`${BASE}${path}`, {
       credentials: "include",
       ...opts,
-      headers: {
-        "Content-Type": "application/json",
-        ...(accessToken
-          ? {
-              Authorization: `Bearer ${accessToken}`,
-            }
-          : {}),
-        ...(opts.headers || {}),
-      },
+      headers,
     });
 
     const data = await res.json().catch(() => ({}));
@@ -34,7 +50,10 @@ export async function apiFetch(path, opts = {}) {
   try {
     let response = await makeRequest(token);
 
-    // Access token expired → refresh and retry
+    // ==================================================
+    // ACCESS TOKEN EXPIRED
+    // ==================================================
+
     if (
       response.status === 401 &&
       response.data?.message !== "Refresh token missing."
@@ -47,12 +66,14 @@ export async function apiFetch(path, opts = {}) {
       const refreshData = await refreshRes.json().catch(() => ({}));
 
       if (refreshRes.ok && refreshData.accessToken) {
+        token = refreshData.accessToken;
+
         localStorage.setItem(
           "accessToken",
           refreshData.accessToken
         );
 
-        response = await makeRequest(refreshData.accessToken);
+        response = await makeRequest(token);
       } else {
         localStorage.removeItem("accessToken");
       }
@@ -60,6 +81,8 @@ export async function apiFetch(path, opts = {}) {
 
     return response;
   } catch (error) {
+    console.error("API Error:", error);
+
     return {
       ok: false,
       status: 500,
@@ -70,24 +93,35 @@ export async function apiFetch(path, opts = {}) {
   }
 }
 
-// ==================== Categories ====================
+// ======================================================
+// CATEGORIES
+// ======================================================
 
 export async function getAllCategories() {
   const res = await apiFetch("/categories");
+
   return res.data?.data?.categories ?? [];
 }
 
 export async function getWardrobeCategories() {
   const res = await apiFetch("/categories?wardrobe=true");
+
   return res.data?.data?.categories ?? [];
 }
 
 export async function getCategoryBySlug(slug) {
-  const res = await apiFetch(`/categories/${slug}`);
+  if (!slug) return null;
+
+  const res = await apiFetch(
+    `/categories/${encodeURIComponent(slug)}`
+  );
+
   return res.data?.category ?? null;
 }
 
-// ==================== Products ====================
+// ======================================================
+// PRODUCTS
+// ======================================================
 
 export async function getProducts({
   category,
@@ -97,68 +131,99 @@ export async function getProducts({
   page = 1,
   limit = 20,
 } = {}) {
-  const params = new URLSearchParams({
-    page,
-    limit,
-  });
+  const params = new URLSearchParams();
 
-  if (category) params.set("category", category);
-  if (featured) params.set("featured", "true");
-  if (newArrivals) params.set("newArrivals", "true");
-  if (search) params.set("search", search);
+  params.set("page", String(page));
+  params.set("limit", String(limit));
 
-  const res = await apiFetch(`/products?${params}`);
-
- return (
-  res.data?.data ?? {
-    products: [],
-    total: 0,
-    pages: 1,
+  if (category) {
+    params.set("category", category);
   }
-);
+
+  if (featured) {
+    params.set("featured", "true");
+  }
+
+  if (newArrivals) {
+    params.set("newArrivals", "true");
+  }
+
+  if (search) {
+    params.set("search", search);
+  }
+
+  const res = await apiFetch(
+    `/products?${params.toString()}`
+  );
+
+  return (
+    res.data?.data ?? {
+      products: [],
+      total: 0,
+      pages: 1,
+    }
+  );
 }
 
 export async function getProductBySlug(slug) {
-  const res = await apiFetch(`/products/${slug}`);
-return res.data?.data?.product ?? null;
+  if (!slug) return null;
+
+  const res = await apiFetch(
+    `/products/${encodeURIComponent(slug)}`
+  );
+
+  return res.data?.data?.product ?? null;
 }
 
 export async function getNewArrivalProducts() {
-  const res = await apiFetch("/products?newArrivals=true&limit=20");
+  const res = await apiFetch(
+    "/products?newArrivals=true&limit=20"
+  );
+
   return res.data?.data?.products ?? [];
 }
 
 export async function getFeaturedProducts() {
-  const res = await apiFetch("/products?featured=true&limit=8");
+  const res = await apiFetch(
+    "/products?featured=true&limit=8"
+  );
+
   return res.data?.data?.products ?? [];
 }
-// ==================== Orders ====================
+
+// ======================================================
+// ORDERS
+// ======================================================
 
 export async function getMyOrders() {
   const res = await apiFetch("/orders/my-orders");
+
   return res.data;
 }
 
 export async function getOrderById(id) {
+  if (!id) return null;
+
   const res = await apiFetch(`/orders/${id}`);
+
   return res.data;
 }
 
 export async function trackOrder(id) {
+  if (!id) return null;
+
   const res = await apiFetch(`/orders/track/${id}`);
+
   return res.data;
 }
-// ==================== Enquiries ====================
+
+// ======================================================
+// ENQUIRIES
+// ======================================================
 
 export async function submitEnquiry(payload) {
-  const res = await apiFetch("/enquiries", {
+  return await apiFetch("/enquiries", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-
-  return res;
 }
-/* ===========================================
-   ADMIN ORDERS
-=========================================== */
-

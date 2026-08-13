@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Tag,
   Package,
+  Upload,
   ShoppingBag,
   Mail,
   LogOut,
@@ -28,20 +29,25 @@ const NAV = [
   },
 
   {
-    group: "Catalogue",
-    items: [
-      {
-        label: "Categories",
-        href: "/admin/categories",
-        icon: Tag,
-      },
-      {
-        label: "Products",
-        href: "/admin/products",
-        icon: Package,
-      },
-    ],
-  },
+  group: "Catalogue",
+  items: [
+    {
+      label: "Categories",
+      href: "/admin/categories",
+      icon: Tag,
+    },
+    {
+      label: "Products",
+      href: "/admin/products",
+      icon: Package,
+    },
+    {
+      label: "Bulk Upload",
+      href: "/admin/products/bulk-products",
+      icon: Upload,
+    },
+  ],
+},
 
 {
   group: "Sales",
@@ -92,7 +98,12 @@ export default function AdminShell({ children, pageTitle }) {
             <div key={group} className="nhf-sb-group">
               <span className="nhf-sb-group-label">{group}</span>
               {items.map(({ label, href, icon: Icon }) => {
-                const active = pathname?.startsWith(href);
+              const active =
+  pathname === href ||
+  (pathname?.startsWith(`${href}/`) &&
+    !NAV.flatMap((g) => g.items).some(
+      (item) => item.href !== href && pathname?.startsWith(item.href)
+    ));
                 return (
                   <Link
                     key={href}

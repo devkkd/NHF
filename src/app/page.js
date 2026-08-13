@@ -14,6 +14,7 @@ import {
   getFeaturedProducts,
   getNewArrivalProducts,
 } from "@/lib/api";
+import ProVideoHero from "@/components/ProVideoHero";
 
 export default async function Home() {
   // Fetch data in parallel — all fall back gracefully to [] on failure
@@ -29,7 +30,8 @@ export default async function Home() {
     <>
       <Hero />
       <OurStorySection />
-      <CollectionCollage />
+      {/* <CollectionCollage /> */}
+      <ProVideoHero />
       <CollectionCategory categories={allCategories.slice(0, 3)} />
       <ProductShowcase />
       <WardrobeSection categories={wardrobeCategories.slice(0, 3)} />

@@ -157,7 +157,7 @@ const goToAccount = () => {
   const navLinkClass = (href) => {
     const active = isActiveLink(href);
   const base =
-  "text-[10px] font-bold tracking-normal uppercase transition-colors duration-300 whitespace-nowrap border-b pb-0.5 font-['Mona_Sans']";
+  "text-[14px] font-medium tracking-normal uppercase transition-colors duration-300 whitespace-nowrap border-b pb-0.5 font-['Mona_Sans']";
 
     if (isSolid) {
       return `${base} ${

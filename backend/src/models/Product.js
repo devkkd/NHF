@@ -3,7 +3,13 @@ const specSchema = new mongoose.Schema({ label: { type: String, required: true }
 const productSchema = new mongoose.Schema({
   name:             { type: String, required: true, trim: true, maxlength: 200 },
   slug:             { type: String, unique: true, lowercase: true, trim: true },
-  sku:              { type: String, trim: true, default: '' },
+sku: {
+  type: String,
+  trim: true,
+  default: '',
+  unique: true,
+  sparse: true,
+},
   price: {
   type: Number,
   default: 0,
