@@ -1,51 +1,28 @@
 @import "tailwindcss";
 
-/* ─── Tobias TRIAL Font ─────────────────────────────────────────────────────
-   Place your Tobias TRIAL font files in /public/fonts/
-   Expected files:
-     TobiasTRIAL-Light.woff2      (weight: 300)
-     TobiasTRIAL-Regular.woff2    (weight: 400)
-     TobiasTRIAL-Medium.woff2     (weight: 500)
-     TobiasTRIAL-SemiBold.woff2   (weight: 600)
-     TobiasTRIAL-Bold.woff2       (weight: 700)
+/* ─── Font Aliases ───────────────────────────────────────────────────────────
+   Tobias TRIAL  → Cormorant Garamond (loaded via next/font/google)
+   Mona Sans     → Inter             (loaded via next/font/google)
    ─────────────────────────────────────────────────────────────────────────── */
 
 @font-face {
   font-family: "Tobias";
-  src: url("/fonts/TobiasTRIAL-Light.woff2") format("woff2");
-  font-weight: 300;
+  src: local("Cormorant Garamond");
+  font-weight: 300 700;
   font-style: normal;
-  font-display: swap;
+}
+@font-face {
+  font-family: "Tobias TRIAL";
+  src: local("Cormorant Garamond");
+  font-weight: 300 700;
+  font-style: normal;
 }
 
+/* Map "Mona Sans" to Inter — prevents 404 from ProVideoHero @font-face */
 @font-face {
-  font-family: "Tobias";
-  src: url("/fonts/TobiasTRIAL-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Tobias";
-  src: url("/fonts/TobiasTRIAL-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Tobias";
-  src: url("/fonts/TobiasTRIAL-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Tobias";
-  src: url("/fonts/TobiasTRIAL-Bold.woff2") format("woff2");
-  font-weight: 700;
+  font-family: "Mona Sans";
+  src: local("Inter");
+  font-weight: 300 800;
   font-style: normal;
   font-display: swap;
 }
@@ -83,7 +60,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Tobias", Georgia, serif;
+  font-family: var(--font-cormorant), Georgia, serif;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -14,6 +14,9 @@ import {
   LogOut,
   Menu,
   X,
+  Image as ImageIcon,
+  MessageSquare as MessageSquareIcon,
+  Layout as LayoutIcon,
 } from "lucide-react";
 
 const NAV = [
@@ -28,6 +31,31 @@ const NAV = [
     ],
   },
 
+  {
+    group: "Content",
+    items: [
+      {
+        label: "Banners",
+        href: "/admin/banners",
+        icon: ImageIcon,
+      },
+      {
+        label: "Showcase Banner",
+        href: "/admin/showcase-banner",
+        icon: ImageIcon,
+      },
+      {
+        label: "Testimonials",
+        href: "/admin/testimonials",
+        icon: MessageSquareIcon,
+      },
+      {
+        label: "New Arrivals Section",
+        href: "/admin/new-arrivals-section",
+        icon: LayoutIcon,
+      },
+    ],
+  },
   {
   group: "Catalogue",
   items: [

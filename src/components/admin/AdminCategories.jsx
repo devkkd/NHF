@@ -12,7 +12,9 @@ const EMPTY_FORM = {
   name: "",
   description: "",
   image: "",
+  parent: "",
   showInWardrobe: false,
+  showInFooter: true,
   isActive: true,
   sortOrder: 0,
 };
@@ -37,6 +39,19 @@ export default function AdminCategories() {
 
   // ── Delete confirm ──────────────────────────────────────────
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  // ── Parent categories for dropdown ──────────────────────────
+  const [parentOptions, setParentOptions] = useState([]);
+
+  useEffect(() => {
+    // Load all active parent categories (no parent set) for dropdown
+    apiFetch("/categories?limit=100")
+      .then((res) => {
+        const all = res.data?.data?.categories ?? [];
+        setParentOptions(all.filter((c) => !c.parent));
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Fetch ────────────────────────────────────────────────────
   const loadCategories = useCallback(async (pg, q) => {
@@ -89,7 +104,9 @@ export default function AdminCategories() {
       name: cat.name ?? "",
       description: cat.description ?? "",
       image: cat.image ?? "",
+      parent: cat.parent ?? "",
       showInWardrobe: cat.showInWardrobe ?? false,
+      showInFooter: cat.showInFooter ?? true,
       isActive: cat.isActive ?? true,
       sortOrder: cat.sortOrder ?? 0,
     });
@@ -114,6 +131,7 @@ export default function AdminCategories() {
     const body = {
       ...form,
       sortOrder: Number(form.sortOrder) || 0,
+      parent: form.parent || null,
     };
     const res = modalMode === "create"
       ? await apiFetch("/categories", { method: "POST", body: JSON.stringify(body) })
@@ -360,6 +378,25 @@ export default function AdminCategories() {
                 />
               </div>
 
+              <div className="nhf-form-group">
+                <label className="nhf-form-label">Parent Category</label>
+                <select
+                  className="nhf-form-input"
+                  value={form.parent}
+                  onChange={(e) => setForm((f) => ({ ...f, parent: e.target.value }))}
+                >
+                  <option value="">— None (top-level category) —</option>
+                  {parentOptions
+                    .filter((p) => p._id !== editingId) // can't be own parent
+                    .map((p) => (
+                      <option key={p._id} value={p._id}>{p.name}</option>
+                    ))}
+                </select>
+                <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+                  Select a parent to make this a subcategory shown in footer
+                </p>
+              </div>
+
               <div className="nhf-form-row">
                 <div className="nhf-form-group">
                   <label className="nhf-form-label">Sort Order</label>
@@ -380,6 +417,15 @@ export default function AdminCategories() {
                     />
                     <span className="nhf-toggle-track" />
                     Show in Wardrobe
+                  </label>
+                  <label className="nhf-toggle">
+                    <input
+                      type="checkbox"
+                      checked={form.showInFooter}
+                      onChange={(e) => setForm((f) => ({ ...f, showInFooter: e.target.checked }))}
+                    />
+                    <span className="nhf-toggle-track" />
+                    Show in Footer
                   </label>
                   <label className="nhf-toggle">
                     <input

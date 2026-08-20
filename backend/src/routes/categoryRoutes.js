@@ -1,8 +1,9 @@
 import express from 'express';
-import { getCategories, getCategoryBySlug, getAllCategoriesAdmin, createCategory, updateCategory, deleteCategory } from '../controllers/categoryController.js';
+import { getCategories, getCategoryBySlug, getAllCategoriesAdmin, createCategory, updateCategory, deleteCategory, getFooterCategories } from '../controllers/categoryController.js';
 import { protect, admin } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 router.get('/admin/all', protect, admin, getAllCategoriesAdmin);
+router.get('/footer-tree', getFooterCategories);
 router.post('/', protect, admin, createCategory);
 router.patch('/:id', protect, admin, updateCategory);
 router.delete('/:id', protect, admin, deleteCategory);

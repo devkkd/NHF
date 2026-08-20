@@ -4,7 +4,9 @@ const categorySchema = new mongoose.Schema({
   slug:           { type: String, unique: true, lowercase: true, trim: true },
   description:    { type: String, trim: true, default: '' },
   image:          { type: String, default: '' },
+  parent:         { type: mongoose.Schema.Types.ObjectId, ref: 'Category', default: null },
   showInWardrobe: { type: Boolean, default: false },
+  showInFooter:   { type: Boolean, default: true },
   isActive:       { type: Boolean, default: true },
   sortOrder:      { type: Number, default: 0 },
 }, { timestamps: true });

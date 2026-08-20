@@ -251,14 +251,14 @@ function GlobalStyles() {
     <style jsx global>{`
       @font-face {
         font-family: "Tobias TRIAL";
-        src: url("/fonts/TobiasTRIAL-Bold.woff2") format("woff2");
+        src: local("Cormorant Garamond");
         font-weight: 700;
         font-display: swap;
       }
 
       @font-face {
         font-family: "Mona Sans";
-        src: url("/fonts/Mona-Sans.woff2") format("woff2");
+        src: local("Inter");
         font-weight: 400 800;
         font-display: swap;
       }

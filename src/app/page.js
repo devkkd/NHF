@@ -30,8 +30,8 @@ export default async function Home() {
     <>
       <Hero />
       <OurStorySection />
-      {/* <CollectionCollage /> */}
-      <ProVideoHero />
+      <CollectionCollage />
+      {/* <ProVideoHero /> */}
       <CollectionCategory categories={allCategories.slice(0, 3)} />
       <ProductShowcase />
       <WardrobeSection categories={wardrobeCategories.slice(0, 3)} />

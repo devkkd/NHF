@@ -14,6 +14,10 @@ import wishlistRoutes from "./routes/wishlistRoutes.js";
 import addressRoutes from "./routes/addressRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import enquiryRoutes from "./routes/enquiryRoutes.js";
+import bannerRoutes from "./routes/bannerRoutes.js";
+import showcaseBannerRoutes from "./routes/showcaseBannerRoutes.js";
+import testimonialRoutes from "./routes/testimonialRoutes.js";
+import newArrivalsSectionRoutes from "./routes/newArrivalsSectionRoutes.js";
 
 
 const app = express();
@@ -76,6 +80,10 @@ app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/user/addresses", addressRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/enquiries", enquiryRoutes);
+app.use("/api/v1/banners", bannerRoutes);
+app.use("/api/v1/showcase-banner", showcaseBannerRoutes);
+app.use("/api/v1/testimonials", testimonialRoutes);
+app.use("/api/v1/new-arrivals-section", newArrivalsSectionRoutes);
 app.use(
   "/api/v1/products",
   bulkProductRoutes

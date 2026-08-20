@@ -1,5 +1,19 @@
 import Category from '../models/Category.js';
 const paginate = (page=1, limit=50) => { const pg=Math.max(Number(page),1); const lim=Math.min(Number(limit),100); return {skip:(pg-1)*lim,limit:lim,page:pg}; };
+
+export const getFooterCategories = async (req, res, next) => {
+  try {
+    const all = await Category.find({ isActive: true, showInFooter: true })
+      .sort({ sortOrder: 1, createdAt: 1 }).lean();
+    const parents = all.filter((c) => !c.parent);
+    const tree = parents.map((p) => ({
+      ...p,
+      children: all.filter((c) => c.parent?.toString() === p._id.toString()),
+    }));
+    res.json({ ok: true, data: tree });
+  } catch (err) { next(err); }
+};
+
 export const getCategories = async (req, res, next) => {
   try {
     const filter = { isActive: true };
@@ -30,9 +44,17 @@ export const getAllCategoriesAdmin = async (req, res, next) => {
 };
 export const createCategory = async (req, res, next) => {
   try {
-    const { name, description, image, showInWardrobe, sortOrder } = req.body;
+    const { name, description, image, showInWardrobe, showInFooter, parent, sortOrder } = req.body;
     if (!name?.trim()) return res.status(400).json({ ok:false, error:'Name required' });
-    const category = await Category.create({ name:name.trim(), description:description?.trim()||'', image:image?.trim()||'', showInWardrobe:showInWardrobe===true||showInWardrobe==='true', sortOrder:Number(sortOrder)||0 });
+    const category = await Category.create({
+      name: name.trim(),
+      description: description?.trim() || '',
+      image: image?.trim() || '',
+      showInWardrobe: showInWardrobe===true||showInWardrobe==='true',
+      showInFooter: showInFooter===false||showInFooter==='false' ? false : true,
+      parent: parent || null,
+      sortOrder: Number(sortOrder) || 0,
+    });
     res.status(201).json({ ok:true, data:{ category } });
   } catch(err) { if (err.code===11000) return res.status(409).json({ ok:false, error:'Name exists' }); next(err); }
 };
@@ -46,6 +68,8 @@ export const updateCategory = async (req, res, next) => {
     if (showInWardrobe!==undefined) update.showInWardrobe=showInWardrobe===true||showInWardrobe==='true';
     if (isActive!==undefined) update.isActive=isActive===true||isActive==='true';
     if (sortOrder!==undefined) update.sortOrder=Number(sortOrder);
+    if ('parent' in req.body) update.parent = req.body.parent || null;
+    if ('showInFooter' in req.body) update.showInFooter = req.body.showInFooter===true||req.body.showInFooter==='true';
     const category = await Category.findByIdAndUpdate(req.params.id, { $set:update }, { new:true, runValidators:true });
     if (!category) return res.status(404).json({ ok:false, error:'Not found' });
     res.json({ ok:true, data:{ category } });
