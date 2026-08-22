@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { addToCart, updateQty } from "@/lib/cart";
 import { useState, useEffect, use } from "react";
+import toast from "react-hot-toast";
 import Link from "next/link";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+const BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1").replace(/\/$/, "");
 
 // Sample product fallback matching user reference images
 const SAMPLE_PRODUCT = {
@@ -106,16 +107,114 @@ export default function ProductDetailPage({ params }) {
     });
   }, [slug]);
 
-  const handleAddToCart = () => {
-    if (!product) return;
-    addToCart({ ...product, slug: product.slug }, 1);
-    setQuantity(1);
+  // ====================================================
+  // LOGIN / PENDING ACTION HELPERS
+  // ====================================================
+
+  const isLoggedIn = () => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return Boolean(
+      localStorage.getItem("accessToken")
+    );
   };
 
-  const handleBuyNow = () => {
+  const showLoginRequired = (type) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const currentUrl =
+      window.location.pathname +
+      window.location.search;
+
+    if (type === "cart") {
+      sessionStorage.setItem(
+        "pendingCartProduct",
+        JSON.stringify({
+          product,
+          quantity: 1,
+        })
+      );
+
+      sessionStorage.setItem(
+        "pendingCartRedirect",
+        currentUrl
+      );
+    }
+
+    if (type === "buy-now") {
+      sessionStorage.setItem(
+        "pendingBuyNowProduct",
+        JSON.stringify({
+          product,
+          quantity: 1,
+        })
+      );
+    }
+
+    toast.error("Please login first", {
+      duration: 2200,
+      position: "top-right",
+    });
+
+    setTimeout(() => {
+      router.push(
+        `/login?redirect=${encodeURIComponent(
+          type === "buy-now"
+            ? "/checkout"
+            : currentUrl
+        )}`
+      );
+    }, 450);
+  };
+
+  const handleAddToCart = async () => {
     if (!product) return;
-    addToCart({ ...product, slug: product.slug }, 1);
-    router.push("/cart");
+
+    if (!isLoggedIn()) {
+      showLoginRequired("cart");
+      return;
+    }
+
+    try {
+      await addToCart(
+        { ...product, slug: product.slug },
+        1
+      );
+
+      setQuantity(1);
+    } catch (error) {
+      console.error(
+        "ADD TO CART ERROR:",
+        error
+      );
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!product) return;
+
+    if (!isLoggedIn()) {
+      showLoginRequired("buy-now");
+      return;
+    }
+
+    try {
+      await addToCart(
+        { ...product, slug: product.slug },
+        1
+      );
+
+      router.push("/cart");
+    } catch (error) {
+      console.error(
+        "BUY NOW ERROR:",
+        error
+      );
+    }
   };
 
   // Combine mainImage + galleryImages cleanly
@@ -322,16 +421,58 @@ export default function ProductDetailPage({ params }) {
                 <div className="qty-control">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      if (!isLoggedIn()) {
+                        showLoginRequired("cart");
+                        return;
+                      }
+
                       const n = quantity - 1;
-                      if (n <= 0) { updateQty(product.slug, 0); setQuantity(0); }
-                      else { updateQty(product.slug, n); setQuantity(n); }
+
+                      try {
+                        await updateQty(
+                          product._id || product.slug,
+                          n
+                        );
+
+                        if (n <= 0) {
+                          setQuantity(0);
+                        } else {
+                          setQuantity(n);
+                        }
+                      } catch (error) {
+                        console.error(
+                          "DECREASE QTY ERROR:",
+                          error
+                        );
+                      }
                     }}
                   >−</button>
                   <span>{quantity}</span>
                   <button
                     type="button"
-                    onClick={() => { const n = quantity + 1; setQuantity(n); updateQty(product.slug, n); }}
+                    onClick={async () => {
+                      if (!isLoggedIn()) {
+                        showLoginRequired("cart");
+                        return;
+                      }
+
+                      const n = quantity + 1;
+
+                      try {
+                        await updateQty(
+                          product._id || product.slug,
+                          n
+                        );
+
+                        setQuantity(n);
+                      } catch (error) {
+                        console.error(
+                          "INCREASE QTY ERROR:",
+                          error
+                        );
+                      }
+                    }}
                   >+</button>
                 </div>
               )}
@@ -885,4 +1026,3 @@ export default function ProductDetailPage({ params }) {
     </div>
   );
 }
-

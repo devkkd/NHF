@@ -25,7 +25,7 @@ const RING_DEFS = [
       { id: "i4", src: "/images/product/9.png",  angle: 216 },
       { id: "i5", src: "/images/product/10.png", angle: 288 },
     ],
-    cardSizeBase: 80,
+    cardSizeBase: 100,
     zIndex: 10,
   },
   {
@@ -41,7 +41,7 @@ const RING_DEFS = [
       { id: "m5", src: "/images/product/4.png",  angle: 260 },
       { id: "m6", src: "/images/product/5.png",  angle: 320 },
     ],
-    cardSizeBase: 88,
+    cardSizeBase: 112,
     zIndex: 5,
   },
   {
@@ -60,7 +60,7 @@ const RING_DEFS = [
       { id: "o8", src: "/images/product/8.png", angle: 280 },
       { id: "o9", src: "/images/product/9.png", angle: 320 },
     ],
-    cardSizeBase: 96,
+    cardSizeBase: 124,
     zIndex: 2,
   },
 ];
@@ -155,19 +155,27 @@ export default function CircularCollection() {
   // ── Responsive values ───────────────────────────────────────
   const centerMaxWidth = scale < 0.5 ? 180 : scale < 0.7 ? 240 : 460;
   const titleSize      = scale < 0.5 ? "text-xl" : scale < 0.7 ? "text-2xl" : "text-3xl md:text-4xl";
-  const descSize       = scale < 0.5 ? "text-[9px]" : "text-[11px] md:text-xs";
-  const eyebrowSize    = scale < 0.5 ? "text-[8px]" : "text-[10px]";
+const descSize =
+  scale < 0.5
+    ? "text-[11px]"
+    : "text-[13px] md:text-[15px]";
+  const eyebrowSize    = scale < 0.5 ? "text-[12px]" : "text-[16px]";
 
   if (!mounted) {
-    return <div className="h-[300vh] bg-[#FDFFF1]" />;
+    return <div className="h-[240vh] bg-[#FDFFF1]" />;
   }
 
   return (
-    <div ref={containerRef} className="relative bg-[#FDFFF1]" style={{ height: "300vh" }}>
+    <div ref={containerRef} className="relative bg-[#FDFFF1]" style={{ height: "240vh" }}>
       <div
-        className="sticky top-0 w-full overflow-hidden flex items-center justify-center"
-        style={{ height: "100vh" }}
-      >
+  className="sticky top-0 w-full overflow-hidden flex items-center justify-center"
+  style={{
+    height: "100vh",
+    paddingTop: "40px",
+    paddingBottom: "40px",
+    boxSizing: "border-box",
+  }}
+>
         {/* ── Rings ────────────────────────────────────────── */}
         {RING_DEFS.map((def, ri) => {
           const radius   = def.radiusBase * scale;
@@ -272,7 +280,7 @@ export default function CircularCollection() {
           className="relative text-center px-4 pointer-events-none"
           style={{ maxWidth: centerMaxWidth, zIndex: 20 }}
         >
-          <p className={`${eyebrowSize} tracking-[0.3em] uppercase text-stone-400 mb-2 font-medium`}>
+          <p className={`${eyebrowSize} tracking-[0.3em] uppercase text-black-400 mb-2 font-medium`}>
             Nikita Home Furnishings
           </p>
           <h2
@@ -287,7 +295,7 @@ export default function CircularCollection() {
           />
           <div className="space-y-1">
             {COLLECTION_TEXT.description.map((line, i) => (
-              <p key={i} className={`${descSize} text-stone-500 font-normal leading-relaxed tracking-wide`}>
+              <p key={i} className={`${descSize} text-black-500 font-normal leading-relaxed tracking-wide`}>
                 {line}
               </p>
             ))}

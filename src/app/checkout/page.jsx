@@ -267,15 +267,30 @@ altMobile:""
   /*  PRICE CALCULATIONS                                                         */
   /* -------------------------------------------------------------------------- */
 
-  const subtotal = useMemo(() => {
-    if (typeof getCartSubtotal === "function") {
-      return getCartSubtotal(cart) || 0;
-    }
-    return cart.reduce(
-      (sum, item) => sum + (item.product.price || 0) * (item.quantity || 1),
-      0
-    );
-  }, [cart]);
+ const subtotal = useMemo(() => {
+  return cart.reduce(
+    (sum, item) => {
+      const product =
+        item?.product || {};
+
+      const price =
+        Number(
+          product?.price || 0
+        );
+
+      const quantity =
+        Number(
+          item?.quantity || 1
+        );
+
+      return (
+        sum +
+        price * quantity
+      );
+    },
+    0
+  );
+}, [cart]);
 
   const shipping = useMemo(() => {
     if (cart.length === 0) return 0;
@@ -546,43 +561,107 @@ ${selectedAddress.lastName}`}</p>
                       </Link>
                     </div>
                   ) : (
-                    <ul className="chk-product-list">
-                      {cart.map((item) => {
-                        const image =
-                         item.product.mainImage || item.images?.[0] || "/placeholder-product.png";
-                        const key = item.cartItemId || item.id || item.slug;
-                        return (
-                          <li className="chk-product-row" key={key}>
-                            <div className="chk-product-image">
-                              <img src={image} alt={item.product.name || "Product image"} />
-                            </div>
-                            <div className="chk-product-info">
-                              <p className="chk-product-name">{item.product.name}</p>
-                              <div className="chk-product-meta">
-                                {item.variant && (
-                                  <span>Variant: {item.variant}</span>
-                                )}
-                                {item.color && <span>Color: {item.color}</span>}
-                                {item.size && <span>Size: {item.size}</span>}
-                              </div>
-                              <div className="chk-product-qty">
-                                Qty: {item.quantity || 1}
-                              </div>
-                            </div>
-                            <div className="chk-product-price">
-                              <span className="chk-product-unit">
-                                {formatPrice(item.product.price || 0)} each
-                              </span>
-                              <span className="chk-product-total">
-                                {formatPrice(
-(item.product.price || 0) * (item.quantity || 1)
-)}
-                              </span>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
+                   <ul className="chk-product-list">
+  {cart.map((item, index) => {
+    const product =
+      item?.product || {};
+
+    const productId =
+      product?._id ||
+      product?.id ||
+      item?.productId ||
+      null;
+
+    const image =
+      product?.mainImage ||
+      item?.images?.[0] ||
+      "/placeholder-product.png";
+
+    /*
+     * Backend cart mein product._id populated hai,
+     * isliye usko primary unique key rakho.
+     *
+     * Index sirf emergency fallback hai.
+     */
+    const key =
+      productId
+        ? `checkout-product-${productId}`
+        : `checkout-item-${index}`;
+
+    const quantity =
+      Number(
+        item?.quantity || 1
+      );
+
+    const price =
+      Number(
+        product?.price || 0
+      );
+
+    return (
+      <li
+        key={key}
+        className="chk-product-row"
+      >
+        <div className="chk-product-image">
+          <img
+            src={image}
+            alt={
+              product?.name ||
+              "Product image"
+            }
+          />
+        </div>
+
+        <div className="chk-product-info">
+          <p className="chk-product-name">
+            {product?.name ||
+              "Unnamed Product"}
+          </p>
+
+          <div className="chk-product-meta">
+            {item?.variant && (
+              <span>
+                Variant:{" "}
+                {item.variant}
+              </span>
+            )}
+
+            {item?.color && (
+              <span>
+                Color:{" "}
+                {item.color}
+              </span>
+            )}
+
+            {item?.size && (
+              <span>
+                Size:{" "}
+                {item.size}
+              </span>
+            )}
+          </div>
+
+          <div className="chk-product-qty">
+            Qty: {quantity}
+          </div>
+        </div>
+
+        <div className="chk-product-price">
+          <span className="chk-product-unit">
+            {formatPrice(price)} each
+          </span>
+
+          <span className="chk-product-total">
+            {formatPrice(
+              price * quantity
+            )}
+          </span>
+        </div>
+      </li>
+    );
+  })}
+</ul>
                   )}
                 </section>
               </div>
@@ -1010,7 +1089,7 @@ handleNewAddressChange("pin",e.target.value)
         .chk-page {
           background: #fefff5;
           min-height: 100vh;
-          padding: 48px 0 120px;
+          padding: 128px 0 120px;
           font-family: "Mona Sans", "Inter", sans-serif;
           color: #111111;
         }

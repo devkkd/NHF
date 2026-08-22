@@ -465,12 +465,10 @@ export default function AdminBulkProductUpload() {
               <h1>
                 Bulk Product Upload
               </h1>
-
               <p>
-                Add or update multiple
-                products using one Excel
-                spreadsheet and SKU-based
-                product images.
+                Add or update multiple products using one Excel
+                sheet with Category, Subcategory, Product Serial
+                Number and SKU-based product images.
               </p>
 
             </div>
@@ -534,41 +532,51 @@ export default function AdminBulkProductUpload() {
 
                 <div>
                   <span>01</span>
-
                   <p>
-                    Download the sample
-                    Excel and fill the
-                    product information.
+                    Download the template and check the
+                    Categories sheet before entering products.
                   </p>
                 </div>
 
                 <div>
                   <span>02</span>
-
                   <p>
-                    Keep every product
-                    SKU unique.
+                    Enter the main Category slug and the
+                    matching Subcategory slug.
                   </p>
                 </div>
 
                 <div>
                   <span>03</span>
-
                   <p>
-                    Rename images using
-                    the product SKU.
+                    Enter Product Serial Number in
+                    <strong> sortOrder </strong> starting from 1.
                   </p>
                 </div>
 
                 <div>
                   <span>04</span>
-
                   <p>
-                    Existing SKUs will be
-                    updated automatically.
+                    Keep SKU unique. Existing SKU records
+                    will be updated automatically.
                   </p>
                 </div>
 
+                <div>
+                  <span>05</span>
+                  <p>
+                    Use exact SKU for the main image, then
+                    SKU-1, SKU-2, SKU-3 for gallery images.
+                  </p>
+                </div>
+
+                <div>
+                  <span>06</span>
+                  <p>
+                    Every product must belong to a valid
+                    Subcategory under the selected Category.
+                  </p>
+                </div>
               </div>
 
             </div>
@@ -1492,7 +1500,7 @@ export default function AdminBulkProductUpload() {
 
           .guide-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 20px;
           }
 
@@ -2183,7 +2191,7 @@ export default function AdminBulkProductUpload() {
             }
           }
 
-          @media (max-width: 1100px) {
+          @media (max-width: 1180px) {
             .guide-grid {
               grid-template-columns: repeat(2, 1fr);
             }

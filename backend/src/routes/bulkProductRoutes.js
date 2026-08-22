@@ -17,15 +17,26 @@ import {
 const router = express.Router();
 
 /*
-=========================================================
-DOWNLOAD BULK PRODUCT TEMPLATE
-
-GET
-/api/v1/products/bulk-upload/template
-
-Auth:
-protect + admin
-=========================================================
+|--------------------------------------------------------------------------
+| BULK PRODUCT TEMPLATE
+|--------------------------------------------------------------------------
+|
+| GET
+| /api/v1/products/bulk-upload/template
+|
+| Authentication:
+| - protect
+| - admin
+|
+| The generated Excel template contains:
+|
+| - category
+|   -> MUST be a subcategory
+|
+| - sortOrder
+|   -> product serial number inside that subcategory
+|
+|--------------------------------------------------------------------------
 */
 
 router.get(
@@ -36,20 +47,36 @@ router.get(
 );
 
 /*
-=========================================================
-BULK PRODUCT UPLOAD
-
-POST
-/api/v1/products/bulk-upload
-
-Auth:
-protect + admin
-
-FormData:
-
-excel
-images[]
-=========================================================
+|--------------------------------------------------------------------------
+| BULK PRODUCT UPLOAD
+|--------------------------------------------------------------------------
+|
+| POST
+| /api/v1/products/bulk-upload
+|
+| Authentication:
+| - protect
+| - admin
+|
+| multipart/form-data:
+|
+| excel
+| images[]
+|
+| Excel category column:
+|   Subcategory name
+|   OR subcategory slug
+|   OR subcategory MongoDB ID
+|
+| Main category is NOT accepted.
+|
+| sortOrder:
+|   - blank for new product -> added at bottom
+|   - value for new product -> inserted at that position
+|   - blank for existing product -> current position preserved
+|   - value for existing product -> product moved to that position
+|
+|--------------------------------------------------------------------------
 */
 
 router.post(

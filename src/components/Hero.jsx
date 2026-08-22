@@ -107,9 +107,9 @@ export default function Hero() {
         </h1>
 
         {slide?.subtext && (
-          <p className="mt-4 text-white/80 text-[12px] md:text-[13px] tracking-wide leading-relaxed max-w-xl drop-shadow">
-            {slide.subtext}
-          </p>
+         <p className="mt-4 text-white/100 text-[16px] md:text-[18px] tracking-wide leading-relaxed max-w-xl drop-shadow">
+  {slide.subtext}
+</p>
         )}
 
         {slide?.buttons?.length > 0 && (

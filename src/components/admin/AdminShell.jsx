@@ -54,6 +54,11 @@ const NAV = [
         href: "/admin/new-arrivals-section",
         icon: LayoutIcon,
       },
+       {
+      label: "Trade Fairs",
+      href: "/admin/trade-fairs",
+      icon: ImageIcon,
+    },
     ],
   },
   {

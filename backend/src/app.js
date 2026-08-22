@@ -18,95 +18,298 @@ import bannerRoutes from "./routes/bannerRoutes.js";
 import showcaseBannerRoutes from "./routes/showcaseBannerRoutes.js";
 import testimonialRoutes from "./routes/testimonialRoutes.js";
 import newArrivalsSectionRoutes from "./routes/newArrivalsSectionRoutes.js";
+import tradeFairRoutes from "./routes/tradeFairRoutes.js";
 
 
 const app = express();
 
-/* ---------------- Security ---------------- */
 
-app.use(helmet());
+// ======================================================
+// SECURITY
+// ======================================================
+
+app.use(
+  helmet()
+);
+
 
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs:
+    15 * 60 * 1000,
+
   max: 10000,
+
   message: {
     success: false,
-    message: "Too many requests. Please try again later.",
+    message:
+      "Too many requests. Please try again later.",
   },
 });
 
-if (process.env.NODE_ENV === "production") {
-  app.use(limiter);
+
+if (
+  process.env.NODE_ENV ===
+  "production"
+) {
+  app.use(
+    limiter
+  );
 }
 
-/* ---------------- CORS ---------------- */
+
+// ======================================================
+// CORS
+// ENV BASED
+// ======================================================
+
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  "http://localhost:3000"
+)
+  .split(",")
+  .map(
+    (origin) =>
+      origin.trim()
+  )
+  .filter(Boolean);
+
+
+/*
+ * IMPORTANT:
+ *
+ * Direct array/string based CORS.
+ * Custom callback nahi use kar rahe,
+ * taaki rejected CORS request par
+ * middleware error na throw kare.
+ */
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin:
+      allowedOrigins.length === 1
+        ? allowedOrigins[0]
+        : allowedOrigins,
+
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+
+    optionsSuccessStatus: 204,
   })
 );
 
-app.options("*", cors());
 
-/* ---------------- Body Parser ---------------- */
+// ======================================================
+// PREFLIGHT
+// ======================================================
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.options(
+  "*",
+  cors({
+    origin:
+      allowedOrigins.length === 1
+        ? allowedOrigins[0]
+        : allowedOrigins,
 
-app.use(cookieParser());
+    credentials: true,
 
-/* ---------------- Health ---------------- */
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
 
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Server Running",
-    timestamp: new Date(),
-  });
-});
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
 
-/* ---------------- API Routes ---------------- */
+    optionsSuccessStatus: 204,
+  })
+);
 
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/categories", categoryRoutes);
-app.use("/api/v1/products", productRoutes);
-app.use("/api/v1/upload", uploadRoutes);
-app.use("/api/v1/cart", cartRoutes);
-app.use("/api/v1/wishlist", wishlistRoutes);
-app.use("/api/v1/user/addresses", addressRoutes);
-app.use("/api/v1/orders", orderRoutes);
-app.use("/api/v1/enquiries", enquiryRoutes);
-app.use("/api/v1/banners", bannerRoutes);
-app.use("/api/v1/showcase-banner", showcaseBannerRoutes);
-app.use("/api/v1/testimonials", testimonialRoutes);
-app.use("/api/v1/new-arrivals-section", newArrivalsSectionRoutes);
+
+// ======================================================
+// BODY PARSER
+// ======================================================
+
+app.use(
+  express.json()
+);
+
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+
+
+// ======================================================
+// COOKIE PARSER
+// ======================================================
+
+app.use(
+  cookieParser()
+);
+
+
+// ======================================================
+// HEALTH
+// ======================================================
+
+app.get(
+  "/health",
+  (req, res) => {
+    res.status(200).json({
+      success: true,
+
+      message:
+        "Server Running",
+
+      timestamp:
+        new Date(),
+    });
+  }
+);
+
+
+// ======================================================
+// API ROUTES
+// ======================================================
+
+app.use(
+  "/api/v1/auth",
+  authRoutes
+);
+
+app.use(
+  "/api/v1/categories",
+  categoryRoutes
+);
+
+app.use(
+  "/api/v1/products",
+  productRoutes
+);
+
+app.use(
+  "/api/v1/upload",
+  uploadRoutes
+);
+
+app.use(
+  "/api/v1/cart",
+  cartRoutes
+);
+
+app.use(
+  "/api/v1/wishlist",
+  wishlistRoutes
+);
+
+app.use(
+  "/api/v1/user/addresses",
+  addressRoutes
+);
+
+app.use(
+  "/api/v1/orders",
+  orderRoutes
+);
+
+app.use(
+  "/api/v1/enquiries",
+  enquiryRoutes
+);
+
+app.use(
+  "/api/v1/banners",
+  bannerRoutes
+);
+
+app.use(
+  "/api/v1/showcase-banner",
+  showcaseBannerRoutes
+);
+
+app.use(
+  "/api/v1/testimonials",
+  testimonialRoutes
+);
+
+app.use(
+  "/api/v1/new-arrivals-section",
+  newArrivalsSectionRoutes
+);
+
 app.use(
   "/api/v1/products",
   bulkProductRoutes
 );
 
-/* ---------------- 404 ---------------- */
+app.use(
+  "/api/v1/trade-fairs",
+  tradeFairRoutes
+);
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Route Not Found",
-  });
-});
+// ======================================================
+// 404
+// ======================================================
 
-/* ---------------- Global Error Handler ---------------- */
+app.use(
+  (req, res) => {
+    res.status(404).json({
+      success: false,
 
-app.use((err, req, res, next) => {
-  console.error(err);
+      message:
+        "Route Not Found",
+    });
+  }
+);
 
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
-});
+
+// ======================================================
+// GLOBAL ERROR HANDLER
+// ======================================================
+
+app.use(
+  (
+    err,
+    req,
+    res,
+    next
+  ) => {
+    console.error(
+      "GLOBAL ERROR:",
+      err
+    );
+
+    res.status(
+      err.status || 500
+    ).json({
+      success: false,
+
+      message:
+        err.message ||
+        "Internal Server Error",
+    });
+  }
+);
+
 
 export default app;

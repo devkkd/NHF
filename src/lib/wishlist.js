@@ -1,103 +1,499 @@
 "use client";
-const BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:5001/api/v1";
 
-export const WISHLIST_EVENT = "wishlist-updated";
+// ======================================================
+// WISHLIST API
+// src/lib/wishlist.js
+// ======================================================
 
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("accessToken");
+const BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5001/api/v1"
+).replace(/\/$/, "");
 
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+export const WISHLIST_EVENT =
+  "wishlist-updated";
+
+
+// ======================================================
+// TOKEN
+// ======================================================
+
+function getAccessToken() {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  return (
+    localStorage.getItem(
+      "accessToken"
+    ) ||
+    localStorage.getItem(
+      "userAccessToken"
+    ) ||
+    localStorage.getItem(
+      "token"
+    ) ||
+    null
+  );
+}
+
+
+// ======================================================
+// PRODUCT ID
+// ======================================================
+
+function getProductId(product) {
+  if (
+    typeof product === "string"
+  ) {
+    return product;
+  }
+
+  if (!product) {
+    return null;
+  }
+
+  return (
+    product._id ||
+    product.id ||
+    product.productId ||
+    product.raw?._id ||
+    product.raw?.id ||
+    null
+  );
+}
+
+
+// ======================================================
+// AUTH HEADERS
+// ======================================================
+
+function getAuthHeaders() {
+  const token =
+    getAccessToken();
+
+  const headers = {
+    "Content-Type":
+      "application/json",
   };
-};
 
-// =====================
-// Get Wishlist
-// =====================
+  if (token) {
+    headers.Authorization =
+      `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+
+// ======================================================
+// PARSE RESPONSE
+// ======================================================
+
+async function parseResponse(
+  response
+) {
+  const text =
+    await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {
+      message: text,
+    };
+  }
+}
+
+
+// ======================================================
+// GET WISHLIST
+// ======================================================
+
 export async function getWishlist() {
-  const res = await fetch(`${BASE}/wishlist`, {
-    credentials: "include",
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-    },
-  });
+  const token =
+    getAccessToken();
 
-  if (!res.ok) return [];
-
-  const data = await res.json();
-
-  return (data.wishlist?.items || []).map((item) => ({
-    ...item.product,
-  }));
-}
-
-// =====================
-// Check Saved
-// =====================
-export async function isWishlisted(productId) {
-  const list = await getWishlist();
-
-  return list.some((item) => item._id === productId);
-}
-
-// =====================
-// Add Wishlist
-// =====================
-export async function addToWishlist(product) {
-  const res = await fetch(`${BASE}/wishlist/add`, {
-    method: "POST",
-    credentials: "include",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-      productId: product._id,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to add wishlist");
+  /*
+   * Guest user:
+   * wishlist API protected hai,
+   * isliye request mat bhejo.
+   */
+  if (!token) {
+    return [];
   }
 
-  window.dispatchEvent(new Event(WISHLIST_EVENT));
+  try {
+    const response =
+      await fetch(
+        `${BASE}/wishlist`,
+        {
+          method: "GET",
 
-  return await res.json();
-}
+          credentials:
+            "include",
 
-// =====================
-// Remove Wishlist
-// =====================
-export async function removeFromWishlist(productId) {
-  const res = await fetch(`${BASE}/wishlist/remove`, {
-    method: "DELETE",
-    credentials: "include",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-      productId,
-    }),
-  });
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
 
-  if (!res.ok) {
-    throw new Error("Failed to remove wishlist");
+          cache: "no-store",
+        }
+      );
+
+    const data =
+      await parseResponse(
+        response
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+        localStorage.removeItem(
+          "accessToken"
+        );
+      }
+
+      return [];
+    }
+
+    if (!response.ok) {
+      console.error(
+        "GET WISHLIST API ERROR:",
+        {
+          status:
+            response.status,
+
+          response:
+            data,
+
+          url:
+            `${BASE}/wishlist`,
+        }
+      );
+
+      return [];
+    }
+
+    /*
+     * Backend response:
+     *
+     * {
+     *   wishlist: {
+     *     items: [...]
+     *   }
+     * }
+     */
+    return (
+      data?.wishlist?.items ||
+      data?.data?.wishlist?.items ||
+      data?.items ||
+      []
+    ).map(
+      (item) => ({
+        ...(item?.product ||
+          item),
+      })
+    );
+  } catch (error) {
+    console.error(
+      "GET WISHLIST ERROR:",
+      error
+    );
+
+    return [];
   }
-
-  window.dispatchEvent(new Event(WISHLIST_EVENT));
-
-  return await res.json();
 }
 
-// =====================
-// Toggle Wishlist
-// =====================
-export async function toggleWishlist(product) {
-  const saved = await isWishlisted(product._id);
 
-  if (saved) {
-    await removeFromWishlist(product._id);
+// ======================================================
+// CHECK WISHLIST
+// ======================================================
+
+export async function isWishlisted(
+  productId
+) {
+  if (!productId) {
     return false;
   }
 
-  await addToWishlist(product);
+  const list =
+    await getWishlist();
+
+  return list.some(
+    (item) =>
+      String(
+        item?._id ||
+          item?.id
+      ) ===
+      String(productId)
+  );
+}
+
+
+// ======================================================
+// ADD WISHLIST
+// ======================================================
+
+export async function addToWishlist(
+  product
+) {
+  const productId =
+    getProductId(product);
+
+  if (!productId) {
+    throw new Error(
+      "Product ID is missing."
+    );
+  }
+
+  const token =
+    getAccessToken();
+
+  if (!token) {
+    throw new Error(
+      "Please login to add products to wishlist."
+    );
+  }
+
+  try {
+    const response =
+      await fetch(
+        `${BASE}/wishlist/add`,
+        {
+          method: "POST",
+
+          credentials:
+            "include",
+
+          headers:
+            getAuthHeaders(),
+
+          body:
+            JSON.stringify({
+              productId:
+                String(
+                  productId
+                ),
+            }),
+        }
+      );
+
+    const data =
+      await parseResponse(
+        response
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      localStorage.removeItem(
+        "accessToken"
+      );
+
+      throw new Error(
+        "Your session has expired. Please login again."
+      );
+    }
+
+    if (!response.ok) {
+      console.error(
+        "ADD WISHLIST API ERROR:",
+        {
+          status:
+            response.status,
+
+          response:
+            data,
+
+          url:
+            `${BASE}/wishlist/add`,
+        }
+      );
+
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          "Failed to add wishlist."
+      );
+    }
+
+    if (
+      typeof window !==
+      "undefined"
+    ) {
+      window.dispatchEvent(
+        new Event(
+          WISHLIST_EVENT
+        )
+      );
+    }
+
+    return data;
+  } catch (error) {
+    console.error(
+      "ADD WISHLIST ERROR:",
+      error
+    );
+
+    throw error;
+  }
+}
+
+
+// ======================================================
+// REMOVE WISHLIST
+// ======================================================
+
+export async function removeFromWishlist(
+  productId
+) {
+  if (!productId) {
+    throw new Error(
+      "Product ID is missing."
+    );
+  }
+
+  const token =
+    getAccessToken();
+
+  if (!token) {
+    throw new Error(
+      "Please login to manage wishlist."
+    );
+  }
+
+  try {
+    const response =
+      await fetch(
+        `${BASE}/wishlist/remove`,
+        {
+          method: "DELETE",
+
+          credentials:
+            "include",
+
+          headers:
+            getAuthHeaders(),
+
+          body:
+            JSON.stringify({
+              productId:
+                String(
+                  productId
+                ),
+            }),
+        }
+      );
+
+    const data =
+      await parseResponse(
+        response
+      );
+
+    if (
+      response.status ===
+      401
+    ) {
+      localStorage.removeItem(
+        "accessToken"
+      );
+
+      throw new Error(
+        "Your session has expired. Please login again."
+      );
+    }
+
+    if (!response.ok) {
+      console.error(
+        "REMOVE WISHLIST API ERROR:",
+        {
+          status:
+            response.status,
+
+          response:
+            data,
+
+          url:
+            `${BASE}/wishlist/remove`,
+        }
+      );
+
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          "Failed to remove wishlist item."
+      );
+    }
+
+    if (
+      typeof window !==
+      "undefined"
+    ) {
+      window.dispatchEvent(
+        new Event(
+          WISHLIST_EVENT
+        )
+      );
+    }
+
+    return data;
+  } catch (error) {
+    console.error(
+      "REMOVE WISHLIST ERROR:",
+      error
+    );
+
+    throw error;
+  }
+}
+
+
+// ======================================================
+// TOGGLE WISHLIST
+// ======================================================
+
+export async function toggleWishlist(
+  product
+) {
+  const productId =
+    getProductId(product);
+
+  if (!productId) {
+    throw new Error(
+      "Product ID is missing."
+    );
+  }
+
+  const saved =
+    await isWishlisted(
+      productId
+    );
+
+  if (saved) {
+    await removeFromWishlist(
+      productId
+    );
+
+    return false;
+  }
+
+  await addToWishlist(
+    product
+  );
+
   return true;
 }

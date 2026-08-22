@@ -6,33 +6,50 @@ export default function CheckoutSuccessPage() {
   return (
     <main className="success-page">
       <div className="success-card">
-        <div className="success-icon">
+
+        {/* Success Icon */}
+        <div
+          className="success-icon"
+          aria-label="Payment successful"
+        >
           ✓
         </div>
 
+        {/* Status */}
         <p className="success-tag">
           PAYMENT SUCCESSFUL
         </p>
 
+        {/* Heading */}
         <h1>
           Thank You For Your Order
         </h1>
 
+        {/* Message */}
         <p className="success-text">
           Your payment has been received successfully.
           <br />
-          We've started processing your order and you'll receive
-          an order confirmation shortly.
+          We&apos;ve started processing your order and you&apos;ll
+          receive an order confirmation shortly.
         </p>
 
+        {/* Actions */}
         <div className="success-actions">
-          <Link href="/profile/orders" className="primary-btn">
+
+          <Link
+            href="/profile/orders"
+            className="primary-btn"
+          >
             View My Orders
           </Link>
 
-          <Link href="/" className="secondary-btn">
+          <Link
+            href="/"
+            className="secondary-btn"
+          >
             Continue Shopping
           </Link>
+
         </div>
       </div>
 
@@ -48,106 +65,160 @@ export default function CheckoutSuccessPage() {
         }
 
         .success-card {
-          max-width: 620px;
           width: 100%;
-          background: #fff;
+          max-width: 620px;
+          background: #ffffff;
           border: 1px solid #e5e5e5;
           border-radius: 18px;
           padding: 60px 40px;
           text-align: center;
-          box-shadow: 0 20px 60px rgba(0,0,0,.06);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
         }
 
         .success-icon {
           width: 90px;
           height: 90px;
+          margin: 0 auto;
+
           border-radius: 50%;
-          margin: auto;
+
           display: flex;
           align-items: center;
           justify-content: center;
+
           background: #e9f8ee;
           color: #2e7d32;
+
           font-size: 42px;
-          font-weight: bold;
+          font-weight: 700;
         }
 
         .success-tag {
-          margin-top: 25px;
+          margin: 25px 0 0;
+
           color: #2e7d32;
+
           font-size: 13px;
           font-weight: 700;
-          letter-spacing: .15em;
+
+          letter-spacing: 0.15em;
         }
 
-        h1 {
-          margin-top: 18px;
+        .success-card h1 {
+          margin: 18px 0 0;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            serif;
+
           font-size: 38px;
-          font-weight: 600;
-          color: #111;
+          line-height: 1.2;
+          font-weight: 500;
+
+          color: #111111;
         }
 
         .success-text {
-          margin-top: 18px;
-          color: #666;
+          margin: 18px 0 0;
+
+          color: #666666;
+
           line-height: 1.8;
           font-size: 15px;
         }
 
         .success-actions {
           margin-top: 40px;
+
           display: flex;
           justify-content: center;
+          align-items: center;
+
           gap: 15px;
           flex-wrap: wrap;
         }
 
-        .primary-btn {
-          background: #111;
-          color: white;
+        .primary-btn,
+        .secondary-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+
+          min-height: 48px;
+
           padding: 14px 32px;
+
           border-radius: 999px;
+
           text-decoration: none;
+
+          font-size: 14px;
           font-weight: 600;
-          transition: .3s;
+
+          transition:
+            background 0.3s ease,
+            color 0.3s ease,
+            border-color 0.3s ease,
+            transform 0.2s ease;
+        }
+
+        .primary-btn {
+          background: #111111;
+          color: #ffffff;
+          border: 1px solid #111111;
         }
 
         .primary-btn:hover {
           background: #7b7f5c;
+          border-color: #7b7f5c;
+          transform: translateY(-1px);
         }
 
         .secondary-btn {
-          border: 1px solid #111;
-          color: #111;
-          padding: 14px 32px;
-          border-radius: 999px;
-          text-decoration: none;
-          font-weight: 600;
-          transition: .3s;
+          background: transparent;
+          color: #111111;
+          border: 1px solid #111111;
         }
 
         .secondary-btn:hover {
-          background: #111;
-          color: white;
+          background: #111111;
+          color: #ffffff;
+          transform: translateY(-1px);
         }
 
-        @media(max-width:600px){
-
-          .success-card{
-            padding:40px 25px;
+        @media (max-width: 600px) {
+          .success-page {
+            padding: 24px 16px;
           }
 
-          h1{
-            font-size:30px;
+          .success-card {
+            padding: 42px 24px;
+            border-radius: 16px;
           }
 
-          .success-actions{
-            flex-direction:column;
+          .success-icon {
+            width: 76px;
+            height: 76px;
+            font-size: 34px;
+          }
+
+          .success-card h1 {
+            font-size: 30px;
+          }
+
+          .success-text {
+            font-size: 14px;
+          }
+
+          .success-actions {
+            flex-direction: column;
+            width: 100%;
           }
 
           .primary-btn,
-          .secondary-btn{
-            width:100%;
+          .secondary-btn {
+            width: 100%;
           }
         }
       `}</style>

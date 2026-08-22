@@ -99,14 +99,15 @@ export default function OurStorySection() {
       </div>
 
       {/* ── Sub-paragraph ────────────────────────────────────── */}
-      <div className="max-w-4xl text-[#8E8F7A] text-xs md:text-[13px] leading-[180%] font-light tracking-wide mb-14 px-4">
-        <p className="mb-2">
-          Since 2008, from our studio in Jaipur, we have been manufacturing and exporting artisan home furnishings and lifestyle textiles to homes across the world. Every piece is made by skilled hands who have inherited their craft. Every design carries the mark of our corner of Rajasthan.
-        </p>
-        <p className="font-medium italic text-[#7B7F5C]/90">
-          This is not mass production. This is not trend-chasing. This is craft — slow, intentional, irreplaceable.
-        </p>
-      </div>
+     <div className="max-w-4xl text-[#0e0f0e] text-[15px] sm:text-[16px] md:text-[17px] lg:text-[18px] leading-[180%] font-light tracking-wide mb-14 px-4">
+  <p className="mb-2">
+    Since 2008, from our studio in Jaipur, we have been manufacturing and exporting artisan home furnishings and lifestyle textiles to homes across the world. Every piece is made by skilled hands who have inherited their craft. Every design carries the mark of our corner of Rajasthan.
+  </p>
+
+  <p className="font-medium italic text-[#0e0f0e]/90">
+    This is not mass production. This is not trend-chasing. This is craft — slow, intentional, irreplaceable.
+  </p>
+</div>
 
       {/* ── Stats ────────────────────────────────────────────── */}
       <div className="w-full max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-y-8 md:gap-y-0 items-center justify-center border-b border-[#7B7F5C]/10 pb-12 mb-10">
