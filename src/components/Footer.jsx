@@ -1091,7 +1091,7 @@ export default function Footer() {
               }}
             >
               <Image
-                src="/images/footer/logo2.png"
+                src="/images/footer/Logo2.png"
                 alt="NHF Logo"
                 width={80}
                 height={80}
