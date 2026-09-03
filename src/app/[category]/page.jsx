@@ -1,16 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  useParams,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+
 import Link from "next/link";
 import toast from "react-hot-toast";
 
-import { addToCart, updateQty } from "@/lib/cart";
-import { toggleWishlist, getWishlist } from "@/lib/wishlist";
+import {
+  addToCart,
+  updateQty,
+} from "@/lib/cart";
 
-// ======================================================
-// CONFIG
-// ======================================================
+import {
+  toggleWishlist,
+  getWishlist,
+} from "@/lib/wishlist";
+
+/* ======================================================
+   CONFIG
+====================================================== */
 
 const BASE = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -33,51 +50,204 @@ const SORT_OPTIONS = [
 
 const SKELETON_COUNT = 9;
 
-// ======================================================
-// SAFE DATA HELPERS
-// ======================================================
+/* ======================================================
+   SAFE DATA HELPERS
+====================================================== */
 
 function getId(value) {
   if (!value) return "";
 
-  if (typeof value === "object") {
-    return String(value._id || value.id || "");
+  if (
+    typeof value ===
+    "object"
+  ) {
+    return String(
+      value._id ||
+        value.id ||
+        ""
+    );
   }
 
   return String(value);
 }
 
-function normalizeSlug(value = "") {
+function normalizeSlug(
+  value = ""
+) {
   return String(value)
     .trim()
     .toLowerCase()
-    .replace(/^\/+|\/+$/g, "");
+    .replace(
+      /^\/+|\/+$/g,
+      ""
+    );
 }
 
-// ======================================================
-// FETCH CATEGORY BY SLUG
-// ======================================================
+/* ======================================================
+   PRODUCT IMAGE HELPERS
+====================================================== */
 
-async function fetchCategoryBySlug(slug) {
-  try {
-    const cleanSlug = normalizeSlug(slug);
+function getProductImages(
+  product
+) {
+  const images = [];
 
-    const res = await fetch(
-      `${BASE}/categories/${encodeURIComponent(cleanSlug)}`,
-      {
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
+  if (
+    product?.mainImage
+  ) {
+    images.push(
+      product.mainImage
+    );
+  }
+
+  if (
+    Array.isArray(
+      product?.galleryImages
+    )
+  ) {
+    product.galleryImages.forEach(
+      (image) => {
+        if (
+          image &&
+          !images.includes(
+            image
+          )
+        ) {
+          images.push(
+            image
+          );
+        }
       }
     );
+  }
+
+  return images;
+}
+
+
+/* ======================================================
+   PRODUCT VARIANT HELPERS
+====================================================== */
+
+function getProductColors(product) {
+  return Array.isArray(product?.colors)
+    ? product.colors.filter(Boolean)
+    : [];
+}
+
+function getProductSizes(product) {
+  const sizes =
+    Array.isArray(product?.sizes)
+      ? product.sizes
+      : Array.isArray(product?.sizeVariations)
+        ? product.sizeVariations
+        : Array.isArray(product?.variants)
+          ? product.variants
+          : [];
+
+  return sizes.filter((size) =>
+    String(
+      size?.name ?? size?.size ?? ""
+    ).trim()
+  );
+}
+
+function getSizeName(size) {
+  return String(
+    size?.name ?? size?.size ?? ""
+  ).trim();
+}
+
+function getActualPrice(product) {
+  return Number(
+    product?.actualPrice ??
+      product?.mrp ??
+      product?.originalPrice ??
+      product?.price ??
+      0
+  );
+}
+
+function getSellingPrice(product) {
+  return Number(
+    product?.sellingPrice ??
+      product?.salePrice ??
+      product?.price ??
+      0
+  );
+}
+
+function getVariantActualPrice(variant) {
+  return Number(
+    variant?.actualPrice ??
+      variant?.mrp ??
+      variant?.originalPrice ??
+      variant?.price ??
+      0
+  );
+}
+
+function getVariantSellingPrice(variant) {
+  return Number(
+    variant?.sellingPrice ??
+      variant?.salePrice ??
+      variant?.price ??
+      0
+  );
+}
+
+function getDiscountPercent(actual, selling) {
+  const a = Number(actual || 0);
+  const s = Number(selling || 0);
+
+  if (a <= 0 || s <= 0 || s >= a) {
+    return 0;
+  }
+
+  return Math.round(((a - s) / a) * 100);
+}
+
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+  return `₹${number.toLocaleString("en-IN")}`;
+}
+
+/* ======================================================
+   FETCH CATEGORY BY SLUG
+====================================================== */
+
+async function fetchCategoryBySlug(
+  slug
+) {
+  try {
+    const cleanSlug =
+      normalizeSlug(
+        slug
+      );
+
+    const res =
+      await fetch(
+        `${BASE}/categories/${encodeURIComponent(
+          cleanSlug
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            Accept:
+              "application/json",
+          },
+          cache:
+            "no-store",
+        }
+      );
 
     if (!res.ok) {
       return null;
     }
 
-    const body = await res.json();
+    const body =
+      await res.json();
 
     return (
       body?.data?.category ||
@@ -95,10 +265,9 @@ async function fetchCategoryBySlug(slug) {
   }
 }
 
-// ======================================================
-// FETCH PUBLIC CATEGORY TREE
-// FALLBACK FOR CHILDREN
-// ======================================================
+/* ======================================================
+   FETCH CATEGORY TREE
+====================================================== */
 
 async function fetchCategoryTree({
   wardrobe = false,
@@ -124,22 +293,16 @@ async function fetchCategoryTree({
         `${BASE}/categories?${params.toString()}`,
         {
           method: "GET",
-
           headers: {
             Accept:
               "application/json",
           },
-
-          cache: "no-store",
+          cache:
+            "no-store",
         }
       );
 
     if (!res.ok) {
-      console.error(
-        "CATEGORY TREE ERROR:",
-        res.status
-      );
-
       return [];
     }
 
@@ -147,19 +310,25 @@ async function fetchCategoryTree({
       await res.json();
 
     const data =
-      Array.isArray(body)
+      Array.isArray(
+        body
+      )
         ? body
         : Array.isArray(
-            body?.data
-          )
-        ? body.data
-        : Array.isArray(
-            body?.data?.categories
-          )
-        ? body.data.categories
-        : [];
+              body?.data
+            )
+          ? body.data
+          : Array.isArray(
+                body?.data
+                  ?.categories
+              )
+            ? body.data
+                .categories
+            : [];
 
-    return Array.isArray(data)
+    return Array.isArray(
+      data
+    )
       ? data
       : [];
   } catch (error) {
@@ -172,21 +341,31 @@ async function fetchCategoryTree({
   }
 }
 
-// ======================================================
-// NORMALIZE CATEGORY
-// ======================================================
+/* ======================================================
+   NORMALIZE CATEGORY
+====================================================== */
 
-function normalizeCategory(category) {
-  if (!category) return null;
+function normalizeCategory(
+  category
+) {
+  if (!category) {
+    return null;
+  }
 
-  const children = Array.isArray(category.children)
-    ? category.children
-    : [];
+  const children =
+    Array.isArray(
+      category.children
+    )
+      ? category.children
+      : [];
 
   return {
     ...category,
 
-    _id: category._id || category.id || "",
+    _id:
+      category._id ||
+      category.id ||
+      "",
 
     name:
       category.name ||
@@ -201,49 +380,73 @@ function normalizeCategory(category) {
       category.bannerImage ||
       "",
 
+    heroImage:
+      category.heroImage ||
+      "",
+
+    mobileHeroImage:
+      category.mobileHeroImage ||
+      "",
+
     children: children
       .filter(Boolean)
-      .map((child) => ({
-        ...child,
+      .map(
+        (child) => ({
+          ...child,
 
-        _id:
-          child._id ||
-          child.id ||
-          "",
+          _id:
+            child._id ||
+            child.id ||
+            "",
 
-        name:
-          child.name ||
-          "Subcategory",
+          name:
+            child.name ||
+            "Subcategory",
 
-        slug:
-          child.slug ||
-          "",
+          slug:
+            child.slug ||
+            "",
 
-        image:
-          child.image ||
-          "",
-      })),
+          image:
+            child.image ||
+            "",
+
+          heroImage:
+            child.heroImage ||
+            "",
+
+          mobileHeroImage:
+            child.mobileHeroImage ||
+            "",
+        })
+      ),
   };
 }
 
-// ======================================================
-// FIND CATEGORY TREE NODE
-// ======================================================
+/* ======================================================
+   FIND CATEGORY IN TREE
+====================================================== */
 
 function findCategoryInTree(
   tree,
   slug
 ) {
   const cleanSlug =
-    normalizeSlug(slug);
+    normalizeSlug(
+      slug
+    );
 
   if (!cleanSlug) {
     return null;
   }
 
-  for (const parent of tree) {
+  for (
+    const parent of tree
+  ) {
     if (
-      normalizeSlug(parent?.slug) ===
+      normalizeSlug(
+        parent?.slug
+      ) ===
       cleanSlug
     ) {
       return normalizeCategory(
@@ -254,6 +457,10 @@ function findCategoryInTree(
 
   return null;
 }
+
+/* ======================================================
+   FETCH WARDROBE PRODUCTS PAGE
+====================================================== */
 
 async function fetchWardrobeProductsPage(
   page = 1
@@ -269,7 +476,9 @@ async function fetchWardrobeProductsPage(
 
     params.set(
       "limit",
-      String(PRODUCT_FETCH_LIMIT)
+      String(
+        PRODUCT_FETCH_LIMIT
+      )
     );
 
     params.set(
@@ -282,13 +491,12 @@ async function fetchWardrobeProductsPage(
         `${BASE}/products?${params.toString()}`,
         {
           method: "GET",
-
           headers: {
             Accept:
               "application/json",
           },
-
-          cache: "no-store",
+          cache:
+            "no-store",
         }
       );
 
@@ -337,16 +545,20 @@ async function fetchWardrobeProductsPage(
     };
   }
 }
+
+/* ======================================================
+   FETCH ALL WARDROBE PRODUCTS
+====================================================== */
+
 async function fetchAllWardrobeProducts() {
   const first =
     await fetchWardrobeProductsPage(
       1
     );
 
-  let all =
-    [
-      ...first.products,
-    ];
+  let all = [
+    ...first.products,
+  ];
 
   const totalPages =
     Math.max(
@@ -370,7 +582,8 @@ async function fetchAllWardrobeProducts() {
         );
 
       if (
-        result.products.length
+        result.products
+          .length
       ) {
         all = [
           ...all,
@@ -382,9 +595,10 @@ async function fetchAllWardrobeProducts() {
 
   return all;
 }
-// ======================================================
-// FETCH PRODUCTS BY EXACT CATEGORY ID
-// ======================================================
+
+/* ======================================================
+   FETCH PRODUCTS BY CATEGORY ID
+====================================================== */
 
 async function fetchProductsPage(
   categoryId,
@@ -409,25 +623,31 @@ async function fetchProductsPage(
 
     params.set(
       "limit",
-      String(PRODUCT_FETCH_LIMIT)
+      String(
+        PRODUCT_FETCH_LIMIT
+      )
     );
 
     params.set(
       "category",
-      String(categoryId)
+      String(
+        categoryId
+      )
     );
 
-    const res = await fetch(
-      `${BASE}/products?${params.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          Accept:
-            "application/json",
-        },
-        cache: "no-store",
-      }
-    );
+    const res =
+      await fetch(
+        `${BASE}/products?${params.toString()}`,
+        {
+          method: "GET",
+          headers: {
+            Accept:
+              "application/json",
+          },
+          cache:
+            "no-store",
+        }
+      );
 
     if (!res.ok) {
       return {
@@ -452,10 +672,14 @@ async function fetchProductsPage(
           : [],
 
       total:
-        Number(data.total) || 0,
+        Number(
+          data.total
+        ) || 0,
 
       pages:
-        Number(data.pages) || 1,
+        Number(
+          data.pages
+        ) || 1,
     };
   } catch (error) {
     console.error(
@@ -471,9 +695,9 @@ async function fetchProductsPage(
   }
 }
 
-// ======================================================
-// FETCH ALL PRODUCTS FOR ONE CATEGORY
-// ======================================================
+/* ======================================================
+   FETCH ALL PRODUCTS FOR CATEGORY
+====================================================== */
 
 async function fetchAllProductsByCategory(
   categoryId
@@ -488,16 +712,21 @@ async function fetchAllProductsByCategory(
       1
     );
 
-  let all =
-    [...first.products];
+  let all = [
+    ...first.products,
+  ];
 
   const totalPages =
     Math.max(
-      Number(first.pages) || 1,
+      Number(
+        first.pages
+      ) || 1,
       1
     );
 
-  if (totalPages > 1) {
+  if (
+    totalPages > 1
+  ) {
     for (
       let page = 2;
       page <= totalPages;
@@ -510,7 +739,8 @@ async function fetchAllProductsByCategory(
         );
 
       if (
-        result.products.length
+        result.products
+          .length
       ) {
         all = [
           ...all,
@@ -523,10 +753,9 @@ async function fetchAllProductsByCategory(
   return all;
 }
 
-// ======================================================
-// FETCH ALL PRODUCTS FOR MAIN CATEGORY
-// INCLUDING ALL SUBCATEGORIES
-// ======================================================
+/* ======================================================
+   MAIN CATEGORY PRODUCTS
+====================================================== */
 
 async function fetchProductsForMainCategory(
   categoryId,
@@ -547,14 +776,20 @@ async function fetchProductsForMainCategory(
 
       if (
         id &&
-        !categoryIds.includes(id)
+        !categoryIds.includes(
+          id
+        )
       ) {
-        categoryIds.push(id);
+        categoryIds.push(
+          id
+        );
       }
     }
   );
 
-  if (!categoryIds.length) {
+  if (
+    !categoryIds.length
+  ) {
     return [];
   }
 
@@ -590,7 +825,9 @@ async function fetchProductsForMainCategory(
             !seen.has(key)
           ) {
             if (key) {
-              seen.add(key);
+              seen.add(
+                key
+              );
             }
 
             merged.push(
@@ -605,9 +842,9 @@ async function fetchProductsForMainCategory(
   return merged;
 }
 
-// ======================================================
-// SORT PRODUCTS
-// ======================================================
+/* ======================================================
+   SORT PRODUCTS
+====================================================== */
 
 function sortProducts(
   products,
@@ -622,7 +859,8 @@ function sortProducts(
   ];
 
   if (
-    sort === "Name A–Z"
+    sort ===
+    "Name A–Z"
   ) {
     return list.sort(
       (a, b) =>
@@ -637,7 +875,8 @@ function sortProducts(
   }
 
   if (
-    sort === "Name Z–A"
+    sort ===
+    "Name Z–A"
   ) {
     return list.sort(
       (a, b) =>
@@ -652,7 +891,8 @@ function sortProducts(
   }
 
   if (
-    sort === "Newest"
+    sort ===
+    "Newest"
   ) {
     return list.sort(
       (a, b) => {
@@ -670,7 +910,9 @@ function sortProducts(
               0
           ).getTime();
 
-        return bDate - aDate;
+        return (
+          bDate - aDate
+        );
       }
     );
   }
@@ -678,9 +920,9 @@ function sortProducts(
   return list;
 }
 
-// ======================================================
-// COMPONENT
-// ======================================================
+/* ======================================================
+   COMPONENT
+====================================================== */
 
 export default function CategoryPage() {
   const params =
@@ -704,18 +946,19 @@ export default function CategoryPage() {
       "subcategoryId"
     );
 
-  // ====================================================
-  // STATE
-  // ====================================================
+  /* ====================================================
+     STATE
+  ==================================================== */
 
-  const [category, setCategory] =
-    useState(null);
+  const [
+    category,
+    setCategory,
+  ] = useState(null);
 
-  const [products, setProducts] =
-    useState([]);
-
-  const [allProducts, setAllProducts] =
-    useState([]);
+  const [
+    allProducts,
+    setAllProducts,
+  ] = useState([]);
 
   const [
     subcategories,
@@ -725,21 +968,29 @@ export default function CategoryPage() {
   const [
     selectedSubcategory,
     setSelectedSubcategory,
-  ] = useState(null);
+  ] = useState(
+    null
+  );
 
-  const [loadingCat, setLoadingCat] =
-    useState(true);
+  const [
+    loadingCat,
+    setLoadingCat,
+  ] = useState(true);
 
   const [
     loadingProducts,
     setLoadingProducts,
   ] = useState(true);
 
-  const [notFound, setNotFound] =
-    useState(false);
+  const [
+    notFound,
+    setNotFound,
+  ] = useState(false);
 
-  const [sortOpen, setSortOpen] =
-    useState(false);
+  const [
+    sortOpen,
+    setSortOpen,
+  ] = useState(false);
 
   const [
     selectedSort,
@@ -748,8 +999,10 @@ export default function CategoryPage() {
     "Recommended"
   );
 
-  const [page, setPage] =
-    useState(1);
+  const [
+    page,
+    setPage,
+  ] = useState(1);
 
   const [
     wishlist,
@@ -760,10 +1013,33 @@ export default function CategoryPage() {
     quantities,
     setQuantities,
   ] = useState({});
+  const [
+  selectedColors,
+  setSelectedColors,
+] = useState({});
 
-  // ====================================================
-  // LOAD WISHLIST
-  // ====================================================
+const [
+  selectedSizes,
+  setSelectedSizes,
+] = useState({});
+
+  /*
+   * NEW
+   *
+   * Product image hover/touch state.
+   *
+   * true = gallery image
+   * false = main image
+   */
+
+  const [
+    hoveredProducts,
+    setHoveredProducts,
+  ] = useState({});
+
+  /* ====================================================
+     LOAD WISHLIST
+  ==================================================== */
 
   useEffect(() => {
     let mounted = true;
@@ -786,22 +1062,29 @@ export default function CategoryPage() {
 
           saved.forEach(
             (item) => {
-              const slug =
+              const itemSlug =
                 item?.slug;
 
-              if (slug) {
-                map[slug] =
-                  true;
+              if (
+                itemSlug
+              ) {
+                map[
+                  itemSlug
+                ] = true;
               }
             }
           );
 
-          if (mounted) {
+          if (
+            mounted
+          ) {
             setWishlist(
               map
             );
           }
-        } catch (error) {
+        } catch (
+          error
+        ) {
           console.error(
             "Wishlist load error:",
             error
@@ -812,13 +1095,14 @@ export default function CategoryPage() {
     loadWishlist();
 
     return () => {
-      mounted = false;
+      mounted =
+        false;
     };
   }, []);
 
-  // ====================================================
-  // LOAD CATEGORY
-  // ====================================================
+  /* ====================================================
+     LOAD CATEGORY
+  ==================================================== */
 
   useEffect(() => {
     let mounted = true;
@@ -829,162 +1113,179 @@ export default function CategoryPage() {
           return;
         }
 
-        setLoadingCat(true);
-        setNotFound(false);
-        setCategory(null);
-        setSubcategories([]);
+        setLoadingCat(
+          true
+        );
+
+        setNotFound(
+          false
+        );
+
+        setCategory(
+          null
+        );
+
+        setSubcategories(
+          []
+        );
+
         setSelectedSubcategory(
           null
         );
+
         setPage(1);
 
-        // ----------------------------------------------
-        // WARDROBE
-        // ----------------------------------------------
+        setHoveredProducts(
+          {}
+        );
 
-       if (
-  slug ===
-  "wardrobe"
-) {
-  const wardrobeTree =
-    await fetchCategoryTree({
-      wardrobe: true,
-    });
+        /* ==============================================
+           WARDROBE
+        ============================================== */
 
-  /*
-   * Backend se wardrobe categories
-   * aa rahi hain.
-   */
+        if (
+          slug ===
+          "wardrobe"
+        ) {
+          const wardrobeTree =
+            await fetchCategoryTree(
+              {
+                wardrobe:
+                  true,
+              }
+            );
 
-  const normalizedWardrobe =
-    Array.isArray(
-      wardrobeTree
-    )
-      ? wardrobeTree
-          .filter(Boolean)
-          .map(
-            (item) =>
-              normalizeCategory(
-                item
-              )
-          )
-      : [];
-
-  /*
-   * Wardrobe page ke andar
-   * main categories dikhenge.
-   *
-   * Example:
-   *
-   * Wardrobe
-   *   ├── Kaftans
-   *   ├── Jackets
-   *   └── Bags
-   *
-   * Aur har category ke
-   * children/subcategories.
-   */
-
-  if (mounted) {
-    setCategory({
-      _id: "wardrobe",
-      name: "Wardrobe",
-      slug: "wardrobe",
-      image:
-        "/images/new-arrivals-hero.jpg",
-      children:
-        normalizedWardrobe,
-    });
-
-    setSubcategories(
-      normalizedWardrobe
-    );
-
-    /*
-     * Agar URL mein
-     * subcategoryId hai to
-     * active wardrobe category
-     * identify karo.
-     */
-
-    const active =
-      subcategoryId
-        ? normalizedWardrobe.find(
-            (item) =>
-              getId(item) ===
-              String(
-                subcategoryId
-              ) ||
-              item.children?.some(
-                (child) =>
-                  getId(
-                    child
-                  ) ===
-                  String(
-                    subcategoryId
+          const normalizedWardrobe =
+            Array.isArray(
+              wardrobeTree
+            )
+              ? wardrobeTree
+                  .filter(
+                    Boolean
                   )
-              )
-          )
-        : null;
+                  .map(
+                    (
+                      item
+                    ) =>
+                      normalizeCategory(
+                        item
+                      )
+                  )
+              : [];
 
-    let activeChild = null;
+          if (
+            mounted
+          ) {
+            setCategory({
+              _id: "wardrobe",
+              name: "Wardrobe",
+              slug: "wardrobe",
+              image:
+                "/images/new-arrivals-hero.jpg",
+              children:
+                normalizedWardrobe,
+            });
 
-    if (
-      subcategoryId
-    ) {
-      for (
-        const parent of
-        normalizedWardrobe
-      ) {
-        const child =
-          Array.isArray(
-            parent?.children
-          )
-            ? parent.children.find(
-                (item) =>
-                  getId(
+            setSubcategories(
+              normalizedWardrobe
+            );
+
+            let active =
+              null;
+
+            if (
+              subcategoryId
+            ) {
+              active =
+                normalizedWardrobe.find(
+                  (
                     item
-                  ) ===
-                  String(
-                    subcategoryId
+                  ) =>
+                    getId(
+                      item
+                    ) ===
+                      String(
+                        subcategoryId
+                      ) ||
+                    item.children?.some(
+                      (
+                        child
+                      ) =>
+                        getId(
+                          child
+                        ) ===
+                        String(
+                          subcategoryId
+                        )
+                    )
+                ) ||
+                null;
+            }
+
+            let activeChild =
+              null;
+
+            if (
+              subcategoryId
+            ) {
+              for (
+                const parent of
+                  normalizedWardrobe
+              ) {
+                const child =
+                  Array.isArray(
+                    parent?.children
                   )
-              )
-            : null;
+                    ? parent.children.find(
+                        (
+                          item
+                        ) =>
+                          getId(
+                            item
+                          ) ===
+                          String(
+                            subcategoryId
+                          )
+                      )
+                    : null;
 
-        if (child) {
-          activeChild =
-            child;
-          break;
+                if (
+                  child
+                ) {
+                  activeChild =
+                    child;
+
+                  break;
+                }
+              }
+            }
+
+            setSelectedSubcategory(
+              activeChild ||
+                active ||
+                null
+            );
+
+            setLoadingCat(
+              false
+            );
+          }
+
+          return;
         }
-      }
-    }
 
-    setSelectedSubcategory(
-      activeChild ||
-        active ||
-        null
-    );
-
-    setLoadingCat(
-      false
-    );
-  }
-
-  return;
-}
-
-        // ----------------------------------------------
-        // TRY NORMAL CATEGORY API
-        // ----------------------------------------------
+        /* ==============================================
+           NORMAL CATEGORY API
+        ============================================== */
 
         let foundCategory =
           await fetchCategoryBySlug(
             slug
           );
 
-        // ----------------------------------------------
-        // FALLBACK TO FOOTER TREE
-        // ----------------------------------------------
+        /* ==============================================
+           FALLBACK TREE
+        ============================================== */
 
         if (
           !foundCategory
@@ -999,13 +1300,20 @@ export default function CategoryPage() {
             );
         }
 
+        /* ==============================================
+           NOT FOUND
+        ============================================== */
+
         if (
           !foundCategory
         ) {
-          if (mounted) {
+          if (
+            mounted
+          ) {
             setNotFound(
               true
             );
+
             setLoadingCat(
               false
             );
@@ -1019,9 +1327,9 @@ export default function CategoryPage() {
             foundCategory
           );
 
-        // ----------------------------------------------
-        // CHILDREN FROM CATEGORY
-        // ----------------------------------------------
+        /* ==============================================
+           CHILDREN
+        ============================================== */
 
         let children =
           Array.isArray(
@@ -1030,10 +1338,9 @@ export default function CategoryPage() {
             ? normalized.children
             : [];
 
-        // ----------------------------------------------
-        // IF CATEGORY API DIDN'T GIVE CHILDREN,
-        // FETCH THEM FROM TREE
-        // ----------------------------------------------
+        /* ==============================================
+           FALLBACK CHILDREN FROM TREE
+        ============================================== */
 
         if (
           children.length ===
@@ -1059,9 +1366,9 @@ export default function CategoryPage() {
           }
         }
 
-        // ----------------------------------------------
-        // FIND CURRENT SUBCATEGORY
-        // ----------------------------------------------
+        /* ==============================================
+           CURRENT SUBCATEGORY
+        ============================================== */
 
         let currentSubcategory =
           null;
@@ -1071,7 +1378,9 @@ export default function CategoryPage() {
         ) {
           currentSubcategory =
             children.find(
-              (child) =>
+              (
+                child
+              ) =>
                 getId(
                   child
                 ) ===
@@ -1082,7 +1391,9 @@ export default function CategoryPage() {
             null;
         }
 
-        if (mounted) {
+        if (
+          mounted
+        ) {
           setCategory(
             normalized
           );
@@ -1104,29 +1415,33 @@ export default function CategoryPage() {
     loadCategory();
 
     return () => {
-      mounted = false;
+      mounted =
+        false;
     };
   }, [
     slug,
     subcategoryId,
   ]);
 
-  // ====================================================
-  // LOAD PRODUCTS
-  // ====================================================
+  /* ====================================================
+     LOAD PRODUCTS
+  ==================================================== */
 
   useEffect(() => {
     let mounted = true;
 
     const loadProducts =
       async () => {
-        if (loadingCat) {
+        if (
+          loadingCat
+        ) {
           return;
         }
 
         if (
           notFound &&
-          slug !== "wardrobe"
+          slug !==
+            "wardrobe"
         ) {
           return;
         }
@@ -1135,70 +1450,78 @@ export default function CategoryPage() {
           true
         );
 
-        // ----------------------------------------------
-        // WARDROBE
-        // ----------------------------------------------
+        setHoveredProducts(
+          {}
+        );
 
-       if (
-  slug ===
-  "wardrobe"
-) {
-  /*
-   * ----------------------------------------------
-   * WARDROBE SUBCATEGORY SELECTED
-   * ----------------------------------------------
-   */
+        setQuantities(
+          {}
+        );
 
-  if (
-    subcategoryId
-  ) {
-    const exactProducts =
-      await fetchAllProductsByCategory(
-        subcategoryId
-      );
+        /* ==============================================
+           WARDROBE
+        ============================================== */
 
-    if (mounted) {
-      setAllProducts(
-        exactProducts
-      );
+        if (
+          slug ===
+          "wardrobe"
+        ) {
+          /* -------------------------------------------
+             SELECTED SUBCATEGORY
+          ------------------------------------------- */
 
-      setLoadingProducts(
-        false
-      );
+          if (
+            subcategoryId
+          ) {
+            const exactProducts =
+              await fetchAllProductsByCategory(
+                subcategoryId
+              );
 
-      setPage(1);
-    }
+            if (
+              mounted
+            ) {
+              setAllProducts(
+                exactProducts
+              );
 
-    return;
-  }
+              setLoadingProducts(
+                false
+              );
 
-  /*
-   * ----------------------------------------------
-   * WHOLE WARDROBE
-   * ----------------------------------------------
-   */
+              setPage(1);
+            }
 
-  const wardrobeProducts =
-    await fetchAllWardrobeProducts();
+            return;
+          }
 
-  if (mounted) {
-    setAllProducts(
-      wardrobeProducts
-    );
+          /* -------------------------------------------
+             WHOLE WARDROBE
+          ------------------------------------------- */
 
-    setLoadingProducts(
-      false
-    );
+          const wardrobeProducts =
+            await fetchAllWardrobeProducts();
 
-    setPage(1);
-  }
+          if (
+            mounted
+          ) {
+            setAllProducts(
+              wardrobeProducts
+            );
 
-  return;
-}
+            setLoadingProducts(
+              false
+            );
 
-        // ----------------------------------------------
-        // SUBCATEGORY SELECTED
-        // ----------------------------------------------
+            setPage(1);
+          }
+
+          return;
+        }
+
+        /* ==============================================
+           SELECTED SUBCATEGORY
+        ============================================== */
 
         if (
           subcategoryId
@@ -1208,7 +1531,9 @@ export default function CategoryPage() {
               subcategoryId
             );
 
-          if (mounted) {
+          if (
+            mounted
+          ) {
             setAllProducts(
               exactProducts
             );
@@ -1223,10 +1548,9 @@ export default function CategoryPage() {
           return;
         }
 
-        // ----------------------------------------------
-        // MAIN CATEGORY
-        // Fetch category + every subcategory
-        // ----------------------------------------------
+        /* ==============================================
+           MAIN CATEGORY
+        ============================================== */
 
         const mainCategoryId =
           getId(
@@ -1239,7 +1563,9 @@ export default function CategoryPage() {
             subcategories
           );
 
-        if (mounted) {
+        if (
+          mounted
+        ) {
           setAllProducts(
             combined
           );
@@ -1255,7 +1581,8 @@ export default function CategoryPage() {
     loadProducts();
 
     return () => {
-      mounted = false;
+      mounted =
+        false;
     };
   }, [
     category,
@@ -1266,9 +1593,9 @@ export default function CategoryPage() {
     slug,
   ]);
 
-  // ====================================================
-  // SORT + LOCAL PAGINATION
-  // ====================================================
+  /* ====================================================
+     SORT + PAGINATION
+  ==================================================== */
 
   const sortedProducts =
     sortProducts(
@@ -1310,12 +1637,13 @@ export default function CategoryPage() {
       endIndex
     );
 
-  // ====================================================
-  // PAGE NUMBERS
-  // ====================================================
+  /* ====================================================
+     PAGE NUMBERS
+  ==================================================== */
 
   function getPageNumbers() {
     const maxVisible = 5;
+
     const result = [];
 
     if (
@@ -1334,8 +1662,7 @@ export default function CategoryPage() {
     }
 
     if (
-      safePage <=
-      3
+      safePage <= 3
     ) {
       result.push(
         1,
@@ -1372,37 +1699,44 @@ export default function CategoryPage() {
     return result;
   }
 
-  // ====================================================
-  // CATEGORY NAME
-  // ====================================================
+  /* ====================================================
+     HEADING
+  ==================================================== */
 
   const heading =
     loadingCat
       ? ""
       : selectedSubcategory
-      ? selectedSubcategory.name
-      : category?.name ||
-        String(
-          slug || ""
-        )
-          .replace(
-            /-/g,
-            " "
+        ? selectedSubcategory.name
+        : category?.name ||
+          String(
+            slug || ""
           )
-          .toUpperCase();
+            .replace(
+              /-/g,
+              " "
+            )
+            .toUpperCase();
 
-  // ====================================================
-  // HERO IMAGE
-  // ====================================================
+  /* ====================================================
+     HERO IMAGE
+  ==================================================== */
 
-  const heroImage =
+  const desktopHeroImage =
+    selectedSubcategory?.heroImage ||
+    category?.heroImage ||
     selectedSubcategory?.image ||
     category?.image ||
     "/images/new-arrivals-hero.jpg";
 
-  // ====================================================
-  // HANDLERS
-  // ====================================================
+  const mobileHeroImage =
+    selectedSubcategory?.mobileHeroImage ||
+    category?.mobileHeroImage ||
+    desktopHeroImage;
+
+  /* ====================================================
+     SUBCATEGORY
+  ==================================================== */
 
   function handleSubcategoryClick(
     child
@@ -1424,6 +1758,10 @@ export default function CategoryPage() {
     );
   }
 
+  /* ====================================================
+     PAGINATION
+  ==================================================== */
+
   function goToPage(
     nextPage
   ) {
@@ -1439,38 +1777,60 @@ export default function CategoryPage() {
       nextPage
     );
 
+    setHoveredProducts(
+      {}
+    );
+
     window.scrollTo({
       top: 0,
-      behavior: "smooth",
+      behavior:
+        "smooth",
     });
   }
 
-  // ====================================================
-  // LOGIN / GUEST ACTION HELPERS
-  // ====================================================
+  /* ====================================================
+     LOGIN HELPERS
+  ==================================================== */
 
   function isLoggedIn() {
-    if (typeof window === "undefined") {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
       return false;
     }
 
     return Boolean(
-      localStorage.getItem("accessToken")
+      localStorage.getItem(
+        "accessToken"
+      )
     );
   }
 
-  function goToLogin(redirect) {
+  function goToLogin(
+    redirect
+  ) {
     router.push(
-      `/login?redirect=${encodeURIComponent(redirect)}`
+      `/login?redirect=${encodeURIComponent(
+        redirect
+      )}`
     );
   }
 
-  function savePendingAction(type, product) {
-    if (typeof window === "undefined") {
+  function savePendingAction(
+    type,
+    product
+  ) {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
       return;
     }
 
-    if (type === "cart") {
+    if (
+      type === "cart"
+    ) {
       sessionStorage.setItem(
         "pendingCartProduct",
         JSON.stringify({
@@ -1486,10 +1846,14 @@ export default function CategoryPage() {
       );
     }
 
-    if (type === "wishlist") {
+    if (
+      type === "wishlist"
+    ) {
       sessionStorage.setItem(
         "pendingWishlistProduct",
-        JSON.stringify({ product })
+        JSON.stringify({
+          product,
+        })
       );
 
       sessionStorage.setItem(
@@ -1500,9 +1864,9 @@ export default function CategoryPage() {
     }
   }
 
-  // ====================================================
-  // WISHLIST
-  // ====================================================
+  /* ====================================================
+     WISHLIST
+  ==================================================== */
 
   const handleToggleWishlist =
     async (
@@ -1512,7 +1876,9 @@ export default function CategoryPage() {
       event.preventDefault();
       event.stopPropagation();
 
-      if (!isLoggedIn()) {
+      if (
+        !isLoggedIn()
+      ) {
         savePendingAction(
           "wishlist",
           product
@@ -1521,17 +1887,23 @@ export default function CategoryPage() {
         toast.error(
           "Please login first",
           {
-            duration: 2200,
-            position: "top-right",
+            duration:
+              2200,
+
+            position:
+              "top-right",
           }
         );
 
-        setTimeout(() => {
-          goToLogin(
-            window.location.pathname +
-              window.location.search
-          );
-        }, 450);
+        setTimeout(
+          () => {
+            goToLogin(
+              window.location.pathname +
+                window.location.search
+            );
+          },
+          450
+        );
 
         return;
       }
@@ -1543,9 +1915,9 @@ export default function CategoryPage() {
           );
 
         setWishlist(
-          (prev) => {
+          (previous) => {
             const copy = {
-              ...prev,
+              ...previous,
             };
 
             if (
@@ -1563,7 +1935,9 @@ export default function CategoryPage() {
             return copy;
           }
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "Wishlist toggle error:",
           error
@@ -1571,9 +1945,59 @@ export default function CategoryPage() {
       }
     };
 
-  // ====================================================
-  // CART
-  // ====================================================
+  /* ====================================================
+     COLOUR / SIZE SELECTION
+  ==================================================== */
+
+  function handleColorSelect(
+    event,
+    product,
+    color
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setSelectedColors(
+      (previous) => ({
+        ...previous,
+        [product.slug]: color,
+      })
+    );
+
+    setQuantities(
+      (previous) => ({
+        ...previous,
+        [product.slug]: 0,
+      })
+    );
+  }
+
+  function handleSizeSelect(
+    event,
+    product,
+    size
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    setSelectedSizes(
+      (previous) => ({
+        ...previous,
+        [product.slug]: size,
+      })
+    );
+
+    setQuantities(
+      (previous) => ({
+        ...previous,
+        [product.slug]: 0,
+      })
+    );
+  }
+
+  /* ====================================================
+     CART
+  ==================================================== */
 
   const handleAddToCart =
     async (
@@ -1582,6 +2006,46 @@ export default function CategoryPage() {
     ) => {
       event.preventDefault();
       event.stopPropagation();
+
+      const colors =
+        getProductColors(product);
+
+      const sizes =
+        getProductSizes(product);
+
+      const selectedColor =
+        selectedColors[product.slug] || "";
+
+      const selectedSize =
+        selectedSizes[product.slug] || "";
+
+      if (
+        colors.length > 0 &&
+        !selectedColor
+      ) {
+        toast.error(
+          "Please select colour first",
+          {
+            duration: 1800,
+            position: "top-right",
+          }
+        );
+        return;
+      }
+
+      if (
+        sizes.length > 0 &&
+        !selectedSize
+      ) {
+        toast.error(
+          "Please select size first",
+          {
+            duration: 1800,
+            position: "top-right",
+          }
+        );
+        return;
+      }
 
       if (!isLoggedIn()) {
         savePendingAction(
@@ -1608,25 +2072,81 @@ export default function CategoryPage() {
       }
 
       try {
+        const selectedVariant =
+          sizes.find(
+            (variant) =>
+              getSizeName(variant) ===
+              selectedSize
+          ) || null;
+
+        const actualPrice =
+          selectedVariant
+            ? getVariantActualPrice(
+                selectedVariant
+              )
+            : getActualPrice(product);
+
+        const sellingPrice =
+          selectedVariant
+            ? getVariantSellingPrice(
+                selectedVariant
+              )
+            : getSellingPrice(product);
+
+        const cartProduct = {
+          ...product,
+          selectedColor,
+          selectedSize,
+          selectedVariant,
+          selectedActualPrice:
+            actualPrice,
+          selectedSellingPrice:
+            sellingPrice,
+          selectedShippingCost:
+            Number(
+              product?.shippingCost || 0
+            ),
+        };
+
         await addToCart(
-          product,
+          cartProduct,
           1
         );
 
         setQuantities(
-          (prev) => ({
-            ...prev,
-            [product.slug]:
-              1,
+          (previous) => ({
+            ...previous,
+            [product.slug]: 1,
           })
+        );
+
+        toast.success(
+          "Added to cart",
+          {
+            duration: 1600,
+            position: "top-right",
+          }
         );
       } catch (error) {
         console.error(
           "ADD TO CART ERROR:",
           error
         );
+
+        toast.error(
+          error?.message ||
+            "Unable to add to cart",
+          {
+            duration: 2000,
+            position: "top-right",
+          }
+        );
       }
     };
+
+  /* ====================================================
+     INCREASE QTY
+  ==================================================== */
 
   const increaseQty =
     async (
@@ -1636,21 +2156,29 @@ export default function CategoryPage() {
       event.preventDefault();
       event.stopPropagation();
 
-      if (!isLoggedIn()) {
+      if (
+        !isLoggedIn()
+      ) {
         toast.error(
           "Please login first",
           {
-            duration: 2200,
-            position: "top-right",
+            duration:
+              2200,
+
+            position:
+              "top-right",
           }
         );
 
-        setTimeout(() => {
-          goToLogin(
-            window.location.pathname +
-              window.location.search
-          );
-        }, 450);
+        setTimeout(
+          () => {
+            goToLogin(
+              window.location.pathname +
+                window.location.search
+            );
+          },
+          450
+        );
 
         return;
       }
@@ -1670,19 +2198,26 @@ export default function CategoryPage() {
         );
 
         setQuantities(
-          (prev) => ({
-            ...prev,
+          (previous) => ({
+            ...previous,
+
             [product.slug]:
               nextQty,
           })
         );
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "INCREASE QTY ERROR:",
           error
         );
       }
     };
+
+  /* ====================================================
+     DECREASE QTY
+  ==================================================== */
 
   const decreaseQty =
     async (
@@ -1692,21 +2227,19 @@ export default function CategoryPage() {
       event.preventDefault();
       event.stopPropagation();
 
-      if (!isLoggedIn()) {
+      if (
+        !isLoggedIn()
+      ) {
         toast.error(
           "Please login first",
           {
-            duration: 2200,
-            position: "top-right",
+            duration:
+              2200,
+
+            position:
+              "top-right",
           }
         );
-
-        setTimeout(() => {
-          goToLogin(
-            window.location.pathname +
-              window.location.search
-          );
-        }, 450);
 
         return;
       }
@@ -1729,9 +2262,9 @@ export default function CategoryPage() {
           nextQty <= 0
         ) {
           setQuantities(
-            (prev) => {
+            (previous) => {
               const copy = {
-                ...prev,
+                ...previous,
               };
 
               delete copy[
@@ -1743,14 +2276,17 @@ export default function CategoryPage() {
           );
         } else {
           setQuantities(
-            (prev) => ({
-              ...prev,
+            (previous) => ({
+              ...previous,
+
               [product.slug]:
                 nextQty,
             })
           );
         }
-      } catch (error) {
+      } catch (
+        error
+      ) {
         console.error(
           "DECREASE QTY ERROR:",
           error
@@ -1758,9 +2294,77 @@ export default function CategoryPage() {
       }
     };
 
-  // ====================================================
-  // NOT FOUND
-  // ====================================================
+  /* ====================================================
+     IMAGE HOVER
+  ==================================================== */
+
+  function handleProductMouseEnter(
+    product
+  ) {
+    const images =
+      getProductImages(
+        product
+      );
+
+    if (
+      images.length < 2
+    ) {
+      return;
+    }
+
+    setHoveredProducts(
+      (previous) => ({
+        ...previous,
+
+        [product.slug]:
+          true,
+      })
+    );
+  }
+
+  function handleProductMouseLeave(
+    product
+  ) {
+    setHoveredProducts(
+      (previous) => ({
+        ...previous,
+
+        [product.slug]:
+          false,
+      })
+    );
+  }
+
+  function handleProductTouchStart(
+    event,
+    product
+  ) {
+    event.stopPropagation();
+
+    const images =
+      getProductImages(
+        product
+      );
+
+    if (
+      images.length < 2
+    ) {
+      return;
+    }
+
+    setHoveredProducts(
+      (previous) => ({
+        ...previous,
+
+        [product.slug]:
+          true,
+      })
+    );
+  }
+
+  /* ====================================================
+     NOT FOUND
+  ==================================================== */
 
   if (
     !loadingCat &&
@@ -1773,12 +2377,16 @@ export default function CategoryPage() {
         style={{
           background:
             BG,
+
           minHeight:
             "60vh",
+
           display:
             "flex",
+
           alignItems:
             "center",
+
           justifyContent:
             "center",
         }}
@@ -1793,8 +2401,10 @@ export default function CategoryPage() {
             style={{
               fontFamily:
                 "'Tobias TRIAL', serif",
+
               color:
                 ACCENT,
+
               marginBottom:
                 12,
             }}
@@ -1807,10 +2417,13 @@ export default function CategoryPage() {
             style={{
               color:
                 ACCENT,
+
               fontSize:
                 14,
+
               textDecoration:
                 "none",
+
               borderBottom:
                 `1px solid ${ACCENT}`,
             }}
@@ -1837,29 +2450,47 @@ export default function CategoryPage() {
       total
     );
 
-  // ====================================================
-  // RENDER
-  // ====================================================
+  /* ====================================================
+     RENDER
+  ==================================================== */
 
   return (
     <main className="cat-page">
-      <style>{`
+
+      <style jsx>{`
         .cat-page {
-          background: ${BG};
+          width: 100%;
           min-height: 100vh;
+          background: ${BG};
+          overflow-x: hidden;
         }
+
+        /* ==============================================
+           HERO
+        ============================================== */
 
         .cat-hero-banner {
           width: 100%;
           overflow: hidden;
         }
 
-        .cat-hero-img {
+        .cat-hero-banner picture {
           width: 100%;
-          height: 440px;
-          object-fit: cover;
           display: block;
         }
+
+        .cat-hero-img {
+          width: 100%;
+          height: auto;
+          aspect-ratio: 1920 / 540;
+          object-fit: cover;
+          object-position: center;
+          display: block;
+        }
+
+        /* ==============================================
+           TOP LABEL
+        ============================================== */
 
         .cat-top-label {
           text-align: center;
@@ -1868,287 +2499,2064 @@ export default function CategoryPage() {
 
         .cat-top-label p {
           margin: 0;
-          font-family: "Tobias TRIAL", "Playfair Display", Georgia, serif;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            Georgia,
+            serif;
+
           font-size: 30px;
           font-weight: 500;
           line-height: 160%;
+
           color: ${ACCENT};
-          letter-spacing: -0.02em;
+
+          letter-spacing:
+            -0.02em;
         }
+
+        /* ==============================================
+           HEADER
+        ============================================== */
 
         .cat-section-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+
           gap: 16px;
-          padding: 0 60px 20px;
+
+          padding:
+            0 60px 20px;
         }
 
         .cat-section-title {
           margin: 0;
-          font-family: "Tobias TRIAL", "Playfair Display", Georgia, serif;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            Georgia,
+            serif;
+
           font-size: 40px;
           font-weight: 500;
-          letter-spacing: -0.02em;
+
+          letter-spacing:
+            -0.02em;
+
           line-height: 1.2;
+
           color: ${ACCENT};
         }
 
         .cat-bulk-order-link {
-          font-family: "Mona Sans", "Inter", sans-serif;
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
           font-size: 16px;
+
           color: ${ACCENT};
-          text-decoration: none;
-          border-bottom: 1px solid ${ACCENT};
+
+          text-decoration:
+            none;
+
+          border-bottom:
+            1px solid
+              ${ACCENT};
+
           padding-bottom: 2px;
-          white-space: nowrap;
+
+          white-space:
+            nowrap;
         }
 
         .cat-bulk-order-link:hover {
           opacity: 0.75;
         }
 
-        /* ==================================================
-           SUBCATEGORY SECTION
-        ================================================== */
+        /* ==============================================
+           SUBCATEGORY
+        ============================================== */
 
         .cat-subcategory-section {
-          padding: 0 60px 36px;
+          padding:
+            0 60px 36px;
         }
 
         .cat-subcategory-title-row {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
+          justify-content:
+            space-between;
+          align-items:
+            center;
+
           gap: 20px;
+
           margin-bottom: 18px;
         }
 
         .cat-subcategory-title {
           margin: 0;
-          font-family: "Tobias TRIAL", "Playfair Display", Georgia, serif;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            Georgia,
+            serif;
+
           font-size: 25px;
           font-weight: 500;
+
           color: ${ACCENT};
         }
 
         .cat-all-category-btn {
-          font-family: "Mona Sans", "Inter", sans-serif;
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
           font-size: 12px;
           font-weight: 600;
-          background: transparent;
-          border: 1px solid ${BORDER};
+
+          background:
+            transparent;
+
+          border:
+            1px solid
+              ${BORDER};
+
           color: #0e0e0e;
-          padding: 8px 15px;
-          cursor: pointer;
+
+          padding:
+            8px 15px;
+
+          cursor:
+            pointer;
         }
 
         .cat-all-category-btn:hover {
-          background: #f0f2de;
+          background:
+            #f0f2de;
         }
 
         .cat-subcategory-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+
+          grid-template-columns:
+            repeat(
+              4,
+              1fr
+            );
+
           gap: 14px;
         }
 
         .cat-subcategory-card {
-          border: 1px solid ${BORDER};
-          background: #fff;
-          text-decoration: none;
-          color: #111;
-          cursor: pointer;
-          overflow: hidden;
+          border:
+            1px solid
+              ${BORDER};
+
+          background:
+            ${BG};
+
+          text-decoration:
+            none;
+
+          color:
+            #111;
+
+          cursor:
+            pointer;
+
+          overflow:
+            hidden;
+
           transition:
-            border-color 0.2s ease,
-            transform 0.2s ease,
-            box-shadow 0.2s ease;
+            border-color
+              0.2s ease,
+            transform
+              0.2s ease,
+            box-shadow
+              0.2s ease;
         }
 
         .cat-subcategory-card:hover {
-          border-color: ${ACCENT};
-          transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+          border-color:
+            ${ACCENT};
+
+          transform:
+            translateY(
+              -2px
+            );
+
+          box-shadow:
+            0 8px 20px
+              rgba(
+                0,
+                0,
+                0,
+                0.06
+              );
         }
 
         .cat-subcategory-card-active {
-          border-color: ${ACCENT};
-          box-shadow: 0 0 0 1px ${ACCENT};
+          border-color:
+            ${ACCENT};
+
+          box-shadow:
+            0 0 0 1px
+              ${ACCENT};
         }
 
         .cat-subcategory-image-wrap {
           width: 100%;
-          aspect-ratio: 4 / 3;
-          overflow: hidden;
-          background: #e8e9da;
+
+          aspect-ratio:
+            4 / 3;
+
+          overflow:
+            hidden;
+
+          background:
+            #e8e9da;
         }
 
         .cat-subcategory-image {
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          display: block;
+
+          object-fit:
+            cover;
+
+          display:
+            block;
         }
 
         .cat-subcategory-placeholder {
           width: 100%;
           height: 100%;
-          background: #e8e9da;
+
+          background:
+            #e8e9da;
         }
 
         .cat-subcategory-info {
-          padding: 13px 14px 15px;
+          padding:
+            13px 14px 15px;
         }
 
         .cat-subcategory-name {
           margin: 0;
-          font-family: "Mona Sans", "Inter", sans-serif;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
           font-size: 12px;
           font-weight: 700;
+
           color: #111;
-          text-transform: uppercase;
-          line-height: 1.45;
+
+          text-transform:
+            uppercase;
+
+          line-height:
+            1.45;
         }
 
         .cat-subcategory-link {
           margin-top: 7px;
-          display: block;
-          font-family: "Mona Sans", "Inter", sans-serif;
+
+          display:
+            block;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
           font-size: 10px;
+
           color: ${ACCENT};
-          letter-spacing: 0.04em;
+
+          letter-spacing:
+            0.04em;
         }
 
-        /* ==================================================
+        /* ==============================================
            CONTROLS
-        ================================================== */
+        ============================================== */
 
         .cat-controls-bar {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 60px;
-          position: relative;
+
+          justify-content:
+            space-between;
+
+          align-items:
+            center;
+
+          padding:
+            14px 60px;
+
+          position:
+            relative;
         }
 
         .cat-sort-wrapper {
-          position: relative;
+          position:
+            relative;
         }
 
         .cat-sort-btn,
         .cat-filters-btn {
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          color: #0e0e0e;
-          background: ${BG};
-          border: 1px solid ${BORDER};
-          padding: 7px 16px;
-          cursor: pointer;
-          letter-spacing: 0.04em;
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            13px;
+
+          font-weight:
+            600;
+
+          color:
+            #0e0e0e;
+
+          background:
+            ${BG};
+
+          border:
+            1px solid
+              ${BORDER};
+
+          padding:
+            7px 16px;
+
+          cursor:
+            pointer;
+
+          letter-spacing:
+            0.04em;
         }
 
         .cat-sort-btn:hover,
         .cat-filters-btn:hover {
-          background: #f0f2de;
+          background:
+            #f0f2de;
         }
 
         .cat-sort-dropdown {
-          position: absolute;
-          top: 110%;
-          left: 0;
-          background: #fff;
-          border: 1px solid ${BORDER};
-          min-width: 180px;
-          z-index: 99;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          position:
+            absolute;
+
+          top:
+            110%;
+
+          left:
+            0;
+
+          background:
+            ${BG};
+
+          border:
+            1px solid
+              ${BORDER};
+
+          min-width:
+            180px;
+
+          z-index:
+            99;
+
+          box-shadow:
+            0 4px 12px
+              rgba(
+                0,
+                0,
+                0,
+                0.08
+              );
         }
 
         .cat-sort-option {
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 13px;
-          padding: 10px 16px;
-          cursor: pointer;
-          color: #0e0e0e;
+          width:
+            100%;
+
+          display:
+            block;
+
+          text-align:
+            left;
+
+          border:
+            none;
+
+          background:
+            transparent;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            13px;
+
+          padding:
+            10px 16px;
+
+          cursor:
+            pointer;
+
+          color:
+            #0e0e0e;
         }
 
         .cat-sort-option:hover,
         .cat-sort-option.active {
-          background: #f0f2de;
-          color: ${ACCENT};
+          background:
+            #f0f2de;
+
+          color:
+            ${ACCENT};
         }
 
         .cat-product-count {
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 14px;
-          color: #555;
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            14px;
+
+          color:
+            #555;
         }
 
-        /* ==================================================
-           PRODUCT GRID — MATCHED TO NEW ARRIVALS CARD DESIGN
-        ================================================== */
+        /* ==============================================
+           PRODUCT GRID (base — overridden below,
+           align-items now STRETCH so every card in a
+           row matches the tallest card's height)
+        ============================================== */
 
         .cat-product-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          align-items: start;
-          gap: 28px 20px;
-          padding: 0 60px 40px;
-          max-width: 1800px;
-          margin: 0 auto;
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              3,
+              minmax(
+                0,
+                1fr
+              )
+            );
+
+          align-items:
+            stretch;
+
+          gap:
+            28px 20px;
+
+          padding:
+            0 60px 40px;
+
+          max-width:
+            1800px;
+
+          margin:
+            0 auto;
         }
 
         .cat-product-card-link {
-          text-decoration: none;
+          text-decoration:
+            none;
+
+          display:
+            block;
+
+          width:
+            100%;
+
+          height:
+            100%;
+        }
+
+        .cat-product-card {
+          width:
+            100%;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          height:
+            100%;
+
+          padding:
+            14px;
+
+          box-sizing:
+            border-box;
+
+          background:
+            ${BG};
+
+          border:
+            1px solid
+              #e2e3d7;
+
+          border-radius:
+            22px;
+
+          box-shadow:
+            0 12px 34px
+              rgba(
+                61,
+                67,
+                41,
+                0.08
+              ),
+            0 2px 8px
+              rgba(
+                61,
+                67,
+                41,
+                0.04
+              );
+
+          transition:
+            transform
+              0.25s ease,
+            box-shadow
+              0.25s ease;
+        }
+
+        .cat-product-card:hover {
+          transform:
+            translateY(
+              -3px
+            );
+
+          box-shadow:
+            0 18px 42px
+              rgba(
+                61,
+                67,
+                41,
+                0.12
+              ),
+            0 4px 12px
+              rgba(
+                61,
+                67,
+                41,
+                0.05
+              );
+        }
+
+        /* ==============================================
+           PRODUCT IMAGE
+           
+           TWO IMAGES STACKED
+        ============================================== */
+
+        .cat-product-img-wrapper {
+          position:
+            relative;
+
+          width:
+            100%;
+
+          aspect-ratio:
+            4 / 3;
+
+          border-radius:
+            15px;
+
+          overflow:
+            hidden;
+
+          background:
+            #e8e9da;
+
+          cursor:
+            pointer;
+        }
+
+        .cat-product-img {
+          position:
+            absolute;
+
+          inset:
+            0;
+
+          width:
+            100%;
+
+          height:
+            100%;
+
+          object-fit:
+            cover;
+
+          display:
+            block;
+
+          transition:
+            opacity
+              0.35s ease,
+            transform
+              0.4s ease;
+        }
+
+        /*
+         * Main image
+         */
+
+        .cat-product-img-main {
+          z-index:
+            1;
+
+          opacity:
+            1;
+        }
+
+        /*
+         * Second image
+         */
+
+        .cat-product-img-hover {
+          z-index:
+            2;
+
+          opacity:
+            0;
+        }
+
+        /*
+         * When mouse/finger is over product image
+         */
+
+        .cat-product-img-main.is-hidden {
+          opacity:
+            0;
+        }
+
+        .cat-product-img-hover.is-visible {
+          opacity:
+            1;
+        }
+
+        /*
+         * Slight image zoom
+         */
+
+        .cat-product-img-wrapper:hover
+          .cat-product-img-hover.is-visible {
+          transform:
+            scale(
+              1.025
+            );
+        }
+
+        /*
+         * Small hover text
+         */
+
+        .cat-image-hover-label {
+          position:
+            absolute;
+
+          left:
+            50%;
+
+          bottom:
+            10px;
+
+          transform:
+            translateX(
+              -50%
+            );
+
+          z-index:
+            7;
+
+          pointer-events:
+            none;
+
+          padding:
+            5px 9px;
+
+          border-radius:
+            5px;
+
+          background:
+            rgba(
+              15,
+              15,
+              15,
+              0.72
+            );
+
+          color:
+            #fff;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            600;
+
+          white-space:
+            nowrap;
+
+          opacity:
+            0;
+
+          transition:
+            opacity
+              0.2s ease;
+        }
+
+        .cat-product-img-wrapper:hover
+          .cat-image-hover-label {
+          opacity:
+            1;
+        }
+
+        /* ==============================================
+           WISHLIST
+        ============================================== */
+
+        .cat-wishlist-btn {
+          position:
+            absolute;
+
+          top:
+            14px;
+
+          right:
+            14px;
+
+          background:
+            ${BG};
+
+          border:
+            1px solid
+              rgba(
+                123,
+                127,
+                92,
+                0.16
+              );
+
+          border-radius:
+            50%;
+
+          width:
+            54px;
+
+          height:
+            54px;
+
+          font-size:
+            28px;
+
+          line-height:
+            1;
+
+          cursor:
+            pointer;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          color:
+            #888;
+
+          box-shadow:
+            0 5px 16px
+              rgba(
+                0,
+                0,
+                0,
+                0.08
+              );
+
+          z-index:
+            10;
+
+          transition:
+            transform
+              0.2s ease,
+            color
+              0.2s ease;
+        }
+
+        .cat-wishlist-btn:hover {
+          transform:
+            scale(
+              1.04
+            );
+
+          color:
+            ${ACCENT};
+        }
+
+        .cat-wishlist-btn-active {
+          color:
+            #9b3043;
+        }
+
+        .cat-wishlist-btn:active {
+          transform:
+            scale(
+              0.95
+            );
+        }
+
+        /* ==============================================
+           PRODUCT INFO
+        ============================================== */
+
+        .cat-product-info {
+          width:
+            100%;
+
+          padding:
+            18px 8px 4px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          flex:
+            1;
+        }
+
+        .cat-product-name-row {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          gap:
+            18px;
+
+          min-height:
+            40px;
+
+          margin-bottom:
+            14px;
+        }
+
+        .cat-product-name {
+          flex:
+            0 1 auto;
+
+          min-width:
+            0;
+
+          margin:
+            0;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            Georgia,
+            serif;
+
+          font-size:
+            25px;
+
+          line-height:
+            1.15;
+
+          font-weight:
+            500;
+
+          letter-spacing:
+            -0.02em;
+
+          color:
+            #151515;
+
+          overflow:
+            hidden;
+
+          text-overflow:
+            ellipsis;
+
+          display:
+            -webkit-box;
+
+          -webkit-line-clamp:
+            2;
+
+          -webkit-box-orient:
+            vertical;
+
+          text-transform:
+            uppercase;
+        }
+
+        .cat-product-name-rule {
+          width:
+            86px;
+
+          height:
+            1px;
+
+          background:
+            #b9a764;
+
+          flex:
+            0 0 auto;
+
+          margin-left:
+            auto;
+
+          margin-top:
+            8px;
+        }
+
+        .cat-product-price {
+          margin:
+            0 0 20px;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            23px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          color:
+            #171717;
+        }
+
+        .cat-product-actions {
+          display:
+            grid;
+
+          grid-template-columns:
+            minmax(
+              0,
+              1fr
+            )
+            minmax(
+              0,
+              1fr
+            );
+
+          gap:
+            12px;
+
+          align-items:
+            stretch;
+
+          margin-top:
+            auto;
+        }
+
+        .cat-btn-enquiry,
+        .cat-btn-bulk {
+          width:
+            100%;
+
+          min-height:
+            60px;
+
+          box-sizing:
+            border-box;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          text-align:
+            center;
+
+          padding:
+            14px 16px;
+
+          font-family:
+            "Mona Sans",
+            "Inter",
+            sans-serif;
+
+          font-size:
+            12px;
+
+          line-height:
+            1.35;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.055em;
+
+          text-transform:
+            uppercase;
+
+          cursor:
+            pointer;
+
+          transition:
+            background-color
+              0.2s ease,
+            border-color
+              0.2s ease,
+            color
+              0.2s ease,
+            transform
+              0.15s ease;
+        }
+
+        .cat-btn-enquiry {
+          background:
+            ${ACCENT};
+
+          color:
+            #fff;
+
+          border:
+            1px solid
+              ${ACCENT};
+        }
+
+        .cat-btn-enquiry:hover {
+          background:
+            #676a4c;
+
+          border-color:
+            #676a4c;
+        }
+
+        .cat-btn-bulk {
+          background:
+            transparent;
+
+          color:
+            #1b1b1b;
+
+          border:
+            1px solid
+              ${BORDER};
+        }
+
+        .cat-btn-bulk:hover {
+          background:
+            #f4f5eb;
+
+          border-color:
+            ${ACCENT};
+        }
+
+        .cat-qty-control {
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap:
+            10px;
+
+          min-height:
+            60px;
+
+          width:
+            100%;
+
+          min-width:
+            0;
+
+          box-sizing:
+            border-box;
+
+          border:
+            1px solid
+              ${BORDER};
+
+          padding:
+            0 14px;
+
+          background:
+            transparent;
+        }
+
+        .cat-qty-control button {
+          border:
+            none;
+
+          background:
+            transparent;
+
+          cursor:
+            pointer;
+
+          font-size:
+            22px;
+
+          width:
+            30px;
+
+          height:
+            30px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          padding:
+            0;
+
+          color:
+            #111;
+        }
+
+        .cat-qty-control span {
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          font-weight:
+            600;
+
+          font-size:
+            14px;
+
+          text-align:
+            center;
+
+          min-width:
+            18px;
+        }
+
+        /* ==============================================
+           PAGINATION
+        ============================================== */
+
+        .cat-pagination-area {
+          text-align:
+            center;
+
+          padding:
+            20px 60px
+            60px;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          gap:
+            18px;
+        }
+
+        .cat-showing-text {
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          font-size:
+            13px;
+
+          color:
+            #777;
+
+          margin:
+            0;
+        }
+
+        .cat-pagination-nav {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          flex-wrap:
+            wrap;
+
+          gap:
+            8px;
+        }
+
+        .cat-page-btn {
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          font-size:
+            13px;
+
+          font-weight:
+            600;
+
+          background:
+            ${BG};
+
+          border:
+            1px solid
+              ${BORDER};
+
+          color:
+            #0e0e0e;
+
+          width:
+            38px;
+
+          height:
+            38px;
+
+          border-radius:
+            50%;
+
+          cursor:
+            pointer;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          transition:
+            background-color
+              0.2s ease,
+            border-color
+              0.2s ease,
+            color
+              0.2s ease;
+        }
+
+        .cat-page-btn:hover:not(
+            :disabled
+          ) {
+          background:
+            #f4f5eb;
+
+          border-color:
+            ${ACCENT};
+        }
+
+        .cat-page-btn:disabled {
+          opacity:
+            0.35;
+
+          cursor:
+            not-allowed;
+        }
+
+        .cat-page-active {
+          background:
+            ${ACCENT};
+
+          border-color:
+            ${ACCENT};
+
+          color:
+            #fff;
+        }
+
+        .cat-page-nav {
+          width:
+            auto;
+
+          border-radius:
+            20px;
+
+          padding:
+            0 18px;
+        }
+
+        .cat-page-dots {
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          font-size:
+            13px;
+
+          color:
+            #999;
+
+          padding:
+            0 2px;
+        }
+
+        .cat-back-to-top {
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          font-size:
+            12px;
+
+          color:
+            ${ACCENT};
+
+          background:
+            none;
+
+          border:
+            none;
+
+          cursor:
+            pointer;
+
+          letter-spacing:
+            0.06em;
+        }
+
+        /* ==============================================
+           EMPTY
+        ============================================== */
+
+        .cat-empty {
+          grid-column:
+            1 / -1;
+
+          text-align:
+            center;
+
+          padding:
+            80px 20px;
+
+          font-family:
+            "Mona Sans",
+            sans-serif;
+
+          color:
+            #888;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          gap:
+            16px;
+        }
+
+        /* ==============================================
+           SKELETON
+        ============================================== */
+
+        .cat-skel {
+          display:
+            block;
+
+          position:
+            relative;
+
+          overflow:
+            hidden;
+
+          background:
+            rgba(
+              0,
+              0,
+              0,
+              0.08
+            );
+
+          border-radius:
+            4px;
+        }
+
+        .cat-skel::after {
+          content:
+            "";
+
+          position:
+            absolute;
+
+          inset:
+            0;
+
+          transform:
+            translateX(
+              -100%
+            );
+
+          background:
+            linear-gradient(
+              90deg,
+              rgba(
+                255,
+                255,
+                255,
+                0
+              ),
+              rgba(
+                255,
+                255,
+                255,
+                0.55
+              ),
+              rgba(
+                255,
+                255,
+                255,
+                0
+              )
+            );
+
+          animation:
+            catShimmer
+            1.4s
+            infinite;
+        }
+
+        @keyframes catShimmer {
+          100% {
+            transform:
+              translateX(
+                100%
+              );
+          }
+        }
+
+        .cat-hero-skel {
+          width:
+            100%;
+
+          height:
+            auto;
+
+          aspect-ratio:
+            1920 / 540;
+
+          border-radius:
+            0;
+        }
+
+        .cat-skel-label {
+          width:
+            220px;
+
+          height:
+            30px;
+
+          margin:
+            0 auto;
+        }
+
+        .cat-skel-title {
+          width:
+            260px;
+
+          height:
+            40px;
+        }
+
+        .cat-skel-link {
+          width:
+            140px;
+
+          height:
+            20px;
+        }
+
+        .cat-skel-sortbtn {
+          width:
+            110px;
+
+          height:
+            34px;
+        }
+
+        .cat-skel-count {
+          width:
+            90px;
+
+          height:
+            18px;
+        }
+
+        .cat-card-skel-img {
+          width:
+            100%;
+
+          aspect-ratio:
+            4 / 3;
+
+          border-radius:
+            15px;
+        }
+
+        .cat-card-skel-name {
+          width:
+            80%;
+
+          height:
+            22px;
+
+          margin:
+            14px 0;
+        }
+
+        .cat-card-skel-actions {
+          display:
+            flex;
+
+          gap:
+            10px;
+        }
+
+        .cat-card-skel-btn1 {
+          flex:
+            1;
+
+          height:
+            52px;
+        }
+
+        .cat-card-skel-btn2 {
+          flex:
+            1;
+
+          height:
+            52px;
+        }
+
+        /* ==============================================
+           RESPONSIVE
+        ============================================== */
+
+        @media (max-width: 1100px) {
+          .cat-subcategory-grid {
+            grid-template-columns:
+              repeat(
+                3,
+                1fr
+              );
+          }
+
+          .cat-product-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            gap:
+              24px 18px;
+          }
+        }
+
+        @media (max-width: 900px) {
+          .cat-section-header,
+          .cat-controls-bar,
+          .cat-pagination-area,
+          .cat-subcategory-section {
+            padding-left:
+              24px;
+
+            padding-right:
+              24px;
+          }
+
+          .cat-section-title {
+            font-size:
+              30px;
+          }
+
+          .cat-subcategory-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+          }
+
+          .cat-product-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            padding:
+              0 24px 32px;
+
+            gap:
+              20px 14px;
+          }
+        }
+
+        @media (max-width: 560px) {
+          .cat-top-label {
+            padding:
+              20px 16px
+              12px;
+          }
+
+          .cat-top-label p {
+            font-size:
+              22px;
+          }
+
+          .cat-section-header {
+            padding:
+              18px 16px
+              16px;
+
+            flex-direction:
+              column;
+
+            align-items:
+              flex-start;
+
+            gap:
+              10px;
+          }
+
+          .cat-section-title {
+            font-size:
+              24px;
+          }
+
+          .cat-subcategory-section {
+            padding:
+              8px 16px
+              24px;
+          }
+
+          .cat-subcategory-title-row {
+            align-items:
+              flex-start;
+
+            flex-direction:
+              column;
+
+            gap:
+              10px;
+          }
+
+          .cat-subcategory-title {
+            font-size:
+              21px;
+          }
+
+          .cat-subcategory-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                1fr
+              );
+
+            gap:
+              10px;
+          }
+
+          .cat-subcategory-info {
+            padding:
+              10px;
+          }
+
+          .cat-subcategory-name {
+            font-size:
+              10px;
+          }
+
+          .cat-controls-bar {
+            padding:
+              0 16px 18px;
+
+            flex-wrap:
+              wrap;
+
+            gap:
+              10px;
+          }
+
+          .cat-sort-btn,
+          .cat-filters-btn {
+            font-size:
+              10px;
+
+            padding:
+              7px 10px;
+          }
+
+          .cat-product-grid {
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            padding:
+              0 12px 28px;
+
+            gap:
+              14px 10px;
+          }
+
+          .cat-product-card {
+            padding:
+              8px;
+
+            border-radius:
+              16px;
+          }
+
+          .cat-product-img-wrapper {
+            aspect-ratio:
+              4 / 3.35;
+
+            border-radius:
+              12px;
+          }
+
+          .cat-image-hover-label {
+            display:
+              none;
+          }
+
+          .cat-wishlist-btn {
+            top:
+              8px;
+
+            right:
+              8px;
+
+            width:
+              38px;
+
+            height:
+              38px;
+
+            font-size:
+              21px;
+          }
+
+          .cat-product-info {
+            padding:
+              12px 5px 4px;
+          }
+
+          .cat-product-name-row {
+            gap:
+              7px;
+
+            margin-bottom:
+              9px;
+          }
+
+          .cat-product-name {
+            font-size:
+              14px;
+
+            line-height:
+              1.2;
+          }
+
+          .cat-product-name-rule {
+            width:
+              24px;
+          }
+
+          .cat-product-price {
+            font-size:
+              16px;
+
+            margin-bottom:
+              10px;
+          }
+
+          .cat-product-actions {
+            grid-template-columns:
+              1fr;
+
+            gap:
+              7px;
+          }
+
+          .cat-btn-enquiry,
+          .cat-btn-bulk,
+          .cat-qty-control {
+            min-height:
+              42px;
+          }
+
+          .cat-btn-enquiry,
+          .cat-btn-bulk {
+            font-size:
+              8px;
+
+            padding:
+              9px 7px;
+
+            letter-spacing:
+              0.04em;
+          }
+
+          .cat-qty-control {
+            padding:
+              0 10px;
+          }
+
+          .cat-qty-control button {
+            font-size:
+              18px;
+          }
+
+          .cat-pagination-area {
+            padding:
+              12px 16px
+              40px;
+
+            gap:
+              14px;
+          }
+
+          .cat-pagination-nav {
+            gap:
+              6px;
+          }
+
+          .cat-page-btn {
+            width:
+              34px;
+
+            height:
+              34px;
+
+            font-size:
+              12px;
+          }
+
+          .cat-page-nav {
+            padding:
+              0 12px;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .cat-product-grid {
+            padding-left:
+              10px;
+
+            padding-right:
+              10px;
+          }
+
+          .cat-product-card {
+            padding:
+              7px;
+
+            border-radius:
+              14px;
+          }
+
+          .cat-product-name {
+            font-size:
+              12px;
+          }
+
+          .cat-product-price {
+            font-size:
+              15px;
+          }
+
+          .cat-btn-enquiry,
+          .cat-btn-bulk {
+            font-size:
+              7px;
+          }
+
+          .cat-wishlist-btn {
+            width:
+              34px;
+
+            height:
+              34px;
+
+            font-size:
+              19px;
+          }
+
+          .cat-page-btn {
+            width:
+              30px;
+
+            height:
+              30px;
+
+            font-size:
+              11px;
+          }
+        }
+
+        /*
+         * Touch devices:
+         * image swap remains active.
+         */
+
+        @media (hover: none) {
+          .cat-product-img-wrapper {
+            -webkit-tap-highlight-color:
+              transparent;
+          }
+        }
+
+        /* ==================================================
+           UPDATED PRODUCT CARD
+           (align-items: stretch added here too so this
+           final grid rule — which wins on cascade for the
+           properties it sets — never re-introduces the
+           "start" behaviour that caused uneven card sizes)
+        ================================================== */
+
+        .cat-product-grid {
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+          gap: 26px 18px;
+          align-items: stretch;
+        }
+
+        .cat-product-card-link {
           display: block;
           width: 100%;
+          height: 100%;
+          text-decoration: none;
+          color: inherit;
         }
 
         .cat-product-card {
           width: 100%;
+          height: 100%;
           display: flex;
           flex-direction: column;
-          height: 100%;
-          padding: 14px;
+          background: #fdfff1;
+          border: 1px solid rgba(123,127,92,0.18);
+          border-radius: 18px;
+          padding: 11px;
+          overflow: hidden;
           box-sizing: border-box;
-          background: rgba(255, 255, 255, 0.78);
-          border: 1px solid #e2e3d7;
-          border-radius: 22px;
-          box-shadow:
-            0 12px 34px rgba(61, 67, 41, 0.08),
-            0 2px 8px rgba(61, 67, 41, 0.04);
-          transition:
-            transform 0.25s ease,
-            box-shadow 0.25s ease;
+          box-shadow: 0 8px 22px rgba(55,60,37,0.07);
+          transition: transform .2s ease, box-shadow .2s ease;
         }
 
         .cat-product-card:hover {
-          transform: translateY(-3px);
-          box-shadow:
-            0 18px 42px rgba(61, 67, 41, 0.12),
-            0 4px 12px rgba(61, 67, 41, 0.05);
+          transform: translateY(-2px);
+          box-shadow: 0 13px 28px rgba(55,60,37,0.10);
         }
 
         .cat-product-img-wrapper {
           position: relative;
           width: 100%;
-          aspect-ratio: 4 / 3;
-          border-radius: 15px;
+          aspect-ratio: 4 / 4.1;
           overflow: hidden;
+          border-radius: 13px;
           background: #e8e9da;
         }
 
         .cat-product-img {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform 0.4s ease;
+          transition: opacity .35s ease, transform .4s ease;
         }
 
-        .cat-product-card:hover .cat-product-img {
-          transform: scale(1.025);
+        .cat-product-img-main {
+          z-index: 1;
+          opacity: 1;
+        }
+
+        .cat-product-img-hover {
+          z-index: 2;
+          opacity: 0;
+        }
+
+        .cat-product-img-main.is-hidden {
+          opacity: 0;
+        }
+
+        .cat-product-img-hover.is-visible {
+          opacity: 1;
+          transform: scale(1.02);
         }
 
         .cat-product-img-placeholder {
@@ -2159,622 +4567,421 @@ export default function CategoryPage() {
 
         .cat-wishlist-btn {
           position: absolute;
-          top: 14px;
-          right: 14px;
-          background: rgba(255, 255, 255, 0.96);
-          border: 1px solid rgba(123, 127, 92, 0.12);
+          top: 12px;
+          right: 12px;
+          z-index: 10;
+          width: 48px;
+          height: 48px;
+          border: 1px solid #d4d4d0;
           border-radius: 50%;
-          width: 54px;
-          height: 54px;
-          font-size: 28px;
-          line-height: 1;
-          cursor: pointer;
+          background: #fdfff1;
+          color: #7d7d73;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: #b4b5a4;
-          box-shadow: 0 5px 16px rgba(0, 0, 0, 0.10);
-          z-index: 4;
-          transition:
-            transform 0.2s ease,
-            color 0.2s ease;
-        }
-
-        .cat-wishlist-btn:hover {
-          transform: scale(1.04);
-          color: ${ACCENT};
+          padding: 0;
+          font-size: 28px;
+          line-height: 1;
+          cursor: pointer;
         }
 
         .cat-wishlist-btn-active {
-          color: #9b3043;
-        }
-
-        .cat-wishlist-btn:active {
-          transform: scale(0.95);
+          color: #9d3548;
         }
 
         .cat-product-info {
           width: 100%;
-          padding: 18px 8px 4px;
+          padding: 14px 5px 4px;
           display: flex;
           flex-direction: column;
           flex: 1;
         }
 
-        .cat-product-name-row {
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          min-height: 40px;
-          margin-bottom: 14px;
-        }
-
-        .cat-product-name {
-          flex: 0 1 auto;
-          min-width: 0;
-          height: auto;
-          margin: 0;
-          font-family: "Tobias TRIAL", "Playfair Display", Georgia, serif;
-          font-size: 25px;
-          line-height: 1.15;
-          font-weight: 500;
-          letter-spacing: -0.02em;
-          color: #151515;
-          overflow: visible;
-          display: block;
-          text-overflow: clip;
-          text-transform: uppercase;
-        }
-
-        .cat-product-name-rule {
-          width: 86px;
-          height: 1px;
-          background: #b9a764;
-          flex: 0 0 auto;
-          margin-left: auto;
-          margin-top: 8px;
-        }
-
-        .cat-product-price {
-          margin: 0 0 20px;
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 23px;
-          line-height: 1;
-          font-weight: 700;
-          letter-spacing: 0;
-          color: #171717;
-        }
-
-        .cat-product-actions {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 12px;
-          align-items: stretch;
-          margin-top: auto;
-        }
-
-        .cat-btn-enquiry,
-        .cat-btn-bulk {
+        .cat-colour-section {
           width: 100%;
-          min-height: 60px;
-          box-sizing: border-box;
+          margin-bottom: 10px;
+        }
+
+        .cat-colour-heading,
+        .cat-size-heading {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 14px 16px;
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 12px;
-          line-height: 1.35;
-          font-weight: 700;
-          letter-spacing: 0.055em;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition:
-            background-color 0.2s ease,
-            border-color 0.2s ease,
-            color 0.2s ease,
-            transform 0.15s ease;
-        }
-
-        .cat-btn-enquiry {
-          background: ${ACCENT};
-          color: #fff;
-          border: 1px solid ${ACCENT};
-        }
-
-        .cat-btn-enquiry:hover {
-          background: #676a4c;
-          border-color: #676a4c;
-        }
-
-        .cat-btn-bulk {
-          background: transparent;
-          color: #1b1b1b;
-          border: 1px solid ${BORDER};
-        }
-
-        .cat-btn-bulk:hover {
-          background: #f4f5eb;
-          border-color: ${ACCENT};
-        }
-
-        .cat-qty-control {
-          display: inline-flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
-          min-height: 60px;
-          width: 100%;
-          min-width: 0;
-          box-sizing: border-box;
-          border: 1px solid ${BORDER};
-          padding: 0 14px;
-          background: transparent;
+          margin-bottom: 7px;
         }
 
-        .cat-qty-control button {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-size: 22px;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          color: #111;
-        }
-
-        .cat-qty-control span {
-          font-family: "Mona Sans", sans-serif;
-          font-weight: 600;
+        .cat-colour-title,
+        .cat-size-title {
+          color: #555;
+          font-family: "Mona Sans", "Inter", sans-serif;
           font-size: 14px;
-          text-align: center;
-          min-width: 18px;
+          line-height: 1.2;
+          font-weight: 700;
         }
 
-        /* ==================================================
-           PAGINATION — MATCHED TO NEW ARRIVALS PAGE STYLE
-        ================================================== */
-
-        .cat-pagination-area {
-          text-align: center;
-          padding: 20px 60px 60px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 18px;
+        .cat-select-label {
+          color: #888;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 700;
+          text-transform: uppercase;
         }
 
-        .cat-showing-text {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          color: #777;
-          margin: 0;
-        }
-
-        .cat-pagination-nav {
+        .cat-colour-options,
+        .cat-size-options {
           display: flex;
           align-items: center;
-          justify-content: center;
           flex-wrap: wrap;
           gap: 8px;
         }
 
-        .cat-page-btn {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          background: ${BG};
-          border: 1px solid ${BORDER};
-          color: #0e0e0e;
-          width: 38px;
-          height: 38px;
+        .cat-colour-circle {
+          width: 28px;
+          height: 28px;
+          padding: 0;
+          border: 1px solid #aaa;
           border-radius: 50%;
           cursor: pointer;
+        }
+
+        .cat-colour-circle.selected {
+          box-shadow: 0 0 0 2px #fdfff1, 0 0 0 4px #111;
+          border-color: #111;
+        }
+
+        .cat-product-name-row {
+          margin-bottom: 8px;
+        }
+
+        .cat-product-name {
+          margin: 0;
+          color: #111;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 21px;
+          line-height: 1.24;
+          font-weight: 700;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .cat-price-section {
+          width: 100%;
+          margin-bottom: 10px;
+        }
+
+        .cat-price-row {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
+          gap: 7px;
+        }
+
+        .cat-selling-price {
+          color: #111;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 24px;
+          line-height: 1;
+          font-weight: 800;
+        }
+
+        .cat-mrp-price {
+          color: #777;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 13px;
+          line-height: 1;
+          text-decoration: line-through;
+        }
+
+        .cat-discount-badge {
+          display: inline-flex;
+          align-items: center;
           justify-content: center;
-          transition:
-            background-color 0.2s ease,
-            border-color 0.2s ease,
-            color 0.2s ease;
+          padding: 5px 7px;
+          border-radius: 6px;
+          background: #dfe8cf;
+          color: #42602f;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 800;
         }
 
-        .cat-page-btn:hover:not(:disabled) {
-          background: #f4f5eb;
-          border-color: ${ACCENT};
+        .cat-shipping-text {
+          margin-top: 5px;
+          color: #666;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 11px;
+          line-height: 1.3;
         }
 
-        .cat-page-btn:disabled {
-          opacity: 0.35;
-          cursor: not-allowed;
+        .cat-size-section {
+          width: 100%;
+          padding: 9px;
+          margin-bottom: 10px;
+          border: 1px solid #d7d8ca;
+          border-radius: 9px;
+          box-sizing: border-box;
         }
 
-        .cat-page-active {
+        .cat-size-button {
+          min-width: 43px;
+          min-height: 32px;
+          padding: 0 9px;
+          border: 1px solid #c8c8c8;
+          border-radius: 6px;
+          background: #fdfff1;
+          color: #111;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 10px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .cat-size-button.selected {
           background: ${ACCENT};
           border-color: ${ACCENT};
           color: #fff;
         }
 
-        .cat-page-nav {
-          width: auto;
-          border-radius: 20px;
-          padding: 0 18px;
-        }
-
-        .cat-page-dots {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          color: #999;
-          padding: 0 2px;
-        }
-
-        .cat-back-to-top {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 12px;
-          color: ${ACCENT};
-          background: none;
-          border: none;
-          cursor: pointer;
-          letter-spacing: 0.06em;
-        }
-
-        .cat-empty {
-          grid-column: 1 / -1;
-          text-align: center;
-          padding: 80px 20px;
-          font-family: "Mona Sans", sans-serif;
-          color: #888;
+        .cat-card-actions {
+          width: 100%;
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 16px;
+          gap: 7px;
+          margin-top: auto;
         }
 
-        /* ==================================================
-           SKELETON
-        ================================================== */
-
-        .cat-skel {
-          display: block;
-          position: relative;
-          overflow: hidden;
-          background: rgba(0,0,0,0.08);
-          border-radius: 4px;
-        }
-
-        .cat-skel::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          transform: translateX(-100%);
-          background: linear-gradient(
-            90deg,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,0.55) 50%,
-            rgba(255,255,255,0) 100%
-          );
-          animation: cat-shimmer 1.4s infinite;
-        }
-
-        @keyframes cat-shimmer {
-          100% {
-            transform: translateX(100%);
-          }
-        }
-
-        .cat-hero-skel {
+        .cat-add-cart-button,
+        .cat-bulk-button {
           width: 100%;
-          height: 440px;
-          border-radius: 0;
+          min-height: 47px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 10px;
+          line-height: 1.2;
+          font-weight: 800;
+          letter-spacing: .035em;
+          cursor: pointer;
         }
 
-        .cat-skel-label {
-          width: 220px;
-          height: 30px;
-          margin: 0 auto;
+        .cat-add-cart-button {
+          background: #fdfff1;
+          border: 1px solid #111;
+          color: #111;
         }
 
-        .cat-skel-title {
-          width: 260px;
-          height: 40px;
+        .cat-add-cart-button:hover {
+          background: #111;
+          color: #fff;
         }
 
-        .cat-skel-link {
-          width: 140px;
-          height: 20px;
+        .cat-bulk-button {
+          background: #fdfff1;
+          border: 1px solid ${ACCENT};
+          color: ${ACCENT};
         }
 
-        .cat-skel-sortbtn {
-          width: 110px;
-          height: 34px;
+        .cat-bulk-button:hover {
+          background: ${ACCENT};
+          color: #fff;
         }
 
-        .cat-skel-count {
-          width: 90px;
-          height: 18px;
-        }
-
-        .cat-card-skel-img {
+        .cat-qty-control {
           width: 100%;
-          aspect-ratio: 4 / 3;
-          border-radius: 15px;
-        }
-
-        .cat-card-skel-name {
-          width: 80%;
-          height: 14px;
-          margin: 10px 0;
-        }
-
-        .cat-card-skel-actions {
+          min-height: 47px;
           display: flex;
-          gap: 10px;
+          align-items: center;
+          justify-content: space-between;
+          border: 1px solid #111;
+          border-radius: 8px;
+          background: #fdfff1;
+          box-sizing: border-box;
         }
 
-        .cat-card-skel-btn1 {
-          width: 110px;
-          height: 34px;
+        .cat-qty-control button {
+          width: 42px;
+          height: 45px;
+          border: none;
+          background: transparent;
+          color: #111;
+          font-size: 20px;
+          cursor: pointer;
         }
 
-        .cat-card-skel-btn2 {
-          width: 90px;
-          height: 26px;
+        .cat-qty-control span {
+          font-family: "Mona Sans", "Inter", sans-serif;
+          font-size: 13px;
+          font-weight: 800;
+          color: #111;
         }
-
-        /* ==================================================
-           RESPONSIVE
-        ================================================== */
 
         @media (max-width: 1100px) {
-          .cat-subcategory-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-
           .cat-product-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 24px 18px;
+            grid-template-columns:
+              repeat(3, minmax(0, 1fr));
           }
         }
 
-        @media (max-width: 900px) {
-          .cat-hero-img,
-          .cat-hero-skel {
-            height: 320px;
-          }
-
-          .cat-section-header,
-          .cat-controls-bar,
-          .cat-pagination-area,
-          .cat-subcategory-section {
-            padding-left: 24px;
-            padding-right: 24px;
-          }
-
-          .cat-section-title,
-          .cat-skel-title {
-            font-size: 30px;
-          }
-
-          .cat-subcategory-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
+        @media (max-width: 820px) {
           .cat-product-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 0 24px 32px;
-            gap: 20px 14px;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 16px 10px;
+            padding-left: 16px;
+            padding-right: 16px;
           }
         }
 
         @media (max-width: 560px) {
-          .cat-hero-img,
-          .cat-hero-skel {
-            height: 170px;
-          }
-
-          .cat-top-label {
-            padding: 20px 16px 12px;
-          }
-
-          .cat-top-label p {
-            font-size: 22px;
-          }
-
-          .cat-section-header {
-            padding: 18px 16px 16px;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-          }
-
-          .cat-section-title {
-            font-size: 24px;
-          }
-
-          .cat-subcategory-section {
-            padding: 8px 16px 24px;
-          }
-
-          .cat-subcategory-title-row {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: 10px;
-          }
-
-          .cat-subcategory-title {
-            font-size: 21px;
-          }
-
-          .cat-subcategory-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-
-          .cat-subcategory-info {
-            padding: 10px;
-          }
-
-          .cat-subcategory-name {
-            font-size: 10px;
-          }
-
-          .cat-controls-bar {
-            padding: 0 16px 18px;
-            flex-wrap: wrap;
-            gap: 10px;
-          }
-
-          .cat-sort-btn,
-          .cat-filters-btn {
-            font-size: 10px;
-            padding: 7px 10px;
-          }
-
           .cat-product-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 0 12px 28px;
-            gap: 14px 10px;
+            grid-template-columns:
+              repeat(2, minmax(0, 1fr));
+            gap: 12px 7px;
+            padding-left: 8px;
+            padding-right: 8px;
           }
 
           .cat-product-card {
-            padding: 8px;
-            border-radius: 16px;
-          }
-
-          .cat-product-img-wrapper {
-            aspect-ratio: 4 / 3.35;
+            padding: 6px;
             border-radius: 12px;
           }
 
+          .cat-product-img-wrapper {
+            aspect-ratio: 4 / 4.25;
+            border-radius: 9px;
+          }
+
           .cat-wishlist-btn {
-            top: 10px;
-            right: 10px;
-            width: 48px;
-            height: 48px;
-            font-size: 25px;
-          }
-
-          .cat-product-info {
-            padding: 15px 6px 4px;
-          }
-
-          .cat-product-name-row {
-            gap: 12px;
-            margin-bottom: 11px;
-          }
-
-          .cat-product-name {
-            font-size: 15px;
-            line-height: 1.2;
-          }
-
-          .cat-product-name-rule {
-            width: 30px;
-          }
-
-          .cat-product-price {
-            font-size: 16px;
-            margin-bottom: 12px;
-          }
-
-          .cat-product-actions {
-            grid-template-columns: 1fr 1fr;
-            gap: 9px;
-          }
-
-          .cat-btn-enquiry,
-          .cat-btn-bulk,
-          .cat-qty-control {
-            min-height: 50px;
-          }
-
-          .cat-btn-enquiry,
-          .cat-btn-bulk {
-            font-size: 10px;
-            padding: 10px 8px;
-          }
-
-          .cat-pagination-area {
-            padding: 12px 16px 40px;
-            gap: 14px;
-          }
-
-          .cat-pagination-nav {
-            gap: 6px;
-          }
-
-          .cat-page-btn {
+            top: 6px;
+            right: 6px;
             width: 34px;
             height: 34px;
-            font-size: 12px;
-          }
-
-          .cat-page-nav {
-            padding: 0 14px;
-            height: 34px;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .cat-product-grid {
-            padding-left: 12px;
-            padding-right: 12px;
-          }
-
-          .cat-product-card {
-            padding: 8px;
-            border-radius: 16px;
-          }
-
-          .cat-product-name {
-            font-size: 18px;
-          }
-
-          .cat-product-name-rule {
-            width: 42px;
-          }
-
-          .cat-product-price {
             font-size: 19px;
           }
 
-          .cat-btn-enquiry,
-          .cat-btn-bulk {
+          .cat-product-info {
+            padding: 9px 3px 3px;
+          }
+
+          .cat-colour-title,
+          .cat-size-title {
             font-size: 9px;
-            letter-spacing: 0.04em;
-            padding-left: 6px;
-            padding-right: 6px;
           }
 
-          .cat-page-btn {
-            width: 30px;
-            height: 30px;
-            font-size: 11px;
+          .cat-select-label {
+            font-size: 7px;
           }
 
-          .cat-pagination-nav {
+          .cat-colour-options {
             gap: 5px;
           }
+
+          .cat-colour-circle {
+            width: 19px;
+            height: 19px;
+          }
+
+          .cat-product-name {
+            font-size: 13px;
+          }
+
+          .cat-selling-price {
+            font-size: 16px;
+          }
+
+          .cat-mrp-price {
+            font-size: 8px;
+          }
+
+          .cat-discount-badge {
+            padding: 4px 5px;
+            font-size: 6.5px;
+          }
+
+          .cat-shipping-text {
+            font-size: 8px;
+          }
+
+          .cat-size-section {
+            padding: 7px;
+            margin-bottom: 7px;
+            border-radius: 7px;
+          }
+
+          .cat-size-options {
+            gap: 4px;
+          }
+
+          .cat-size-button {
+            min-width: 29px;
+            min-height: 25px;
+            padding: 0 6px;
+            font-size: 7px;
+            border-radius: 5px;
+          }
+
+          .cat-card-actions {
+            gap: 5px;
+          }
+
+          .cat-add-cart-button,
+          .cat-bulk-button,
+          .cat-qty-control {
+            min-height: 37px;
+          }
+
+          .cat-add-cart-button,
+          .cat-bulk-button {
+            padding: 6px 4px;
+            font-size: 6.5px;
+          }
+
+          .cat-qty-control button {
+            width: 30px;
+            height: 35px;
+            font-size: 17px;
+          }
+
+          .cat-qty-control span {
+            font-size: 9px;
+          }
         }
-      `}</style>
+      `}
+
+</style>
 
       {/* ==================================================
           HERO
       ================================================== */}
 
       <div className="cat-hero-banner">
-        {isLoading && !category ? (
+        {isLoading &&
+        !category ? (
           <HeroSkeleton />
         ) : (
-          <img
-            src={heroImage}
-            alt={heading}
-            className="cat-hero-img"
-          />
+          <picture>
+            <source
+              media="(max-width: 767px)"
+              srcSet={
+                mobileHeroImage
+              }
+            />
+
+            <img
+              src={
+                desktopHeroImage
+              }
+              alt={
+                heading ||
+                "Category"
+              }
+              className="cat-hero-img"
+            />
+          </picture>
         )}
       </div>
 
@@ -2820,7 +5027,6 @@ export default function CategoryPage() {
 
       {/* ==================================================
           SUBCATEGORIES
-          ONLY MAIN CATEGORY VIEW
       ================================================== */}
 
       {!loadingCat &&
@@ -2847,7 +5053,9 @@ export default function CategoryPage() {
 
             <div className="cat-subcategory-grid">
               {subcategories.map(
-                (child) => {
+                (
+                  child
+                ) => {
                   const childId =
                     getId(
                       child
@@ -2916,7 +5124,7 @@ export default function CategoryPage() {
         )}
 
       {/* ==================================================
-          FILTER / SORT
+          CONTROLS
       ================================================== */}
 
       <div className="cat-controls-bar">
@@ -2934,7 +5142,9 @@ export default function CategoryPage() {
                 className="cat-sort-btn"
                 onClick={() =>
                   setSortOpen(
-                    (value) =>
+                    (
+                      value
+                    ) =>
                       !value
                   )
                 }
@@ -2949,7 +5159,9 @@ export default function CategoryPage() {
               {sortOpen && (
                 <div className="cat-sort-dropdown">
                   {SORT_OPTIONS.map(
-                    (option) => (
+                    (
+                      option
+                    ) => (
                       <button
                         key={
                           option
@@ -2965,11 +5177,17 @@ export default function CategoryPage() {
                           setSelectedSort(
                             option
                           );
+
                           setSortOpen(
                             false
                           );
+
                           setPage(
                             1
+                          );
+
+                          setHoveredProducts(
+                            {}
                           );
                         }}
                       >
@@ -3005,19 +5223,11 @@ export default function CategoryPage() {
       <div className="cat-product-grid">
         {isLoading ? (
           Array.from({
-            length:
-              SKELETON_COUNT,
-          }).map(
-            (_, index) => (
-              <CardSkeleton
-                key={
-                  index
-                }
-              />
-            )
-          )
-        ) : visibleProducts.length ===
-          0 ? (
+            length: SKELETON_COUNT,
+          }).map((_, index) => (
+            <CardSkeleton key={index} />
+          ))
+        ) : visibleProducts.length === 0 ? (
           <div className="cat-empty">
             <p>
               No products found
@@ -3033,20 +5243,14 @@ export default function CategoryPage() {
                   handleMainCategoryClick
                 }
                 style={{
-                  color:
-                    ACCENT,
-                  fontSize:
-                    14,
-                  textDecoration:
-                    "none",
-                  border:
-                    "none",
+                  color: ACCENT,
+                  fontSize: 14,
+                  textDecoration: "none",
+                  border: "none",
                   borderBottom:
                     `1px solid ${ACCENT}`,
-                  background:
-                    "transparent",
-                  cursor:
-                    "pointer",
+                  background: "transparent",
+                  cursor: "pointer",
                 }}
               >
                 ← View all category products
@@ -3055,12 +5259,9 @@ export default function CategoryPage() {
               <Link
                 href="/collection"
                 style={{
-                  color:
-                    ACCENT,
-                  fontSize:
-                    14,
-                  textDecoration:
-                    "none",
+                  color: ACCENT,
+                  fontSize: 14,
+                  textDecoration: "none",
                   borderBottom:
                     `1px solid ${ACCENT}`,
                 }}
@@ -3070,27 +5271,123 @@ export default function CategoryPage() {
             )}
           </div>
         ) : (
-          visibleProducts.map(
-            (product) => (
+          visibleProducts.map((product) => {
+            const images =
+              getProductImages(product);
+
+            const mainImage =
+              images[0] || "";
+
+            const hoverImage =
+              images[1] || "";
+
+            const isHovered = Boolean(
+              hoveredProducts[product.slug]
+            );
+
+            const colors =
+              getProductColors(product);
+
+            const sizes =
+              getProductSizes(product);
+
+            const selectedColor =
+              selectedColors[product.slug] || "";
+
+            const selectedSize =
+              selectedSizes[product.slug] || "";
+
+            const selectedVariant =
+              sizes.find(
+                (variant) =>
+                  getSizeName(variant) ===
+                  selectedSize
+              ) || null;
+
+            const actualPrice =
+              selectedVariant
+                ? getVariantActualPrice(
+                    selectedVariant
+                  )
+                : getActualPrice(product);
+
+            const sellingPrice =
+              selectedVariant
+                ? getVariantSellingPrice(
+                    selectedVariant
+                  )
+                : getSellingPrice(product);
+
+            const discount =
+              getDiscountPercent(
+                actualPrice,
+                sellingPrice
+              );
+
+            const shippingCost = Number(
+              product?.shippingCost || 0
+            );
+
+            const quantity =
+              quantities[product.slug] || 0;
+
+            return (
               <Link
                 href={`/products/${product.slug}`}
-                key={
-                  product._id
-                }
+                key={product._id}
                 className="cat-product-card-link"
               >
-                <div className="cat-product-card">
-                  <div className="cat-product-img-wrapper">
-                    {product.mainImage ? (
-                      <img
-                        src={
-                          product.mainImage
-                        }
-                        alt={
-                          product.name
-                        }
-                        className="cat-product-img"
-                      />
+                <article className="cat-product-card">
+                  <div
+                    className="cat-product-img-wrapper"
+                    onMouseEnter={() =>
+                      handleProductMouseEnter(
+                        product
+                      )
+                    }
+                    onMouseLeave={() =>
+                      handleProductMouseLeave(
+                        product
+                      )
+                    }
+                    onTouchStart={(event) =>
+                      handleProductTouchStart(
+                        event,
+                        product
+                      )
+                    }
+                  >
+                    {mainImage ? (
+                      <>
+                        <img
+                          src={mainImage}
+                          alt={
+                            product.name ||
+                            "Product"
+                          }
+                          className={`cat-product-img cat-product-img-main${
+                            isHovered &&
+                            hoverImage
+                              ? " is-hidden"
+                              : ""
+                          }`}
+                        />
+
+                        {hoverImage && (
+                          <img
+                            src={hoverImage}
+                            alt={
+                              product.name ||
+                              "Product preview"
+                            }
+                            className={`cat-product-img cat-product-img-hover${
+                              isHovered
+                                ? " is-visible"
+                                : ""
+                            }`}
+                          />
+                        )}
+                      </>
                     ) : (
                       <div className="cat-product-img-placeholder" />
                     )}
@@ -3098,9 +5395,7 @@ export default function CategoryPage() {
                     <button
                       type="button"
                       className={`cat-wishlist-btn${
-                        wishlist[
-                          product.slug
-                        ]
+                        wishlist[product.slug]
                           ? " cat-wishlist-btn-active"
                           : ""
                       }`}
@@ -3112,84 +5407,177 @@ export default function CategoryPage() {
                         )
                       }
                     >
-                      {wishlist[
-                        product.slug
-                      ]
+                      {wishlist[product.slug]
                         ? "♥"
                         : "♡"}
                     </button>
                   </div>
 
                   <div className="cat-product-info">
-                    <div className="cat-product-name-row">
-                      <h6 className="cat-product-name">
-                        {
-                          product.name?.toUpperCase()
-                        }
-                      </h6>
-
-                      <span className="cat-product-name-rule" />
-                    </div>
-
-                    <p className="cat-product-price">
-                      ₹
-                      {Number(
-                        product.price ||
-                          0
-                      ).toLocaleString(
-                        "en-IN"
-                      )}
-                    </p>
-
-                    <div className="cat-product-actions">
-                      <button
-                        type="button"
-                        className="cat-btn-enquiry"
-                        onClick={(
-                          event
-                        ) => {
+                    {colors.length > 0 && (
+                      <div
+                        className="cat-colour-section"
+                        onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-
-                          router.push(
-                            `/enquiry1/${product.slug}`
-                          );
                         }}
                       >
-                        BULK PRICE ENQUIRY ↗
-                      </button>
+                        <div className="cat-colour-heading">
+                          <span className="cat-colour-title">
+                            Colour
+                          </span>
 
-                      {!quantities[
-                        product.slug
-                      ] ? (
-                        <button
-                          type="button"
-                          className="cat-btn-bulk"
-                          onClick={(
-                            event
-                          ) =>
-                            handleAddToCart(
-                              event,
-                              product
+                          <span className="cat-select-label">
+                            {selectedColor
+                              ? "SELECTED"
+                              : "SELECT"}
+                          </span>
+                        </div>
+
+                        <div className="cat-colour-options">
+                          {colors.map(
+                            (color, index) => (
+                              <button
+                                key={`${product._id}-color-${index}`}
+                                type="button"
+                                className={`cat-colour-circle${
+                                  selectedColor ===
+                                  color
+                                    ? " selected"
+                                    : ""
+                                }`}
+                                style={{
+                                  backgroundColor:
+                                    color,
+                                }}
+                                title={color}
+                                aria-label={`Select ${color}`}
+                                onClick={(event) =>
+                                  handleColorSelect(
+                                    event,
+                                    product,
+                                    color
+                                  )
+                                }
+                              />
                             )
-                          }
-                        >
-                          ● ADD TO CART
-                        </button>
-                      ) : (
-                        <div
-                          className="cat-qty-control"
-                          onClick={(
-                            event
-                          ) =>
-                            event.preventDefault()
-                          }
-                        >
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="cat-product-name-row">
+                      <h3 className="cat-product-name">
+                        {product.name}
+                      </h3>
+                    </div>
+
+                    <div className="cat-price-section">
+                      <div className="cat-price-row">
+                        <span className="cat-selling-price">
+                          {sizes.length > 0 &&
+                          !selectedSize
+                            ? "From "
+                            : ""}
+                          {formatCurrency(
+                            sellingPrice
+                          )}
+                        </span>
+
+                        {actualPrice > 0 &&
+                          actualPrice !==
+                            sellingPrice && (
+                            <span className="cat-mrp-price">
+                              {formatCurrency(
+                                actualPrice
+                              )}
+                            </span>
+                          )}
+
+                        {discount > 0 && (
+                          <span className="cat-discount-badge">
+                            {discount}% OFF
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="cat-shipping-text">
+                        {shippingCost > 0
+                          ? `Shipping ${formatCurrency(
+                              shippingCost
+                            )}`
+                          : "Free Shipping"}
+                      </div>
+                    </div>
+
+                    {sizes.length > 0 && (
+                      <div
+                        className="cat-size-section"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+                        <div className="cat-size-heading">
+                          <span className="cat-size-title">
+                            Size
+                          </span>
+
+                          <span className="cat-select-label">
+                            {selectedSize ||
+                              "SELECT"}
+                          </span>
+                        </div>
+
+                        <div className="cat-size-options">
+                          {sizes.map(
+                            (size, index) => {
+                              const name =
+                                getSizeName(
+                                  size
+                                );
+
+                              return (
+                                <button
+                                  key={`${product._id}-size-${index}`}
+                                  type="button"
+                                  className={`cat-size-button${
+                                    selectedSize ===
+                                    name
+                                      ? " selected"
+                                      : ""
+                                  }`}
+                                  onClick={(
+                                    event
+                                  ) =>
+                                    handleSizeSelect(
+                                      event,
+                                      product,
+                                      name
+                                    )
+                                  }
+                                >
+                                  {name}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className="cat-card-actions"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                    >
+                      {quantity > 0 ? (
+                        <div className="cat-qty-control">
                           <button
                             type="button"
-                            onClick={(
-                              event
-                            ) =>
+                            onClick={(event) =>
                               decreaseQty(
                                 event,
                                 product
@@ -3200,18 +5588,12 @@ export default function CategoryPage() {
                           </button>
 
                           <span>
-                            {
-                              quantities[
-                                product.slug
-                              ]
-                            }
+                            {quantity}
                           </span>
 
                           <button
                             type="button"
-                            onClick={(
-                              event
-                            ) =>
+                            onClick={(event) =>
                               increaseQty(
                                 event,
                                 product
@@ -3221,13 +5603,41 @@ export default function CategoryPage() {
                             +
                           </button>
                         </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="cat-add-cart-button"
+                          onClick={(event) =>
+                            handleAddToCart(
+                              event,
+                              product
+                            )
+                          }
+                        >
+                          ADD TO CART
+                        </button>
                       )}
+
+                      <button
+                        type="button"
+                        className="cat-bulk-button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+
+                          router.push(
+                            `/enquiry1/${product.slug}`
+                          );
+                        }}
+                      >
+                        BULK PRICE ENQUIRY ↗
+                      </button>
                     </div>
                   </div>
-                </div>
+                </article>
               </Link>
-            )
-          )
+            );
+          })
         )}
       </div>
 
@@ -3238,6 +5648,7 @@ export default function CategoryPage() {
       {!isLoading &&
         total > 0 && (
           <div className="cat-pagination-area">
+
             <p className="cat-showing-text">
               Showing{" "}
               {rangeStart}{" "}
@@ -3249,12 +5660,14 @@ export default function CategoryPage() {
 
             {pages > 1 && (
               <div className="cat-pagination-nav">
+
                 <button
                   type="button"
                   className="cat-page-btn cat-page-nav"
                   onClick={() =>
                     goToPage(
-                      safePage - 1
+                      safePage -
+                        1
                     )
                   }
                   disabled={
@@ -3308,7 +5721,8 @@ export default function CategoryPage() {
                   className="cat-page-btn cat-page-nav"
                   onClick={() =>
                     goToPage(
-                      safePage + 1
+                      safePage +
+                        1
                     )
                   }
                   disabled={
@@ -3318,6 +5732,7 @@ export default function CategoryPage() {
                 >
                   NEXT →
                 </button>
+
               </div>
             )}
 
@@ -3336,15 +5751,17 @@ export default function CategoryPage() {
             >
               ↑ BACK TO TOP
             </button>
+
           </div>
         )}
+
     </main>
   );
 }
 
-// ======================================================
-// HERO SKELETON
-// ======================================================
+/* ======================================================
+   HERO SKELETON
+====================================================== */
 
 function HeroSkeleton() {
   return (
@@ -3352,9 +5769,9 @@ function HeroSkeleton() {
   );
 }
 
-// ======================================================
-// CARD SKELETON
-// ======================================================
+/* ======================================================
+   CARD SKELETON
+====================================================== */
 
 function CardSkeleton() {
   return (
@@ -3362,6 +5779,7 @@ function CardSkeleton() {
       style={{
         display:
           "flex",
+
         flexDirection:
           "column",
       }}

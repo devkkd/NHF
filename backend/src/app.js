@@ -19,6 +19,7 @@ import showcaseBannerRoutes from "./routes/showcaseBannerRoutes.js";
 import testimonialRoutes from "./routes/testimonialRoutes.js";
 import newArrivalsSectionRoutes from "./routes/newArrivalsSectionRoutes.js";
 import tradeFairRoutes from "./routes/tradeFairRoutes.js";
+import orderRequestRoutes from "./routes/orderRequestRoutes.js";
 
 
 const app = express();
@@ -265,6 +266,10 @@ app.use(
 app.use(
   "/api/v1/trade-fairs",
   tradeFairRoutes
+);
+app.use(
+  "/api/v1/orders/requests",
+  orderRequestRoutes
 );
 
 // ======================================================

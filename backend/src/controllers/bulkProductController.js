@@ -44,9 +44,10 @@ const normalizeBoolean = (
     return value;
   }
 
-  const normalized = String(value)
-    .trim()
-    .toLowerCase();
+  const normalized =
+    String(value)
+      .trim()
+      .toLowerCase();
 
   return [
     "true",
@@ -132,7 +133,8 @@ const uploadImageToR2 = async (
     file.originalname
       .split(".")
       .pop()
-      ?.toLowerCase() || "jpg";
+      ?.toLowerCase() ||
+    "jpg";
 
   const safeSku =
     slugify(sku);
@@ -296,20 +298,113 @@ const getImageFilesForSku = (
 ========================================================= */
 
 /**
- * Excel "category" column now accepts:
+ * Product hierarchy:
  *
- * - Subcategory MongoDB ObjectId
- * - Subcategory exact name
- * - Subcategory slug
+ * Main Category
+ *     ↓
+ * Subcategory
+ *     ↓
+ * Product
  *
  * IMPORTANT:
- * Product MUST belong to a subcategory.
+ * Product.category stores the
+ * SUBCATEGORY _id.
+ */
+
+/* =========================================================
+   FIND MAIN CATEGORY
+========================================================= */
+
+/**
+ * Accepted:
  *
- * Main Category:
+ * - MongoDB ObjectId
+ * - exact name
+ * - slug
+ *
+ * Main category must have:
  * parent = null
+ */
+const findMainCategory =
+  async (
+    categoryValue
+  ) => {
+    const value =
+      normalizeString(
+        categoryValue
+      );
+
+    if (!value) {
+      return null;
+    }
+
+    let category = null;
+
+    /* -----------------------------------------------------
+       ObjectId lookup
+    ----------------------------------------------------- */
+
+    if (
+      mongoose.Types.ObjectId.isValid(
+        value
+      )
+    ) {
+      category =
+        await Category.findOne({
+          _id: value,
+
+          isActive: true,
+
+          parent: null,
+        });
+    }
+
+    /* -----------------------------------------------------
+       Name / slug lookup
+    ----------------------------------------------------- */
+
+    if (!category) {
+      const slug =
+        slugify(value);
+
+      category =
+        await Category.findOne({
+          isActive: true,
+
+          parent: null,
+
+          $or: [
+            {
+              name: {
+                $regex:
+                  `^${value}$`,
+
+                $options: "i",
+              },
+            },
+
+            {
+              slug,
+            },
+          ],
+        });
+    }
+
+    return category;
+  };
+
+/* =========================================================
+   FIND SUBCATEGORY
+========================================================= */
+
+/**
+ * Accepted:
  *
- * Subcategory:
- * parent = Main Category ID
+ * - MongoDB ObjectId
+ * - exact name
+ * - slug
+ *
+ * Main categories are rejected.
  */
 const findSubcategory =
   async (
@@ -326,9 +421,9 @@ const findSubcategory =
 
     let category = null;
 
-    /*
-      Try MongoDB ObjectId first.
-    */
+    /* -----------------------------------------------------
+       ObjectId lookup
+    ----------------------------------------------------- */
 
     if (
       mongoose.Types.ObjectId.isValid(
@@ -336,14 +431,16 @@ const findSubcategory =
       )
     ) {
       category =
-        await Category.findById(
-          value
-        );
+        await Category.findOne({
+          _id: value,
+
+          isActive: true,
+        });
     }
 
-    /*
-      Try exact name / slug.
-    */
+    /* -----------------------------------------------------
+       Name / slug lookup
+    ----------------------------------------------------- */
 
     if (!category) {
       const slug =
@@ -351,45 +448,127 @@ const findSubcategory =
 
       category =
         await Category.findOne({
+          isActive: true,
+
           $or: [
             {
               name: {
                 $regex:
                   `^${value}$`,
+
                 $options: "i",
               },
             },
+
             {
               slug,
             },
           ],
-
-          isActive: true,
         });
     }
 
-    if (!category) {
+    /*
+      A subcategory MUST have a parent.
+    */
+
+    if (
+      !category ||
+      !category.parent
+    ) {
       return null;
     }
 
-    /*
-      A product cannot be directly
-      attached to a main category.
-    */
+    return category;
+  };
 
-    if (!category.parent) {
-      const error =
-        new Error(
-          `Product category "${value}" is a main category. Please use a subcategory.`
-        );
+/* =========================================================
+   RESOLVE PRODUCT CATEGORY
+========================================================= */
 
-      error.code =
-        "MAIN_CATEGORY_NOT_ALLOWED";
+const resolveProductCategory =
+  async (
+    mainCategoryValue,
+    subcategoryValue
+  ) => {
+    /* -----------------------------------------------------
+       MAIN CATEGORY REQUIRED
+    ----------------------------------------------------- */
 
-      throw error;
+    if (
+      !normalizeString(
+        mainCategoryValue
+      )
+    ) {
+      throw new Error(
+        "Main Category is required"
+      );
     }
 
-    return category;
+    /* -----------------------------------------------------
+       SUBCATEGORY REQUIRED
+    ----------------------------------------------------- */
+
+    if (
+      !normalizeString(
+        subcategoryValue
+      )
+    ) {
+      throw new Error(
+        "Subcategory is required"
+      );
+    }
+
+    /* -----------------------------------------------------
+       FIND MAIN CATEGORY
+    ----------------------------------------------------- */
+
+    const mainCategory =
+      await findMainCategory(
+        mainCategoryValue
+      );
+
+    if (!mainCategory) {
+      throw new Error(
+        `Main Category not found: ${mainCategoryValue}`
+      );
+    }
+
+    /* -----------------------------------------------------
+       FIND SUBCATEGORY
+    ----------------------------------------------------- */
+
+    const subcategory =
+      await findSubcategory(
+        subcategoryValue
+      );
+
+    if (!subcategory) {
+      throw new Error(
+        `Subcategory not found: ${subcategoryValue}`
+      );
+    }
+
+    /* -----------------------------------------------------
+       VERIFY RELATION
+    ----------------------------------------------------- */
+
+    if (
+      String(
+        subcategory.parent
+      ) !==
+      String(
+        mainCategory._id
+      )
+    ) {
+      throw new Error(
+        `Subcategory "${subcategory.name}" does not belong to Main Category "${mainCategory.name}"`
+      );
+    }
+
+    return {
+      mainCategory,
+      subcategory,
+    };
   };
 
 /* =========================================================
@@ -435,21 +614,162 @@ const buildSpecs = (
 };
 
 /* =========================================================
-   PRODUCT DATA BUILDER
+   SIZE VARIANTS
 ========================================================= */
 
 /**
- * Build product data from Excel row.
+ * Supports 20 sizes.
  *
- * sortOrder is handled separately because
- * it depends on whether the product is:
+ * Example:
  *
- * - new
- * - already existing
- * - moving between subcategories
+ * size_1
+ * size_1_actualPrice
+ * size_1_sellingPrice
+ *
+ * size_2
+ * size_2_actualPrice
+ * size_2_sellingPrice
+ *
+ * ...
+ *
+ * size_20
+ * size_20_actualPrice
+ * size_20_sellingPrice
  */
+const buildSizes = (
+  row
+) => {
+  const sizes = [];
+
+  const seenNames =
+    new Set();
+
+  for (
+    let i = 1;
+    i <= 20;
+    i++
+  ) {
+    const name =
+      normalizeString(
+        row[
+          `size_${i}`
+        ]
+      );
+
+    const actualRaw =
+      normalizeString(
+        row[
+          `size_${i}_actualPrice`
+        ]
+      );
+
+    const sellingRaw =
+      normalizeString(
+        row[
+          `size_${i}_sellingPrice`
+        ]
+      );
+
+    /* -----------------------------------------------------
+       EMPTY SLOT
+    ----------------------------------------------------- */
+
+    if (
+      !name &&
+      !actualRaw &&
+      !sellingRaw
+    ) {
+      continue;
+    }
+
+    /* -----------------------------------------------------
+       SIZE NAME REQUIRED
+    ----------------------------------------------------- */
+
+    if (!name) {
+      throw new Error(
+        `size_${i} is required when size pricing is provided`
+      );
+    }
+
+    const normalizedName =
+      name.toLowerCase();
+
+    /* -----------------------------------------------------
+       DUPLICATE SIZE CHECK
+    ----------------------------------------------------- */
+
+    if (
+      seenNames.has(
+        normalizedName
+      )
+    ) {
+      throw new Error(
+        `Duplicate size found: ${name}`
+      );
+    }
+
+    seenNames.add(
+      normalizedName
+    );
+
+    /* -----------------------------------------------------
+       SIZE PRICES
+    ----------------------------------------------------- */
+
+    const actualPrice =
+      normalizeNumber(
+        actualRaw
+      );
+
+    const sellingPrice =
+      normalizeNumber(
+        sellingRaw
+      );
+
+    if (
+      actualPrice < 0 ||
+      sellingPrice < 0
+    ) {
+      throw new Error(
+        `Size ${name}: prices cannot be negative`
+      );
+    }
+
+    if (
+      actualPrice > 0 &&
+      sellingPrice >
+        actualPrice
+    ) {
+      throw new Error(
+        `Size ${name}: sellingPrice cannot be greater than actualPrice`
+      );
+    }
+
+    sizes.push({
+      name,
+
+      actualPrice,
+
+      sellingPrice,
+    });
+  }
+
+  return sizes;
+};
+
+/* =========================================================
+   PRODUCT DATA BUILDER
+========================================================= */
+
 const buildProductData =
-  async (row) => {
+  async (
+    row
+  ) => {
+    /* -----------------------------------------------------
+       BASIC DATA
+    ----------------------------------------------------- */
+
     const name =
       normalizeString(
         row.name
@@ -472,26 +792,118 @@ const buildProductData =
       );
     }
 
+    /* -----------------------------------------------------
+       CATEGORY HIERARCHY
+    ----------------------------------------------------- */
+
+    const mainCategoryValue =
+      normalizeString(
+        row.mainCategory
+      );
+
+    const subcategoryValue =
+      normalizeString(
+        row.subcategory
+      );
+
+    const {
+      mainCategory,
+      subcategory,
+    } =
+      await resolveProductCategory(
+        mainCategoryValue,
+        subcategoryValue
+      );
+
+    /* -----------------------------------------------------
+       PRODUCT LEVEL PRICES
+    ----------------------------------------------------- */
+
+    const actualPrice =
+      normalizeNumber(
+        row.actualPrice
+      );
+
+    const sellingPrice =
+      normalizeNumber(
+        row.sellingPrice
+      );
+
+    const shippingCost =
+      normalizeNumber(
+        row.shippingCost
+      );
+
     if (
-      !normalizeString(
-        row.category
-      )
+      actualPrice < 0
     ) {
       throw new Error(
-        "Subcategory is required in category column"
+        "actualPrice cannot be negative"
       );
     }
 
-    const category =
-      await findSubcategory(
-        row.category
-      );
-
-    if (!category) {
+    if (
+      sellingPrice < 0
+    ) {
       throw new Error(
-        `Subcategory not found: ${row.category}`
+        "sellingPrice cannot be negative"
       );
     }
+
+    if (
+      shippingCost < 0
+    ) {
+      throw new Error(
+        "shippingCost cannot be negative"
+      );
+    }
+
+    if (
+      actualPrice > 0 &&
+      sellingPrice >
+        actualPrice
+    ) {
+      throw new Error(
+        "sellingPrice cannot be greater than actualPrice"
+      );
+    }
+
+    /* -----------------------------------------------------
+       SIZE VARIANTS
+    ----------------------------------------------------- */
+
+    const sizes =
+      buildSizes(row);
+
+    /* -----------------------------------------------------
+       LEGACY PRICE
+    ----------------------------------------------------- */
+
+    const legacyPrice =
+      sizes.length > 0
+        ? sizes[0]
+            .sellingPrice
+        : sellingPrice;
+
+    /* -----------------------------------------------------
+       LEGACY SIZE
+    ----------------------------------------------------- */
+
+    const legacySize =
+      sizes.length > 0
+        ? sizes
+            .map(
+              (item) =>
+                item.name
+            )
+            .join(", ")
+        : normalizeString(
+            row.size
+          );
+
+    /* -----------------------------------------------------
+       PRODUCT DATA
+    ----------------------------------------------------- */
 
     const productData = {
       name,
@@ -504,22 +916,59 @@ const buildProductData =
 
       sku,
 
+      /*
+        Legacy price.
+      */
       price:
-        normalizeNumber(
-          row.price
-        ),
+        legacyPrice,
+
+      /*
+        Current product-level pricing.
+      */
+      actualPrice,
+
+      sellingPrice,
+
+      shippingCost,
 
       /*
         IMPORTANT:
-        category = SUBCATEGORY ID
+        Store SUBCATEGORY ID
+        inside Product.category.
       */
       category:
-        category._id,
+        subcategory._id,
+
+      /*
+        Main image gets replaced
+        later if local SKU image
+        is uploaded.
+      */
+      mainImage:
+        normalizeString(
+          row.mainImage
+        ),
+
+      galleryImages:
+        parseArray(
+          row.galleryImages
+        ),
 
       colors:
         parseArray(
           row.colors
         ),
+
+      /*
+        Size variants.
+      */
+      sizes,
+
+      /*
+        Legacy general size.
+      */
+      size:
+        legacySize,
 
       item:
         normalizeString(
@@ -539,11 +988,6 @@ const buildProductData =
       material:
         normalizeString(
           row.material
-        ),
-
-      size:
-        normalizeString(
-          row.size
         ),
 
       gsm:
@@ -642,21 +1086,26 @@ const buildProductData =
           row.showInNewArrivals,
           false
         ),
+        isOnSale: normalizeBoolean(
+  row.isOnSale,
+  false
+),
     };
 
-    /*
-      Only return sortOrder when Excel
-      actually supplied one.
-
-      This is important for UPDATE:
-      if Excel has no serial, existing
-      product keeps its current serial.
-    */
+    /* -----------------------------------------------------
+       SORT ORDER
+    ----------------------------------------------------- */
 
     const rawSortOrder =
       normalizeString(
         row.sortOrder
       );
+
+    /*
+      IMPORTANT:
+      Only set sortOrder when
+      Excel actually provides it.
+    */
 
     if (
       rawSortOrder !== ""
@@ -683,7 +1132,10 @@ const buildProductData =
 
     return {
       productData,
-      category,
+
+      mainCategory,
+
+      subcategory,
     };
   };
 
@@ -695,21 +1147,65 @@ const TEMPLATE_HEADERS = [
   "name",
   "slug",
   "sku",
-  "price",
+
+  /* -------------------------------------------------------
+     PRODUCT PRICING
+  ------------------------------------------------------- */
+
+  "actualPrice",
+  "sellingPrice",
+  "shippingCost",
 
   /*
-    IMPORTANT:
-    This column now expects
-    SUBCATEGORY name / slug / ID.
+    Legacy price.
   */
-  "category",
+  "price",
+
+  /* -------------------------------------------------------
+     CATEGORY HIERARCHY
+  ------------------------------------------------------- */
+
+  "mainCategory",
+  "subcategory",
 
   "colors",
+
+  /* -------------------------------------------------------
+     SIZE VARIANTS
+  ------------------------------------------------------- */
+
+  ...Array.from(
+    {
+      length: 20,
+    },
+    (
+      _,
+      index
+    ) => {
+      const number =
+        index + 1;
+
+      return [
+        `size_${number}`,
+        `size_${number}_actualPrice`,
+        `size_${number}_sellingPrice`,
+      ];
+    }
+  ).flat(),
+
+  /*
+    Legacy/general size.
+  */
+  "size",
+
+  /* -------------------------------------------------------
+     PRODUCT INFORMATION
+  ------------------------------------------------------- */
+
   "item",
   "threadCount",
   "fabric",
   "material",
-  "size",
   "gsm",
   "usageApplication",
   "bedSize",
@@ -720,67 +1216,65 @@ const TEMPLATE_HEADERS = [
   "cotton",
   "handmade",
   "design",
+
   "description",
   "moreInformation",
+
   "features",
   "materials",
   "careInstructions",
 
-  "spec_1_label",
-  "spec_1_value",
+  /* -------------------------------------------------------
+     SPECS
+  ------------------------------------------------------- */
 
-  "spec_2_label",
-  "spec_2_value",
+  ...Array.from(
+    {
+      length: 10,
+    },
+    (
+      _,
+      index
+    ) => {
+      const number =
+        index + 1;
 
-  "spec_3_label",
-  "spec_3_value",
+      return [
+        `spec_${number}_label`,
+        `spec_${number}_value`,
+      ];
+    }
+  ).flat(),
 
-  "spec_4_label",
-  "spec_4_value",
-
-  "spec_5_label",
-  "spec_5_value",
-
-  "spec_6_label",
-  "spec_6_value",
-
-  "spec_7_label",
-  "spec_7_value",
-
-  "spec_8_label",
-  "spec_8_value",
-
-  "spec_9_label",
-  "spec_9_value",
-
-  "spec_10_label",
-  "spec_10_value",
+  /* -------------------------------------------------------
+     STATUS / ORDER / IMAGES
+  ------------------------------------------------------- */
 
   "isActive",
   "isFeatured",
   "showInNewArrivals",
-
-  /*
-    Product serial number inside
-    its SUBCATEGORY.
-  */
+  "isOnSale",
   "sortOrder",
-
   "mainImage",
   "galleryImages",
 ];
 
 /* =========================================================
-   DOWNLOAD SAMPLE EXCEL
+   DOWNLOAD BULK PRODUCT TEMPLATE
 ========================================================= */
 
-export const downloadBulkProductTemplate =
+export const
+  downloadBulkProductTemplate =
   async (
     req,
     res,
     next
   ) => {
     try {
+      /* -----------------------------------------------------
+         SAMPLE ROW
+      ----------------------------------------------------- */
+
       const exampleRow = {
         name:
           "Cotton Handblock Bedsheet",
@@ -791,17 +1285,308 @@ export const downloadBulkProductTemplate =
         sku:
           "NHF001",
 
+        /* -------------------------------------------------
+           PRODUCT PRICING
+        ------------------------------------------------- */
+
+        actualPrice:
+          2999,
+
+        sellingPrice:
+          2499,
+
+        shippingCost:
+          99,
+
+        /*
+          Legacy.
+        */
         price:
           2499,
 
-        /*
-          Use SUBCATEGORY here.
-        */
-        category:
+        /* -------------------------------------------------
+           CATEGORY HIERARCHY
+        ------------------------------------------------- */
+
+        mainCategory:
+          "Bedroom",
+
+        subcategory:
           "Cotton Bedsheets",
 
         colors:
           "Blue, White",
+
+        /* -------------------------------------------------
+           SIZE 1
+        ------------------------------------------------- */
+
+        size_1:
+          "Single",
+
+        size_1_actualPrice:
+          2299,
+
+        size_1_sellingPrice:
+          1999,
+
+        /* -------------------------------------------------
+           SIZE 2
+        ------------------------------------------------- */
+
+        size_2:
+          "Double",
+
+        size_2_actualPrice:
+          2699,
+
+        size_2_sellingPrice:
+          2249,
+
+        /* -------------------------------------------------
+           SIZE 3
+        ------------------------------------------------- */
+
+        size_3:
+          "King",
+
+        size_3_actualPrice:
+          2999,
+
+        size_3_sellingPrice:
+          2499,
+
+        /* -------------------------------------------------
+           SIZE 4
+        ------------------------------------------------- */
+
+        size_4:
+          "",
+
+        size_4_actualPrice:
+          "",
+
+        size_4_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 5
+        ------------------------------------------------- */
+
+        size_5:
+          "",
+
+        size_5_actualPrice:
+          "",
+
+        size_5_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 6
+        ------------------------------------------------- */
+
+        size_6:
+          "",
+
+        size_6_actualPrice:
+          "",
+
+        size_6_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 7
+        ------------------------------------------------- */
+
+        size_7:
+          "",
+
+        size_7_actualPrice:
+          "",
+
+        size_7_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 8
+        ------------------------------------------------- */
+
+        size_8:
+          "",
+
+        size_8_actualPrice:
+          "",
+
+        size_8_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 9
+        ------------------------------------------------- */
+
+        size_9:
+          "",
+
+        size_9_actualPrice:
+          "",
+
+        size_9_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 10
+        ------------------------------------------------- */
+
+        size_10:
+          "",
+
+        size_10_actualPrice:
+          "",
+
+        size_10_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 11
+        ------------------------------------------------- */
+
+        size_11:
+          "",
+
+        size_11_actualPrice:
+          "",
+
+        size_11_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 12
+        ------------------------------------------------- */
+
+        size_12:
+          "",
+
+        size_12_actualPrice:
+          "",
+
+        size_12_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 13
+        ------------------------------------------------- */
+
+        size_13:
+          "",
+
+        size_13_actualPrice:
+          "",
+
+        size_13_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 14
+        ------------------------------------------------- */
+
+        size_14:
+          "",
+
+        size_14_actualPrice:
+          "",
+
+        size_14_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 15
+        ------------------------------------------------- */
+
+        size_15:
+          "",
+
+        size_15_actualPrice:
+          "",
+
+        size_15_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 16
+        ------------------------------------------------- */
+
+        size_16:
+          "",
+
+        size_16_actualPrice:
+          "",
+
+        size_16_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 17
+        ------------------------------------------------- */
+
+        size_17:
+          "",
+
+        size_17_actualPrice:
+          "",
+
+        size_17_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 18
+        ------------------------------------------------- */
+
+        size_18:
+          "",
+
+        size_18_actualPrice:
+          "",
+
+        size_18_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 19
+        ------------------------------------------------- */
+
+        size_19:
+          "",
+
+        size_19_actualPrice:
+          "",
+
+        size_19_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           SIZE 20
+        ------------------------------------------------- */
+
+        size_20:
+          "",
+
+        size_20_actualPrice:
+          "",
+
+        size_20_sellingPrice:
+          "",
+
+        /* -------------------------------------------------
+           LEGACY SIZE
+        ------------------------------------------------- */
+
+        size:
+          "",
+
+        /* -------------------------------------------------
+           PRODUCT INFORMATION
+        ------------------------------------------------- */
 
         item:
           "Bedsheet",
@@ -814,9 +1599,6 @@ export const downloadBulkProductTemplate =
 
         material:
           "100% Cotton",
-
-        size:
-          "King",
 
         gsm:
           "120",
@@ -862,6 +1644,10 @@ export const downloadBulkProductTemplate =
 
         careInstructions:
           "Machine wash cold",
+
+        /* -------------------------------------------------
+           SPECS
+        ------------------------------------------------- */
 
         spec_1_label:
           "Dimensions",
@@ -923,6 +1709,10 @@ export const downloadBulkProductTemplate =
         spec_10_value:
           "",
 
+        /* -------------------------------------------------
+           STATUS / ORDER
+        ------------------------------------------------- */
+
         isActive:
           true,
 
@@ -931,9 +1721,14 @@ export const downloadBulkProductTemplate =
 
         showInNewArrivals:
           true,
+          isOnSale: true,
 
         sortOrder:
           1,
+
+        /* -------------------------------------------------
+           IMAGE URL FALLBACK
+        ------------------------------------------------- */
 
         mainImage:
           "",
@@ -941,6 +1736,10 @@ export const downloadBulkProductTemplate =
         galleryImages:
           "",
       };
+
+      /* -----------------------------------------------------
+         PRODUCTS WORKSHEET
+      ----------------------------------------------------- */
 
       const worksheet =
         XLSX.utils.json_to_sheet(
@@ -950,6 +1749,10 @@ export const downloadBulkProductTemplate =
               TEMPLATE_HEADERS,
           }
         );
+
+      /* -----------------------------------------------------
+         INSTRUCTIONS
+      ----------------------------------------------------- */
 
       const instructions = [
         [
@@ -967,83 +1770,103 @@ export const downloadBulkProductTemplate =
         ],
 
         [
-          "3. The category column must contain a SUBCATEGORY name, slug, or MongoDB ID.",
+          "3. mainCategory must contain the Main Category name, slug, or MongoDB ID.",
         ],
 
         [
-          "4. Products cannot be assigned directly to a main category.",
+          "4. subcategory must contain the Subcategory name, slug, or MongoDB ID.",
         ],
 
         [
-          "5. Main Category -> Subcategory -> Product is the supported structure.",
+          "5. The selected subcategory MUST belong to the selected mainCategory.",
         ],
 
         [
-          "6. Multiple values like colors/features/materials should be comma separated.",
+          "6. Product is stored under the Subcategory, not directly under the Main Category.",
         ],
 
         [
-          "7. isActive, isFeatured and showInNewArrivals should be true or false.",
+          "7. actualPrice, sellingPrice and shippingCost are product-level prices.",
         ],
 
         [
-          "8. sortOrder is the product serial number inside its subcategory.",
+          "8. sellingPrice cannot be greater than actualPrice when actualPrice is greater than 0.",
         ],
 
         [
-          "9. sortOrder starts from 1.",
+          "9. Add size variants using size_1 to size_20.",
         ],
 
         [
-          "10. If sortOrder is blank for an existing SKU, its current serial number is preserved.",
+          "10. Every size can have its own actualPrice and sellingPrice.",
         ],
 
         [
-          "11. If sortOrder is provided for an existing SKU, the product is moved to that position.",
+          "11. Leave the entire size slot blank if that size is not required.",
         ],
 
         [
-          "12. If sortOrder is provided for a new SKU, it is inserted at that position and other products shift automatically.",
+          "12. A size name is required when size pricing is provided.",
         ],
 
         [
-          "13. Product images are optional.",
+          "13. Duplicate size names are not allowed.",
         ],
 
         [
-          "14. If uploading images, rename them using SKU.",
+          "14. colors, features, materials and careInstructions can be comma separated.",
         ],
 
         [
-          "15. Main image example: NHF001.jpg",
+         "15. isActive, isFeatured, showInNewArrivals and isOnSale should be true or false.",
         ],
 
         [
-          "16. Gallery image example: NHF001-1.jpg",
+          "16. sortOrder is the Product Serial Number inside its Subcategory and starts from 1.",
         ],
 
         [
-          "17. Additional gallery image: NHF001-2.jpg",
+          "17. Existing SKU + blank sortOrder preserves its current position if category does not change.",
         ],
 
         [
-          "18. Supported image types: JPG, JPEG, PNG, WEBP.",
+          "18. Existing SKU + category change + blank sortOrder moves the product to the end of the new Subcategory.",
         ],
 
         [
-          "19. Uploaded images are matched automatically using SKU.",
+          "19. Existing SKU + supplied sortOrder moves the product to the requested position.",
         ],
 
         [
-          "20. Existing SKU products will be UPDATED.",
+          "20. Product images are optional.",
         ],
 
         [
-          "21. New SKU products will be CREATED.",
+          "21. Exact SKU filename becomes the Main Image, for example NHF001.jpg.",
         ],
 
         [
-          "22. Leave mainImage/galleryImages empty when using uploaded local images.",
+          "22. Gallery examples: NHF001-1.jpg, NHF001-2.jpg, NHF001-3.jpg.",
+        ],
+
+        [
+          "23. Supported images: JPG, JPEG, PNG, WEBP.",
+        ],
+
+        [
+          "24. Existing SKU products will be UPDATED.",
+        ],
+
+        [
+          "25. New SKU products will be CREATED.",
+        ],
+
+        [
+          "26. Leave mainImage and galleryImages blank when using local SKU image uploads.",
+        ],
+
+        [
+          "27. Legacy price and size columns are retained for compatibility. Prefer actualPrice/sellingPrice and size_* columns.",
         ],
       ];
 
@@ -1051,6 +1874,10 @@ export const downloadBulkProductTemplate =
         XLSX.utils.aoa_to_sheet(
           instructions
         );
+
+      /* -----------------------------------------------------
+         COLUMN WIDTHS
+      ----------------------------------------------------- */
 
       worksheet["!cols"] =
         TEMPLATE_HEADERS.map(
@@ -1067,9 +1894,13 @@ export const downloadBulkProductTemplate =
         "!cols"
       ] = [
         {
-          wch: 110,
+          wch: 120,
         },
       ];
+
+      /* -----------------------------------------------------
+         WORKBOOK
+      ----------------------------------------------------- */
 
       const workbook =
         XLSX.utils.book_new();
@@ -1086,6 +1917,10 @@ export const downloadBulkProductTemplate =
         "Instructions"
       );
 
+      /* -----------------------------------------------------
+         CREATE BUFFER
+      ----------------------------------------------------- */
+
       const buffer =
         XLSX.write(
           workbook,
@@ -1094,6 +1929,10 @@ export const downloadBulkProductTemplate =
             bookType: "xlsx",
           }
         );
+
+      /* -----------------------------------------------------
+         RESPONSE
+      ----------------------------------------------------- */
 
       res.setHeader(
         "Content-Type",
@@ -1114,10 +1953,11 @@ export const downloadBulkProductTemplate =
   };
 
 /* =========================================================
-   MAIN BULK UPLOAD
+   MAIN BULK PRODUCT UPLOAD
 ========================================================= */
 
-export const bulkUploadProducts =
+export const
+  bulkUploadProducts =
   async (
     req,
     res,
@@ -1125,31 +1965,33 @@ export const bulkUploadProducts =
   ) => {
     try {
       /* -----------------------------------------------------
-         CHECK EXCEL
+         EXCEL REQUIRED
       ----------------------------------------------------- */
 
       const excelFile =
         req.files?.excel?.[0];
 
       if (!excelFile) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Excel file is required.",
-        });
+        return res
+          .status(400)
+          .json({
+            ok: false,
+
+            error:
+              "Excel file is required.",
+          });
       }
 
       /* -----------------------------------------------------
-         GET IMAGES
-
-         Images are OPTIONAL.
+         IMAGES OPTIONAL
       ----------------------------------------------------- */
 
       const imageFiles =
-        req.files?.images || [];
+        req.files?.images ||
+        [];
 
       /* -----------------------------------------------------
-         CHECK TOTAL UPLOAD SIZE
+         TOTAL UPLOAD SIZE
       ----------------------------------------------------- */
 
       const totalUploadSize =
@@ -1159,22 +2001,28 @@ export const bulkUploadProducts =
             total,
             file
           ) =>
-            total + file.size,
+            total +
+            file.size,
           0
         );
 
       const MAX_COMBINED_SIZE =
-        500 * 1024 * 1024;
+        500 *
+        1024 *
+        1024;
 
       if (
         totalUploadSize >
         MAX_COMBINED_SIZE
       ) {
-        return res.status(413).json({
-          ok: false,
-          error:
-            "Total Excel + image upload size cannot exceed 500 MB.",
-        });
+        return res
+          .status(413)
+          .json({
+            ok: false,
+
+            error:
+              "Total Excel + image upload size cannot exceed 500 MB.",
+          });
       }
 
       /* -----------------------------------------------------
@@ -1190,14 +2038,18 @@ export const bulkUploadProducts =
         );
 
       const sheetName =
-        workbook.SheetNames[0];
+        workbook
+          .SheetNames[0];
 
       if (!sheetName) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Excel sheet not found.",
-        });
+        return res
+          .status(400)
+          .json({
+            ok: false,
+
+            error:
+              "Excel sheet not found.",
+          });
       }
 
       const worksheet =
@@ -1215,11 +2067,14 @@ export const bulkUploadProducts =
         );
 
       if (!rows.length) {
-        return res.status(400).json({
-          ok: false,
-          error:
-            "Excel contains no products.",
-        });
+        return res
+          .status(400)
+          .json({
+            ok: false,
+
+            error:
+              "Excel contains no products.",
+          });
       }
 
       /* -----------------------------------------------------
@@ -1247,7 +2102,7 @@ export const bulkUploadProducts =
       };
 
       /* -----------------------------------------------------
-         PROCESS ROWS
+         PROCESS EACH ROW
       ----------------------------------------------------- */
 
       for (
@@ -1259,17 +2114,23 @@ export const bulkUploadProducts =
         const row =
           rows[index];
 
+        /*
+          Excel:
+          Row 1 = header
+          Row 2 = first product
+        */
         const excelRow =
           index + 2;
 
         try {
           /* -----------------------------------------------
-             BUILD PRODUCT
+             BUILD PRODUCT DATA
           ----------------------------------------------- */
 
           const {
             productData,
-            category,
+            mainCategory,
+            subcategory,
           } =
             await buildProductData(
               row
@@ -1279,7 +2140,7 @@ export const bulkUploadProducts =
             productData.sku;
 
           /* -----------------------------------------------
-             MATCH IMAGES
+             FIND SKU IMAGES
           ----------------------------------------------- */
 
           const matchedImages =
@@ -1295,7 +2156,7 @@ export const bulkUploadProducts =
             [];
 
           /* -----------------------------------------------
-             UPLOAD IMAGES
+             UPLOAD MATCHED IMAGES
           ----------------------------------------------- */
 
           for (
@@ -1312,14 +2173,18 @@ export const bulkUploadProducts =
             const uploaded =
               await uploadImageToR2(
                 file,
+
                 sku,
-                imageIndex === 0
+
+                imageIndex ===
+                0
                   ? "main"
                   : "gallery"
               );
 
             if (
-              imageIndex === 0
+              imageIndex ===
+              0
             ) {
               mainImage =
                 uploaded.publicUrl;
@@ -1331,7 +2196,7 @@ export const bulkUploadProducts =
           }
 
           /* -----------------------------------------------
-             IMAGE URL FALLBACK
+             FALLBACK MAIN IMAGE
           ----------------------------------------------- */
 
           if (
@@ -1343,6 +2208,10 @@ export const bulkUploadProducts =
                 row.mainImage
               );
           }
+
+          /* -----------------------------------------------
+             FALLBACK GALLERY
+          ----------------------------------------------- */
 
           if (
             galleryImages.length ===
@@ -1363,7 +2232,7 @@ export const bulkUploadProducts =
             galleryImages;
 
           /* -----------------------------------------------
-             FIND EXISTING PRODUCT
+             FIND EXISTING SKU
           ----------------------------------------------- */
 
           const existingProduct =
@@ -1374,20 +2243,12 @@ export const bulkUploadProducts =
           let product;
 
           /* =================================================
-             CREATE
+             CREATE NEW PRODUCT
           ================================================= */
 
           if (
             !existingProduct
           ) {
-            /*
-              If Excel has sortOrder:
-                insert at requested position.
-
-              If blank:
-                automatically put at bottom.
-            */
-
             const position =
               await insertAtOrder({
                 Model:
@@ -1395,7 +2256,7 @@ export const bulkUploadProducts =
 
                 scope: {
                   category:
-                    category._id,
+                    subcategory._id,
 
                   isActive:
                     true,
@@ -1417,7 +2278,7 @@ export const bulkUploadProducts =
           }
 
           /* =================================================
-             UPDATE
+             UPDATE EXISTING PRODUCT
           ================================================= */
 
           else {
@@ -1434,7 +2295,7 @@ export const bulkUploadProducts =
 
             const newScope = {
               category:
-                category._id,
+                subcategory._id,
 
               isActive:
                 true,
@@ -1442,18 +2303,12 @@ export const bulkUploadProducts =
 
             const categoryChanged =
               String(
-                oldCategory || ""
+                oldCategory ||
+                  ""
               ) !==
               String(
-                category._id
+                subcategory._id
               );
-
-            /*
-              Existing SKU + no sortOrder
-              =
-              preserve current position,
-              unless category changed.
-            */
 
             const sortOrderProvided =
               Object.prototype.hasOwnProperty.call(
@@ -1463,30 +2318,42 @@ export const bulkUploadProducts =
 
             let requestedOrder;
 
+            /* ---------------------------------------------
+               SORT ORDER PROVIDED
+            --------------------------------------------- */
+
             if (
               sortOrderProvided
             ) {
               requestedOrder =
                 productData.sortOrder;
-            } else if (
+            }
+
+            /* ---------------------------------------------
+               CATEGORY CHANGED
+               WITHOUT SORT ORDER
+            --------------------------------------------- */
+
+            else if (
               categoryChanged
             ) {
-              /*
-                Moving category without a requested
-                serial means it goes to bottom.
-              */
-
               requestedOrder =
                 null;
-            } else {
-              /*
-                Same category + blank sortOrder:
-                preserve current position.
-              */
+            }
 
+            /* ---------------------------------------------
+               SAME CATEGORY
+               WITHOUT SORT ORDER
+            --------------------------------------------- */
+
+            else {
               requestedOrder =
                 existingProduct.sortOrder;
             }
+
+            /* ---------------------------------------------
+               REORDER
+            --------------------------------------------- */
 
             const finalOrder =
               await moveToOrder({
@@ -1509,6 +2376,10 @@ export const bulkUploadProducts =
             productData.sortOrder =
               finalOrder;
 
+            /* ---------------------------------------------
+               UPDATE PRODUCT
+            --------------------------------------------- */
+
             product =
               await Product.findByIdAndUpdate(
                 existingProduct._id,
@@ -1520,6 +2391,7 @@ export const bulkUploadProducts =
 
                 {
                   new: true,
+
                   runValidators:
                     true,
                 }
@@ -1529,7 +2401,7 @@ export const bulkUploadProducts =
           }
 
           /* -----------------------------------------------
-             ADD SUCCESS RESULT
+             SUCCESS RESULT
           ----------------------------------------------- */
 
           result.products.push({
@@ -1541,8 +2413,11 @@ export const bulkUploadProducts =
             name:
               product.name,
 
-            category:
-              category.name,
+            mainCategory:
+              mainCategory.name,
+
+            subcategory:
+              subcategory.name,
 
             action:
               existingProduct
@@ -1553,6 +2428,10 @@ export const bulkUploadProducts =
               product.sortOrder,
           });
         } catch (error) {
+          /* -----------------------------------------------
+             FAILED ROW
+          ----------------------------------------------- */
+
           result.failed++;
 
           result.errors.push({
@@ -1562,17 +2441,26 @@ export const bulkUploadProducts =
             sku:
               normalizeString(
                 row.sku
-              ) || null,
+              ) ||
+              null,
 
             name:
               normalizeString(
                 row.name
-              ) || null,
+              ) ||
+              null,
 
-            category:
+            mainCategory:
               normalizeString(
-                row.category
-              ) || null,
+                row.mainCategory
+              ) ||
+              null,
+
+            subcategory:
+              normalizeString(
+                row.subcategory
+              ) ||
+              null,
 
             error:
               error.message ||
@@ -1582,17 +2470,20 @@ export const bulkUploadProducts =
       }
 
       /* -----------------------------------------------------
-         RESPONSE
+         FINAL RESPONSE
       ----------------------------------------------------- */
 
-      return res.status(200).json({
-        ok: true,
+      return res
+        .status(200)
+        .json({
+          ok: true,
 
-        message:
-          "Bulk product upload completed.",
+          message:
+            "Bulk product upload completed.",
 
-        data: result,
-      });
+          data:
+            result,
+        });
     } catch (error) {
       next(error);
     }

@@ -1,7 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const categorySchema = new mongoose.Schema(
   {
+    /* =====================================================
+       BASIC INFORMATION
+    ===================================================== */
+
     name: {
       type: String,
       required: true,
@@ -19,46 +23,100 @@ const categorySchema = new mongoose.Schema(
     description: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
+
+    /* =====================================================
+       NORMAL CATEGORY IMAGE
+       Used for category / subcategory cards
+    ===================================================== */
 
     image: {
       type: String,
-      default: '',
+      default: "",
+      trim: true,
     },
 
-    // null = main category
-    // ObjectId = subcategory of another category
+    /* =====================================================
+       DESKTOP HERO IMAGE
+       Recommended: 1920 × 540
+       Aspect ratio: 32:9
+    ===================================================== */
+
+    heroImage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    /* =====================================================
+       MOBILE HERO IMAGE
+       OPTIONAL
+       Recommended mobile-specific banner.
+       
+       Frontend fallback:
+       mobileHeroImage || heroImage
+    ===================================================== */
+
+    mobileHeroImage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    /* =====================================================
+       CATEGORY HIERARCHY
+
+       null      = Main Category
+       ObjectId  = Subcategory
+    ===================================================== */
+
     parent: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "Category",
       default: null,
     },
 
-    // Whether this category should appear on Home page
+    /* =====================================================
+       HOME VISIBILITY
+    ===================================================== */
+
     showInHome: {
       type: Boolean,
       default: false,
     },
 
-    // Whether this category should appear in Wardrobe
+    /* =====================================================
+       WARDROBE VISIBILITY
+    ===================================================== */
+
     showInWardrobe: {
       type: Boolean,
       default: false,
     },
 
-    // Whether this category should appear in Footer
+    /* =====================================================
+       FOOTER VISIBILITY
+    ===================================================== */
+
     showInFooter: {
       type: Boolean,
       default: true,
     },
+
+    /* =====================================================
+       ACTIVE STATUS
+    ===================================================== */
 
     isActive: {
       type: Boolean,
       default: true,
     },
 
-    // Serial number / display position
+    /* =====================================================
+       SERIAL / DISPLAY ORDER
+    ===================================================== */
+
     sortOrder: {
       type: Number,
       default: 0,
@@ -70,18 +128,35 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-categorySchema.pre('save', function (next) {
-  if (this.isModified('name')) {
+/* =========================================================
+   AUTO SLUG
+========================================================= */
+
+categorySchema.pre("save", function (next) {
+  if (this.isModified("name")) {
     this.slug = this.name
       .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-{2,}/g, '-')
+      .replace(
+        /[^a-z0-9\s-]/g,
+        ""
+      )
+      .replace(
+        /\s+/g,
+        "-"
+      )
+      .replace(
+        /-{2,}/g,
+        "-"
+      )
       .trim();
   }
 
   next();
 });
+
+/* =========================================================
+   INDEXES
+========================================================= */
 
 categorySchema.index({
   isActive: 1,
@@ -104,6 +179,14 @@ categorySchema.index({
   sortOrder: 1,
 });
 
-const Category = mongoose.model('Category', categorySchema);
+/* =========================================================
+   MODEL
+========================================================= */
+
+const Category =
+  mongoose.model(
+    "Category",
+    categorySchema
+  );
 
 export default Category;

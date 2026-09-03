@@ -28,12 +28,21 @@ const router = express.Router();
  *
  * Optional query params:
  *
+ * ?page=1
+ * ?limit=20
  * ?category=SUBCATEGORY_ID
  * ?search=bedsheet
  * ?active=true
  * ?active=false
  *
- * Products are returned in sortOrder.
+ * Response includes complete product data:
+ *
+ * - images
+ * - colors
+ * - sizes
+ * - actualPrice
+ * - sellingPrice
+ * - shippingCost
  */
 router.get(
   "/admin/all",
@@ -50,6 +59,32 @@ router.get(
  *
  * Main category product creation is rejected
  * by productController.
+ *
+ * Product supports:
+ *
+ * - name
+ * - sku
+ * - category
+ * - mainImage
+ * - galleryImages
+ * - colors
+ *
+ * Pricing:
+ * - actualPrice
+ * - sellingPrice
+ * - shippingCost
+ *
+ * Size-wise pricing:
+ *
+ * sizes: [
+ *   {
+ *     name: "Queen",
+ *     actualPrice: 3000,
+ *     sellingPrice: 2400
+ *   }
+ * ]
+ *
+ * Existing colour system remains unchanged.
  */
 router.post(
   "/",
@@ -62,9 +97,37 @@ router.post(
  * Update product
  *
  * Supports:
+ *
  * - product details
+ * - images
+ * - colors
  * - category/subcategory
  * - sortOrder
+ *
+ * Pricing:
+ *
+ * - actualPrice
+ * - sellingPrice
+ * - shippingCost
+ *
+ * Size pricing:
+ *
+ * - sizes
+ *
+ * Example:
+ *
+ * sizes: [
+ *   {
+ *     name: "S",
+ *     actualPrice: 1999,
+ *     sellingPrice: 1499
+ *   },
+ *   {
+ *     name: "M",
+ *     actualPrice: 2099,
+ *     sellingPrice: 1599
+ *   }
+ * ]
  *
  * Changing sortOrder automatically reorders
  * other products inside the same subcategory.
@@ -79,9 +142,14 @@ router.patch(
 /**
  * PERMANENT DELETE PRODUCT
  *
+ * IMPORTANT:
  * This must come BEFORE /:id
- * so "/permanent/:id" is not treated
- * as a normal product id route.
+ *
+ * so:
+ *
+ * /permanent/:id
+ *
+ * is not treated as a normal product id.
  */
 router.delete(
   "/permanent/:id",
@@ -94,6 +162,9 @@ router.delete(
  * Soft delete / deactivate product
  *
  * Existing behaviour is preserved.
+ *
+ * The product remains in the database
+ * but isActive becomes false.
  */
 router.delete(
   "/:id",
@@ -113,17 +184,28 @@ router.delete(
  *
  * Examples:
  *
- * /products
+ * GET /products
  *
- * /products?category=SUBCATEGORY_ID
+ * GET /products?category=SUBCATEGORY_ID
  *
- * /products?search=cotton
+ * GET /products?search=cotton
  *
- * /products?featured=true
+ * GET /products?featured=true
  *
- * /products?newArrivals=true
+ * GET /products?newArrivals=true
  *
- * /products?wardrobe=true
+ * GET /products?wardrobe=true
+ *
+ * GET /products?page=1&limit=20
+ *
+ * Public response includes:
+ *
+ * - images
+ * - colors
+ * - sizes
+ * - actualPrice
+ * - sellingPrice
+ * - shippingCost
  */
 router.get(
   "/",
@@ -132,6 +214,13 @@ router.get(
 
 /**
  * Get product by slug
+ *
+ * Example:
+ *
+ * GET /products/cotton-queen-bedsheet
+ *
+ * Returns complete product information,
+ * including size pricing and shipping cost.
  */
 router.get(
   "/:slug",

@@ -16,14 +16,18 @@ const otpSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      enum: ["register", "forgot-password"],
+      enum: [
+        "register",
+        "login",
+        "forgot-password",
+      ],
       default: "register",
     },
 
     expiresAt: {
       type: Date,
       required: true,
-      index: { expires: 0 }, // MongoDB TTL Index
+      index: { expires: 0 },
     },
   },
   {

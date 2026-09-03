@@ -1,8 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function CheckoutSuccessPage() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId");
+
   return (
     <main className="success-page">
       <div className="success-card">
@@ -10,14 +14,14 @@ export default function CheckoutSuccessPage() {
         {/* Success Icon */}
         <div
           className="success-icon"
-          aria-label="Payment successful"
+          aria-label="Order placed successfully"
         >
           ✓
         </div>
 
         {/* Status */}
         <p className="success-tag">
-          PAYMENT SUCCESSFUL
+          ORDER PLACED SUCCESSFULLY
         </p>
 
         {/* Heading */}
@@ -27,10 +31,25 @@ export default function CheckoutSuccessPage() {
 
         {/* Message */}
         <p className="success-text">
-          Your payment has been received successfully.
-          <br />
-          We&apos;ve started processing your order and you&apos;ll
-          receive an order confirmation shortly.
+          {orderId ? (
+            <>
+              Your order has been placed successfully.
+              <br />
+              {`Order #${orderId}`}
+              <br />
+              Your order is currently awaiting confirmation from our team.
+              <br />
+              We&apos;ll update you as soon as your order is approved.
+            </>
+          ) : (
+            <>
+              Your order has been placed successfully.
+              <br />
+              Your order is currently awaiting confirmation from our team.
+              <br />
+              We&apos;ll update you as soon as your order is approved.
+            </>
+          )}
         </p>
 
         {/* Actions */}

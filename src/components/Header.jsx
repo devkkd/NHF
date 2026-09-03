@@ -35,6 +35,10 @@ const navLinks = [
     label: "Home",
     href: "/",
   },
+   {
+    label: "SALE",
+    href: "/sale",
+  },
   {
     label: "New Arrivals",
     href: "/new-arrivals",
@@ -43,10 +47,11 @@ const navLinks = [
     label: "Collection",
     href: "/collection",
   },
-  {
-    label: "Wardrobe",
-    href: "/wardrobe",
-  },
+ 
+  // {
+  //   label: "Wardrobe",
+  //   href: "/wardrobe",
+  // },
   {
     label: "Our Story",
     href: "/our-story",
@@ -233,111 +238,222 @@ export default function Header() {
   // CART COUNT
   // ====================================================
 
+  // ====================================================
+  // CART COUNT
+  // ====================================================
+
   useEffect(() => {
-    const updateCartCount =
-      async () => {
-        try {
-          const cart =
-            await getCart();
+    let mounted = true;
 
-          if (
-            !Array.isArray(
-              cart
-            )
-          ) {
-            setCartCount(0);
-            return;
-          }
+    const updateCartCount = async () => {
+      try {
+        const cart = await getCart();
 
-          const total =
-            cart.reduce(
-              (
-                sum,
-                item
-              ) =>
-                sum +
-                Number(
-                  item?.quantity ||
-                    0
-                ),
-              0
+        if (!mounted) {
+          return;
+        }
+
+        /*
+         * Only keep valid cart products.
+         * Deleted / null / invalid products
+         * should not appear in cart badge.
+         */
+        const validItems = Array.isArray(cart)
+          ? cart.filter((item) => {
+              const product = item?.product || item;
+
+              return (
+                product &&
+                typeof product === "object" &&
+                (product._id || product.slug)
+              );
+            })
+          : [];
+
+        /*
+         * Count quantity only for valid products.
+         */
+        const total = validItems.reduce(
+          (sum, item) => {
+            return (
+              sum +
+              Number(item?.quantity || 0)
             );
+          },
+          0
+        );
 
-          setCartCount(
-            total
-          );
-        } catch (
+        setCartCount(total);
+      } catch (error) {
+        console.error(
+          "HEADER CART COUNT ERROR:",
           error
-        ) {
-          console.error(
-            "HEADER CART COUNT ERROR:",
-            error
-          );
+        );
 
+        if (mounted) {
           setCartCount(0);
         }
-      };
+      }
+    };
 
+    // Initial cart count
     updateCartCount();
 
+    // Update immediately whenever cart changes
     window.addEventListener(
       CART_EVENT,
       updateCartCount
     );
 
+    /*
+     * Re-check backend every 10 seconds.
+     * If an admin deletes a product,
+     * cart badge will automatically update.
+     */
+    const interval = setInterval(() => {
+      updateCartCount();
+    }, 10000);
+
+    /*
+     * Refresh when user comes back to the tab.
+     */
+    const handleFocus = () => {
+      updateCartCount();
+    };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
     return () => {
+      mounted = false;
+
       window.removeEventListener(
         CART_EVENT,
         updateCartCount
       );
+
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+      clearInterval(interval);
     };
   }, []);
 
 
-  // ====================================================
+   // ====================================================
   // WISHLIST COUNT
   // ====================================================
 
   useEffect(() => {
-    const updateWishlist =
-      async () => {
-        try {
-          const items =
-            await getWishlist();
+    let mounted = true;
 
-          setWishlistCount(
-            Array.isArray(
-              items
-            )
-              ? items.length
-              : 0
-          );
-        } catch (
-          error
-        ) {
-          console.error(
-            "HEADER WISHLIST COUNT ERROR:",
-            error
-          );
+    const updateWishlist = async () => {
+      try {
+        const items = await getWishlist();
 
-          setWishlistCount(
-            0
-          );
+        if (!mounted) {
+          return;
         }
-      };
 
+        /*
+         * Only count valid products.
+         * Deleted / null / invalid wishlist items
+         * should NOT appear in the badge.
+         */
+        const validItems = Array.isArray(items)
+          ? items.filter((product) => {
+              return (
+                product &&
+                typeof product === "object" &&
+                (product._id || product.slug)
+              );
+            })
+          : [];
+
+        /*
+         * Remove duplicate products
+         * before calculating the badge count.
+         */
+        const uniqueItems = validItems.filter(
+          (product, index, array) => {
+            const productKey =
+              product._id?.toString() ||
+              product.slug;
+
+            return (
+              array.findIndex((item) => {
+                const itemKey =
+                  item._id?.toString() ||
+                  item.slug;
+
+                return itemKey === productKey;
+              }) === index
+            );
+          }
+        );
+
+        setWishlistCount(
+          uniqueItems.length
+        );
+      } catch (error) {
+        console.error(
+          "HEADER WISHLIST COUNT ERROR:",
+          error
+        );
+
+        if (mounted) {
+          setWishlistCount(0);
+        }
+      }
+    };
+
+    // Initial count
     updateWishlist();
 
+    // Update when wishlist changes
     window.addEventListener(
       WISHLIST_EVENT,
       updateWishlist
     );
 
+    /*
+     * Re-check periodically so if a product is
+     * deleted from backend, the badge also clears.
+     */
+    const interval = setInterval(() => {
+      updateWishlist();
+    }, 10000);
+
+    /*
+     * Re-check when user returns to the tab.
+     */
+    const handleFocus = () => {
+      updateWishlist();
+    };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
     return () => {
+      mounted = false;
+
       window.removeEventListener(
         WISHLIST_EVENT,
         updateWishlist
       );
+
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+      clearInterval(interval);
     };
   }, []);
 

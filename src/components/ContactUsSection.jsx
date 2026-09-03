@@ -35,32 +35,38 @@ export default function ContactUsSection() {
           </h3>
 
           <div className="contact-content">
-            <p>
-              <strong>Phone:</strong> +91 9460387858
-              <br />
-              Available Mon–Sat, 9am–6pm IST. Call or WhatsApp,
-              we&apos;re responsive on both.
-            </p>
+  <p>
+    <strong>Phone:</strong>
+    <br />
+    <strong>Jayanti Maheshwari – +91 9460387858</strong>
+    <br />
+    <strong>Bhavya Maheshwari – +91 8887999800</strong>
+    <br />
+    <br />
+    Shop Timings: 10:00 AM – 7:00 PM IST
+    <br />
+    Call or WhatsApp, we&apos;re responsive on both.
+  </p>
 
-            <p>
-              <strong>Email:</strong> nikitahomefurnishings@yahoo.com
-              <br />
-              For all product enquiries, custom orders,
-              and wholesale conversations.
-            </p>
+  <p>
+    <strong>Email:</strong> nikitahomefurnishings@yahoo.com
+    <br />
+    For all product enquiries, custom orders,
+    and wholesale conversations.
+  </p>
 
-            <p>
-              <strong>Studio Address:</strong>
-              <br />
-              38, Gupta Garden, Govind Nagar West
-              <br />
-              Behind Amer City Heritage Hotel
-              <br />
-              Amer Road, Jaipur – 302002
-              <br />
-              Rajasthan, India
-            </p>
-          </div>
+  <p>
+    <strong>Studio Address:</strong>
+    <br />
+    38, Gupta Garden, Govind Nagar West
+    <br />
+    Behind Amer City Heritage Hotel
+    <br />
+    Amer Road, Jaipur – 302002
+    <br />
+    Rajasthan, India
+  </p>
+</div>
         </div>
 
         <div className="divider" />
@@ -206,7 +212,7 @@ export default function ContactUsSection() {
         .studio-content {
           font-family: "Mona Sans", sans-serif;
           color: #222;
-          font-size: 17px;
+          font-size: 19px;
           line-height: 1.9;
         }
 

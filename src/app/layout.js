@@ -13,6 +13,7 @@ import {
 
 import Script from "next/script";
 import { Toaster } from "react-hot-toast";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 
 const cormorant =
@@ -80,6 +81,7 @@ export default function RootLayout({
           <AuthProvider>
             <LayoutWrapper>
               {children}
+               <FloatingWhatsApp />
             </LayoutWrapper>
           </AuthProvider>
         </GoogleOAuthProvider>

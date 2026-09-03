@@ -1,15 +1,21 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+
+/* =========================================================
+   SPEC SCHEMA
+========================================================= */
 
 const specSchema = new mongoose.Schema(
   {
     label: {
       type: String,
       required: true,
+      trim: true,
     },
 
     value: {
       type: String,
       required: true,
+      trim: true,
     },
   },
   {
@@ -17,8 +23,64 @@ const specSchema = new mongoose.Schema(
   }
 );
 
+/* =========================================================
+   SIZE PRICE SCHEMA
+========================================================= */
+
+/*
+ * Example:
+ *
+ * {
+ *   name: "Queen",
+ *   actualPrice: 3000,
+ *   sellingPrice: 2400
+ * }
+ *
+ * OR
+ *
+ * {
+ *   name: "M",
+ *   actualPrice: 1999,
+ *   sellingPrice: 1499
+ * }
+ */
+
+const sizePriceSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 100,
+    },
+
+    actualPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    sellingPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/* =========================================================
+   PRODUCT SCHEMA
+========================================================= */
+
 const productSchema = new mongoose.Schema(
   {
+    /* ===================================================
+       BASIC
+    =================================================== */
+
     name: {
       type: String,
       required: true,
@@ -36,10 +98,20 @@ const productSchema = new mongoose.Schema(
     sku: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
       unique: true,
       sparse: true,
     },
+
+    /* ===================================================
+       OLD PRICE FIELD
+
+       Kept for backward compatibility with
+       existing products/data.
+
+       New products should use:
+       actualPrice + sellingPrice
+    =================================================== */
 
     price: {
       type: Number,
@@ -47,16 +119,60 @@ const productSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // Product belongs to a subcategory
+    /* ===================================================
+       PRODUCT LEVEL PRICE
+
+       Used when product has NO size variations.
+    =================================================== */
+
+    actualPrice: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    sellingPrice: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    /* ===================================================
+       SHIPPING COST
+
+       Product-level shipping charge.
+
+       0 = Free Shipping
+    =================================================== */
+
+    shippingCost: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    /* ===================================================
+       CATEGORY
+
+       Product belongs only to subcategory.
+    =================================================== */
+
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "Category",
       default: null,
     },
 
+    /* ===================================================
+       IMAGES
+
+       Same images for entire product.
+       Size selection DOES NOT create/change images.
+    =================================================== */
+
     mainImage: {
       type: String,
-      default: '',
+      default: "",
     },
 
     galleryImages: {
@@ -64,111 +180,157 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    /* ===================================================
+       COLOURS
+
+       EXISTING SYSTEM - KEEP AS IT IS.
+    =================================================== */
+
     colors: {
       type: [String],
       default: [],
     },
 
+    /* ===================================================
+       SIZE PRICE VARIATIONS
+
+       Example:
+
+       [
+         {
+           name: "Queen",
+           actualPrice: 3000,
+           sellingPrice: 2400
+         },
+         {
+           name: "King",
+           actualPrice: 3500,
+           sellingPrice: 2800
+         }
+       ]
+    =================================================== */
+
+    sizes: {
+      type: [sizePriceSchema],
+      default: [],
+    },
+
+    /* ===================================================
+       PRODUCT INFORMATION
+    =================================================== */
+
     item: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     threadCount: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     fabric: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     material: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
+
+    /*
+     * OLD SINGLE SIZE FIELD
+     *
+     * Kept for backward compatibility.
+     *
+     * New UI should use `sizes`.
+     */
 
     size: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     gsm: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     usageApplication: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     bedSize: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     washType: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     packagingType: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     type: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     countryOfOrigin: {
       type: String,
       trim: true,
-      default: 'Made In India',
+      default: "Made In India",
     },
 
     cotton: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     handmade: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     design: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
+
+    /* ===================================================
+       CONTENT
+    =================================================== */
 
     description: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     moreInformation: {
       type: String,
       trim: true,
-      default: '',
+      default: "",
     },
 
     features: {
@@ -191,6 +353,10 @@ const productSchema = new mongoose.Schema(
       default: [],
     },
 
+    /* ===================================================
+       STATUS
+    =================================================== */
+
     isActive: {
       type: Boolean,
       default: true,
@@ -206,7 +372,15 @@ const productSchema = new mongoose.Schema(
       default: false,
     },
 
-    // Serial number inside the subcategory
+    isOnSale: {
+      type: Boolean,
+      default: false,
+    },
+
+    /* ===================================================
+       SERIAL ORDER
+    =================================================== */
+
     sortOrder: {
       type: Number,
       default: 0,
@@ -218,18 +392,149 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-productSchema.pre('save', function (next) {
-  if (this.isModified('name') && !this.slug) {
-    this.slug = this.name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-{2,}/g, '-')
-      .trim();
-  }
+/* =========================================================
+   VALIDATE PRICE RELATIONSHIPS
+========================================================= */
 
-  next();
-});
+productSchema.pre(
+  "validate",
+  function (next) {
+    /*
+     * Product-level prices
+     */
+
+    const actual =
+      Number(
+        this.actualPrice || 0
+      );
+
+    const selling =
+      Number(
+        this.sellingPrice || 0
+      );
+
+    if (
+      selling > actual &&
+      actual > 0
+    ) {
+      return next(
+        new Error(
+          "Selling price cannot be greater than actual price."
+        )
+      );
+    }
+
+    /*
+     * Size-level prices
+     */
+
+    if (
+      Array.isArray(
+        this.sizes
+      )
+    ) {
+      const seen =
+        new Set();
+
+      for (
+        const size of this.sizes
+      ) {
+        const name =
+          String(
+            size?.name || ""
+          ).trim();
+
+        if (!name) {
+          return next(
+            new Error(
+              "Size name cannot be empty."
+            )
+          );
+        }
+
+        const key =
+          name.toLowerCase();
+
+        if (
+          seen.has(key)
+        ) {
+          return next(
+            new Error(
+              `Duplicate size "${name}".`
+            )
+          );
+        }
+
+        seen.add(key);
+
+        const sizeActual =
+          Number(
+            size.actualPrice ||
+              0
+          );
+
+        const sizeSelling =
+          Number(
+            size.sellingPrice ||
+              0
+          );
+
+        if (
+          sizeSelling >
+            sizeActual &&
+          sizeActual > 0
+        ) {
+          return next(
+            new Error(
+              `Selling price cannot be greater than actual price for size "${name}".`
+            )
+          );
+        }
+      }
+    }
+
+    next();
+  }
+);
+
+/* =========================================================
+   AUTO SLUG
+========================================================= */
+
+productSchema.pre(
+  "save",
+  function (next) {
+    if (
+      this.isModified(
+        "name"
+      ) &&
+      !this.slug
+    ) {
+      this.slug =
+        this.name
+          .toLowerCase()
+          .replace(
+            /[^a-z0-9\s-]/g,
+            ""
+          )
+          .replace(
+            /\s+/g,
+            "-"
+          )
+          .replace(
+            /-{2,}/g,
+            "-"
+          )
+          .trim();
+    }
+
+    next();
+  }
+);
+
+/* =========================================================
+   INDEXES
+========================================================= */
 
 productSchema.index({
   isActive: 1,
@@ -252,6 +557,18 @@ productSchema.index({
   showInNewArrivals: 1,
 });
 
-const Product = mongoose.model('Product', productSchema);
+productSchema.index({
+  isOnSale: 1,
+});
+
+/* =========================================================
+   MODEL
+========================================================= */
+
+const Product =
+  mongoose.model(
+    "Product",
+    productSchema
+  );
 
 export default Product;

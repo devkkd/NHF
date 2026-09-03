@@ -3,11 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
 import {
   getHomeCategories,
 } from "@/lib/api";
+
+/* =========================================================
+   FALLBACK CATEGORIES
+========================================================= */
 
 const FALLBACK_CATEGORIES = [
   {
@@ -72,9 +79,17 @@ const FALLBACK_CATEGORIES = [
   },
 ];
 
+/* =========================================================
+   COMPONENT
+========================================================= */
+
 export default function CollectionCategory({
   categories = [],
 }) {
+  /* =======================================================
+     STATE
+  ======================================================= */
+
   const [
     homeCategories,
     setHomeCategories,
@@ -85,63 +100,81 @@ export default function CollectionCategory({
     setLoading,
   ] = useState(true);
 
+  /* =======================================================
+     LOAD BACKEND CATEGORIES
+  ======================================================= */
+
   useEffect(() => {
     let cancelled = false;
 
-    const loadCategories = async () => {
-      try {
-        /*
-         * Backend:
-         *
-         * GET /categories?home=true
-         *
-         * Sirf wahi categories aayengi
-         * jinka showInHome = true hai.
-         */
-        const data =
-          await getHomeCategories();
-
-        if (cancelled) {
-          return;
-        }
-
-        /*
-         * Backend se valid array
-         * mila to use karo.
-         */
-        if (
-          Array.isArray(data) &&
-          data.length > 0
-        ) {
-          setHomeCategories(
-            data
-          );
-        } else {
+    const loadCategories =
+      async () => {
+        try {
           /*
-           * Backend se empty data:
-           * fallback dummy categories.
+           * Backend:
+           *
+           * GET /categories?home=true
+           *
+           * Sirf wahi categories aayengi
+           * jinka showInHome = true hai.
            */
-          setHomeCategories([]);
-        }
-      } catch (error) {
-        console.error(
-          "Home categories load error:",
-          error
-        );
 
-        /*
-         * Error mein bhi fallback
-         * dummy data use hoga.
-         */
-        if (!cancelled) {
-          setHomeCategories([]);
+          const data =
+            await getHomeCategories();
+
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          /*
+           * Backend se valid array
+           * mila to wahi use karo.
+           */
+
+          if (
+            Array.isArray(
+              data
+            ) &&
+            data.length > 0
+          ) {
+            setHomeCategories(
+              data
+            );
+          } else {
+            setHomeCategories(
+              []
+            );
+          }
+        } catch (error) {
+          console.error(
+            "Home categories load error:",
+            error
+          );
+
+          /*
+           * Error hone par fallback
+           * data use hoga.
+           */
+
+          if (
+            !cancelled
+          ) {
+            setHomeCategories(
+              []
+            );
+          }
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setLoading(
+              false
+            );
+          }
         }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
+      };
 
     loadCategories();
 
@@ -150,6 +183,10 @@ export default function CollectionCategory({
     };
   }, []);
 
+  /* =======================================================
+     SOURCE
+  ======================================================= */
+
   /*
    * Priority:
    *
@@ -157,6 +194,7 @@ export default function CollectionCategory({
    * 2. Parent se aaye categories
    * 3. Dummy fallback
    */
+
   const sourceCategories =
     homeCategories.length > 0
       ? homeCategories
@@ -164,90 +202,77 @@ export default function CollectionCategory({
       ? categories
       : FALLBACK_CATEGORIES;
 
-  /*
-   * Admin serial/order follow hoga.
-   *
-   * Backend already sortOrder bhej raha hai,
-   * phir bhi frontend par safe sorting.
-   */
-  const items = sourceCategories
-    .map(
-      (
-        category,
-        index
-      ) => ({
-        _id:
-          category._id,
+  /* =======================================================
+     NORMALIZE + SORT
+  ======================================================= */
 
-        title:
-          category.name ||
-          category.title,
+  const items =
+    sourceCategories
+      .map(
+        (
+          category,
+          index
+        ) => ({
+          _id:
+            category?._id,
 
-        slug:
-          category.slug,
+          title:
+            category?.name ||
+            category?.title ||
+            "",
 
-        image:
-          category.image ||
-          category.thumbnail ||
-          category.banner ||
-          `/images/category/${
-            (index % 12) + 1
-          }.png`,
+          slug:
+            category?.slug,
 
-        sortOrder:
-          Number(
-            category.sortOrder ||
-              index + 1
-          ),
-      })
-    )
-    .sort(
-      (a, b) =>
-        a.sortOrder -
-        b.sortOrder
-    );
+          image:
+            category?.image ||
+            category?.thumbnail ||
+            category?.banner ||
+            `/images/category/${
+              (index % 12) + 1
+            }.png`,
+
+          sortOrder:
+            Number(
+              category?.sortOrder ||
+                index + 1
+            ),
+        })
+      )
+      .filter(
+        (item) =>
+          item.title &&
+          item.slug
+      )
+      .sort(
+        (a, b) =>
+          a.sortOrder -
+          b.sortOrder
+      );
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <section
-      style={{
-        background:
-          "#FDFFF1",
-        padding:
-          "90px 40px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth:
-            "1400px",
-          margin:
-            "0 auto",
-        }}
-      >
-        <h2
-          className="collection-heading"
-          style={{
-            fontFamily:
-              "'Tobias TRIAL', serif",
-            fontSize:
-              "40px",
-            fontWeight: 600,
-            lineHeight:
-              "160%",
-            letterSpacing:
-              "-0.02em",
-            color:
-              "#7B7F5C",
-            textAlign:
-              "center",
-            marginBottom:
-              "40px",
-          }}
-        >
+    <section className="collection-section">
+
+      <div className="collection-container">
+
+        {/* =================================================
+            HEADING
+        ================================================= */}
+
+        <h2 className="collection-heading">
           ALL CATEGORY
         </h2>
 
+        {/* =================================================
+            CATEGORY GRID
+        ================================================= */}
+
         <div className="collection-grid">
+
           {items.map(
             (item) => (
               <Link
@@ -258,8 +283,15 @@ export default function CollectionCategory({
                 href={`/${item.slug}`}
                 className="collection-card-link"
               >
+
                 <div className="collection-card">
+
+                  {/* =======================================
+                      IMAGE
+                  ======================================= */}
+
                   <div className="image-wrapper">
+
                     <Image
                       src={
                         item.image
@@ -268,220 +300,519 @@ export default function CollectionCategory({
                         item.title
                       }
                       fill
-                      sizes="(max-width:768px) 50vw, 33vw"
+                      sizes="
+                        (max-width: 768px) 50vw,
+                        (max-width: 1024px) 33vw,
+                        25vw
+                      "
                       style={{
                         objectFit:
                           "cover",
                       }}
                       className="collection-img"
                     />
+
                   </div>
 
+                  {/* =======================================
+                      TITLE
+                  ======================================= */}
+
                   <h5>
-                    {
-                      item.title
-                    }{" "}
-                    →
+                    {item.title} →
                   </h5>
+
                 </div>
+
               </Link>
             )
           )}
+
         </div>
 
+        {/* =================================================
+            FULL COLLECTION
+        ================================================= */}
+
         <div className="collection-btn-wrap">
+
           <Link
             href="/collection"
             className="collection-btn"
           >
-            SEE FULL OUR
-            COLLECTION →
+            SEE FULL OUR COLLECTION →
           </Link>
+
         </div>
+
       </div>
 
+      {/* =====================================================
+          STYLES
+      ===================================================== */}
+
       <style jsx>{`
-        .collection-card-link {
-          text-decoration: none;
-          display: block;
-          color: inherit;
+
+        /* ==================================================
+           SECTION
+        ================================================== */
+
+        .collection-section {
+          width:
+            100%;
+
+          background:
+            #FDFFF1;
+
+          padding:
+            72px 24px;
+
+          box-sizing:
+            border-box;
         }
+
+        /* ==================================================
+           CONTAINER
+        ================================================== */
+
+        .collection-container {
+          width:
+            100%;
+
+          max-width:
+            1400px;
+
+          margin:
+            0 auto;
+        }
+
+        /* ==================================================
+           HEADING
+        ================================================== */
+
+        .collection-heading {
+          margin:
+            0 0 36px;
+
+          text-align:
+            center;
+
+          font-family:
+            "Tobias TRIAL",
+            "Playfair Display",
+            Georgia,
+            serif;
+
+          font-size:
+            38px;
+
+          font-weight:
+            600;
+
+          line-height:
+            1.25;
+
+          letter-spacing:
+            -0.02em;
+
+          color:
+            #7B7F5C;
+        }
+
+        /* ==================================================
+           GRID
+           DESKTOP = 4 CARDS
+        ================================================== */
 
         .collection-grid {
-          display: grid;
-          grid-template-columns: repeat(
-            3,
-            minmax(0, 1fr)
-          );
-          gap: 48px 24px;
+          display:
+            grid;
+
+          grid-template-columns:
+            repeat(
+              4,
+              minmax(
+                0,
+                1fr
+              )
+            );
+
+          column-gap:
+            18px;
+
+          row-gap:
+            34px;
         }
+
+        /* ==================================================
+           LINK
+        ================================================== */
+
+        .collection-card-link {
+          display:
+            block;
+
+          width:
+            100%;
+
+          color:
+            inherit;
+
+          text-decoration:
+            none;
+        }
+
+        /* ==================================================
+           CARD
+        ================================================== */
 
         .collection-card {
-          display: flex;
-          flex-direction: column;
-          width: 100%;
+          width:
+            100%;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
         }
 
+        /* ==================================================
+           IMAGE
+        ================================================== */
+
         .image-wrapper {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          overflow: hidden;
-          background: #ecefdd;
-          border-radius: 12px;
+          position:
+            relative;
+
+          width:
+            100%;
+
+          aspect-ratio:
+            1 / 1;
+
+          overflow:
+            hidden;
+
+          background:
+            #ECEFDD;
+
+          border-radius:
+            11px;
         }
 
         .collection-img {
-          transition: transform 0.4s ease;
+          transition:
+            transform
+            0.4s ease;
         }
 
-        .collection-card-link:hover .collection-img {
-          transform: scale(1.04);
+        .collection-card-link:hover
+          .collection-img {
+          transform:
+            scale(
+              1.04
+            );
         }
+
+        /* ==================================================
+           CATEGORY NAME
+        ================================================== */
 
         .collection-card h5 {
-          margin: 18px 0 0;
-          font-family: "Mona Sans",
-            sans-serif;
-          font-size: 22px;
-          font-weight: 500;
-          line-height: 1.45;
-          color: #7b7f5c;
-          text-align: center;
+          margin:
+            14px 0 0;
 
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+          padding:
+            0 4px;
+
+          text-align:
+            center;
+
+          color:
+            #7B7F5C;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            18px;
+
+          font-weight:
+            500;
+
+          line-height:
+            1.35;
+
+          display:
+            -webkit-box;
+
+          -webkit-box-orient:
+            vertical;
+
+          -webkit-line-clamp:
+            2;
+
+          overflow:
+            hidden;
         }
 
+        /* ==================================================
+           BUTTON
+        ================================================== */
+
         .collection-btn-wrap {
-          display: flex;
-          justify-content: center;
-          margin-top: 56px;
+          display:
+            flex;
+
+          justify-content:
+            center;
+
+          margin-top:
+            50px;
         }
 
         .collection-btn {
-          background: transparent;
-          border: none;
-          border-bottom: 1px solid #7b7f5c;
-          padding-bottom: 8px;
-          color: #7b7f5c;
-          font-family: "Mona Sans",
+          display:
+            inline-block;
+
+          background:
+            transparent;
+
+          border:
+            none;
+
+          border-bottom:
+            1px solid
+            #7B7F5C;
+
+          padding-bottom:
+            7px;
+
+          color:
+            #7B7F5C;
+
+          font-family:
+            "Mona Sans",
+            Arial,
             sans-serif;
-          font-size: 15px;
-          letter-spacing: 0.04em;
-          text-decoration: none;
-          transition: 0.25s;
+
+          font-size:
+            14px;
+
+          line-height:
+            1.3;
+
+          letter-spacing:
+            0.04em;
+
+          text-decoration:
+            none;
+
+          transition:
+            opacity
+            0.25s ease;
         }
 
         .collection-btn:hover {
-          opacity: 0.75;
+          opacity:
+            0.7;
         }
 
-        /* ===================
-           Tablet
-        =================== */
+        /* ==================================================
+           TABLET
+           3 CARDS
+        ================================================== */
 
-        @media (max-width: 1024px) {
-          section {
-            padding: 70px 24px !important;
+        @media (max-width: 1100px) {
+
+          .collection-section {
+            padding:
+              62px 24px;
           }
 
-          .collection-grid {
-            grid-template-columns: repeat(
-              3,
-              1fr
-            );
-            gap: 28px 16px;
-          }
-
-          .image-wrapper {
-            aspect-ratio: 1 / 1;
-          }
-
-          .collection-card h5 {
-            font-size: 17px;
-            margin-top: 14px;
-          }
-        }
-
-        /* ===================
-           Mobile
-        =================== */
-
-        @media (max-width: 768px) {
           .collection-heading {
-            font-size: 28px !important;
-            margin-bottom: 24px !important;
-            line-height: 1.3 !important;
-          }
+            font-size:
+              34px;
 
-          section {
-            padding: 25px 20px !important;
+            margin-bottom:
+              30px;
           }
 
           .collection-grid {
-            grid-template-columns: repeat(
-              2,
-              1fr
-            );
-            gap: 18px 12px;
-          }
+            grid-template-columns:
+              repeat(
+                3,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
 
-          .image-wrapper {
-            aspect-ratio: 1 / 1;
-            border-radius: 10px;
+            column-gap:
+              16px;
+
+            row-gap:
+              28px;
           }
 
           .collection-card h5 {
-            margin-top: 10px;
-            font-size: 13px;
-            line-height: 1.4;
-            min-height: 36px;
-            padding: 0 2px;
+            margin-top:
+              12px;
+
+            font-size:
+              16px;
           }
 
           .collection-btn-wrap {
-            margin-top: 40px;
+            margin-top:
+              42px;
           }
 
-          .collection-btn {
-            font-size: 12px;
-            padding-bottom: 6px;
-          }
         }
 
-        /* ===================
-           Small Mobile
-        =================== */
+        /* ==================================================
+           MOBILE
+           EXACTLY 2 CARDS
+        ================================================== */
 
-        @media (max-width: 480px) {
-          section {
-            padding: 48px 20px !important;
+        @media (max-width: 768px) {
+
+          .collection-section {
+            padding:
+              42px 10px 45px;
+          }
+
+          .collection-heading {
+            margin:
+              0 0 22px;
+
+            font-size:
+              27px;
+
+            line-height:
+              1.25;
           }
 
           .collection-grid {
-            gap: 16px 10px;
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            column-gap:
+              10px;
+
+            row-gap:
+              19px;
           }
 
           .image-wrapper {
-            aspect-ratio: 1 / 1;
-            border-radius: 8px;
+            aspect-ratio:
+              1 / 1;
+
+            border-radius:
+              9px;
           }
 
           .collection-card h5 {
-            font-size: 12px;
-            min-height: 34px;
-            margin-top: 8px;
+            margin-top:
+              8px;
+
+            padding:
+              0 2px;
+
+            font-size:
+              12px;
+
+            line-height:
+              1.35;
+
+            min-height:
+              32px;
+          }
+
+          .collection-btn-wrap {
+            margin-top:
+              34px;
           }
 
           .collection-btn {
-            font-size: 11px;
-            text-align: center;
+            font-size:
+              11px;
+
+            padding-bottom:
+              6px;
+
+            text-align:
+              center;
           }
+
         }
+
+        /* ==================================================
+           SMALL MOBILE
+        ================================================== */
+
+        @media (max-width: 480px) {
+
+          .collection-section {
+            padding:
+              38px 8px 42px;
+          }
+
+          .collection-heading {
+            font-size:
+              24px;
+
+            margin-bottom:
+              19px;
+          }
+
+          .collection-grid {
+            column-gap:
+              8px;
+
+            row-gap:
+              16px;
+          }
+
+          .image-wrapper {
+            border-radius:
+              8px;
+          }
+
+          .collection-card h5 {
+            margin-top:
+              7px;
+
+            font-size:
+              11px;
+
+            min-height:
+              30px;
+          }
+
+          .collection-btn-wrap {
+            margin-top:
+              30px;
+          }
+
+          .collection-btn {
+            font-size:
+              10px;
+          }
+
+        }
+
       `}</style>
+
     </section>
   );
 }

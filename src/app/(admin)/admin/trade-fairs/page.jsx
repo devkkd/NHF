@@ -24,13 +24,11 @@ import {
 } from "lucide-react";
 
 import { apiFetch } from "@/lib/adminApi";
-
 import AdminShell from "@/components/admin/AdminShell";
 
-
-// ======================================================
-// EMPTY FORM
-// ======================================================
+/* =========================================================
+   EMPTY FORM
+========================================================= */
 
 const EMPTY_FORM = {
   type: "past",
@@ -45,32 +43,19 @@ const EMPTY_FORM = {
   active: true,
 };
 
+/* =========================================================
+   HELPERS
+========================================================= */
 
-// ======================================================
-// HELPERS
-// ======================================================
-
-function getFairImage(
-  fair
-) {
-  return (
-    fair?.images?.[0]
-      ?.url || ""
-  );
+function getFairImage(fair) {
+  return fair?.images?.[0]?.url || "";
 }
 
-
-function formatDate(
-  value
-) {
-  if (!value) {
-    return "—";
-  }
+function formatDate(value) {
+  if (!value) return "—";
 
   try {
-    return new Date(
-      value
-    ).toLocaleDateString(
+    return new Date(value).toLocaleDateString(
       "en-IN",
       {
         day: "2-digit",
@@ -83,439 +68,333 @@ function formatDate(
   }
 }
 
-
-// ======================================================
-// PAGE
-// ======================================================
+/* =========================================================
+   PAGE
+========================================================= */
 
 export default function AdminTradeFairsPage() {
-  const [
-    fairs,
-    setFairs,
-  ] = useState([]);
+  const [fairs, setFairs] = useState([]);
 
-  const [
-    loading,
-    setLoading,
-  ] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [
-    error,
-    setError,
-  ] = useState("");
+  const [error, setError] =
+    useState("");
 
-  const [
-    success,
-    setSuccess,
-  ] = useState("");
+  const [success, setSuccess] =
+    useState("");
 
-  // ====================================================
-  // MODAL
-  // ====================================================
+  /* =======================================================
+     MODAL
+  ======================================================= */
 
-  const [
-    modalOpen,
-    setModalOpen,
-  ] = useState(false);
+  const [modalOpen, setModalOpen] =
+    useState(false);
 
-  const [
-    modalMode,
-    setModalMode,
-  ] = useState("create");
+  const [modalMode, setModalMode] =
+    useState("create");
 
-  const [
-    editingId,
-    setEditingId,
-  ] = useState(null);
+  const [editingId, setEditingId] =
+    useState(null);
 
-  const [
-    form,
-    setForm,
-  ] = useState(
-    EMPTY_FORM
-  );
+  const [form, setForm] =
+    useState(EMPTY_FORM);
 
-  const [
-    formError,
-    setFormError,
-  ] = useState("");
+  const [formError, setFormError] =
+    useState("");
 
-  const [
-    submitting,
-    setSubmitting,
-  ] = useState(false);
+  const [submitting, setSubmitting] =
+    useState(false);
 
-  // ====================================================
-  // FILES
-  // ====================================================
+  /* =======================================================
+     FILES
+  ======================================================= */
 
-  const [
-    selectedFiles,
-    setSelectedFiles,
-  ] = useState([]);
+  const [selectedFiles, setSelectedFiles] =
+    useState([]);
 
   const fileInputRef =
     useRef(null);
 
-  // ====================================================
-  // DELETE
-  // ====================================================
+  /* =======================================================
+     DELETE
+  ======================================================= */
 
-  const [
-    deleteId,
-    setDeleteId,
-  ] = useState(null);
+  const [deleteId, setDeleteId] =
+    useState(null);
 
-  const [
-    deleting,
-    setDeleting,
-  ] = useState(false);
+  const [deleting, setDeleting] =
+    useState(false);
 
-  // ====================================================
-  // IMAGE DELETE
-  // ====================================================
+  /* =======================================================
+     IMAGE DELETE
+  ======================================================= */
 
   const [
     deletingImageId,
     setDeletingImageId,
   ] = useState(null);
 
+  /* =======================================================
+     LOAD
+  ======================================================= */
 
-  // ====================================================
-  // LOAD FAIRS
-  // ====================================================
+  const loadFairs = useCallback(
+    async () => {
+      setLoading(true);
+      setError("");
 
-  const loadFairs =
-    useCallback(
-      async () => {
-        setLoading(true);
-        setError("");
-
-        try {
-          const res =
-            await apiFetch(
-              "/trade-fairs/admin"
-            );
-
-          if (
-            !res.ok
-          ) {
-            setFairs([]);
-
-            setError(
-              res.data
-                ?.message ||
-                res.data
-                  ?.error ||
-                "Failed to load trade fairs."
-            );
-
-            return;
-          }
-
-          const list =
-            res.data
-              ?.data
-              ?.fairs ||
-            [];
-
-          setFairs(
-            Array.isArray(
-              list
-            )
-              ? list
-              : []
+      try {
+        const res =
+          await apiFetch(
+            "/trade-fairs/admin"
           );
-        } catch (err) {
-          console.error(
-            "TRADE FAIR LOAD ERROR:",
-            err
-          );
+
+        if (!res.ok) {
+          setFairs([]);
 
           setError(
-            "Failed to load trade fairs."
+            res.data?.message ||
+              res.data?.error ||
+              "Failed to load trade fairs."
           );
-        } finally {
-          setLoading(false);
-        }
-      },
-      []
-    );
 
+          return;
+        }
+
+        const list =
+          res.data?.data?.fairs ||
+          [];
+
+        setFairs(
+          Array.isArray(list)
+            ? list
+            : []
+        );
+      } catch (err) {
+        console.error(
+          "TRADE FAIR LOAD ERROR:",
+          err
+        );
+
+        setFairs([]);
+
+        setError(
+          err?.message ||
+            "Failed to load trade fairs."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     loadFairs();
-  }, [
-    loadFairs,
-  ]);
+  }, [loadFairs]);
 
+  /* =======================================================
+     COUNTS
+  ======================================================= */
 
-  // ====================================================
-  // COUNTS
-  // ====================================================
-
-  const pastFairs =
-    useMemo(
-      () =>
-        fairs.filter(
-          (fair) =>
-            fair.type ===
-            "past"
-        ),
-      [fairs]
+  const pastFairs = useMemo(() => {
+    return fairs.filter(
+      (fair) =>
+        fair.type === "past"
     );
+  }, [fairs]);
 
   const upcomingFairs =
-    useMemo(
-      () =>
-        fairs.filter(
-          (fair) =>
-            fair.type ===
-            "upcoming"
-        ),
-      [fairs]
+    useMemo(() => {
+      return fairs.filter(
+        (fair) =>
+          fair.type === "upcoming"
+      );
+    }, [fairs]);
+
+  const totalImages =
+    useMemo(() => {
+      return fairs.reduce(
+        (sum, fair) =>
+          sum +
+          (Array.isArray(
+            fair.images
+          )
+            ? fair.images.length
+            : 0),
+        0
+      );
+    }, [fairs]);
+
+  /* =======================================================
+     RESET
+  ======================================================= */
+
+  const resetForm = () => {
+    setForm({
+      ...EMPTY_FORM,
+    });
+
+    setSelectedFiles([]);
+
+    setEditingId(null);
+
+    setModalMode("create");
+
+    setFormError("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  /* =======================================================
+     CREATE
+  ======================================================= */
+
+  const openCreate = (
+    type = "past"
+  ) => {
+    resetForm();
+
+    setForm({
+      ...EMPTY_FORM,
+      type,
+    });
+
+    setModalMode("create");
+
+    setModalOpen(true);
+  };
+
+  /* =======================================================
+     EDIT
+  ======================================================= */
+
+  const openEdit = (fair) => {
+    const isoDate = fair.date
+      ? new Date(fair.date)
+          .toISOString()
+          .split("T")[0]
+      : "";
+
+    setEditingId(
+      fair._id
     );
 
+    setModalMode("edit");
 
-  // ====================================================
-  // RESET FORM
-  // ====================================================
+    setForm({
+      type:
+        fair.type ||
+        "past",
 
-  const resetForm =
-    () => {
-      setForm(
-        EMPTY_FORM
-      );
+      title:
+        fair.title ||
+        "",
 
-      setSelectedFiles(
-        []
-      );
+      description:
+        fair.description ||
+        "",
 
-      setEditingId(
-        null
-      );
+      date: isoDate,
 
-      setModalMode(
-        "create"
-      );
+      dateText:
+        fair.dateText ||
+        "",
 
-      setFormError(
-        ""
-      );
+      venue:
+        fair.venue ||
+        "",
 
-      if (
-        fileInputRef.current
-      ) {
-        fileInputRef.current.value =
-          "";
-      }
-    };
+      timing:
+        fair.timing ||
+        "",
 
+      location:
+        fair.location ||
+        "",
 
-  // ====================================================
-  // OPEN CREATE
-  // ====================================================
+      sortOrder:
+        fair.sortOrder ?? 0,
 
-  const openCreate =
-    (
-      type = "past"
-    ) => {
-      resetForm();
+      active:
+        fair.active !== false,
+    });
 
-      setForm(
-        {
-          ...EMPTY_FORM,
-          type,
-        }
-      );
+    setSelectedFiles([]);
 
-      setModalMode(
-        "create"
-      );
+    setFormError("");
 
-      setModalOpen(
-        true
-      );
-    };
+    setModalOpen(true);
+  };
 
+  /* =======================================================
+     CLOSE
+  ======================================================= */
 
-  // ====================================================
-  // OPEN EDIT
-  // ====================================================
+  const closeModal = () => {
+    if (submitting) return;
 
-  const openEdit =
-    (
-      fair
-    ) => {
-      const isoDate =
-        fair.date
-          ? new Date(
-              fair.date
-            )
-              .toISOString()
-              .split(
-                "T"
-              )[0]
-          : "";
+    setModalOpen(false);
 
-      setEditingId(
-        fair._id
-      );
+    resetForm();
+  };
 
-      setModalMode(
-        "edit"
-      );
-
-      setForm({
-        type:
-          fair.type ||
-          "past",
-
-        title:
-          fair.title ||
-          "",
-
-        description:
-          fair.description ||
-          "",
-
-        date:
-          isoDate,
-
-        dateText:
-          fair.dateText ||
-          "",
-
-        venue:
-          fair.venue ||
-          "",
-
-        timing:
-          fair.timing ||
-          "",
-
-        location:
-          fair.location ||
-          "",
-
-        sortOrder:
-          fair.sortOrder ??
-          0,
-
-        active:
-          fair.active !==
-          false,
-      });
-
-      setSelectedFiles(
-        []
-      );
-
-      setFormError(
-        ""
-      );
-
-      setModalOpen(
-        true
-      );
-    };
-
-
-  // ====================================================
-  // CLOSE MODAL
-  // ====================================================
-
-  const closeModal =
-    () => {
-      if (
-        submitting
-      ) {
-        return;
-      }
-
-      setModalOpen(
-        false
-      );
-
-      resetForm();
-    };
-
-
-  // ====================================================
-  // SET FORM
-  // ====================================================
+  /* =======================================================
+     SET FIELD
+  ======================================================= */
 
   const setField = (
     field,
     value
   ) => {
     setForm(
-      (
-        current
-      ) => ({
+      (current) => ({
         ...current,
-        [field]:
-          value,
+        [field]: value,
       })
     );
   };
 
+  /* =======================================================
+     FILE SELECT
+  ======================================================= */
 
-  // ====================================================
-  // FILE SELECT
-  // ====================================================
+  const handleFiles = (
+    event
+  ) => {
+    const files = Array.from(
+      event.target.files || []
+    );
 
-  const handleFiles =
-    (
-      event
-    ) => {
-      const files =
-        Array.from(
-          event.target
-            .files || []
-        );
-
-      if (
-        form.type ===
-        "upcoming"
-      ) {
-        setSelectedFiles(
-          files.slice(
-            0,
-            1
-          )
-        );
-      } else {
-        setSelectedFiles(
-          files.slice(
-            0,
-            8
-          )
-        );
-      }
-
-      setFormError(
-        ""
+    if (
+      form.type ===
+      "upcoming"
+    ) {
+      setSelectedFiles(
+        files.slice(0, 1)
       );
-    };
+    } else {
+      setSelectedFiles(
+        files.slice(0, 8)
+      );
+    }
 
+    setFormError("");
+  };
 
-  // ====================================================
-  // SUBMIT
-  // ====================================================
+  /* =======================================================
+     SUBMIT
+  ======================================================= */
 
   const handleSubmit =
-    async (
-      event
-    ) => {
+    async (event) => {
       event.preventDefault();
 
       setFormError("");
       setSuccess("");
-
-      // ----------------------------------------------
-      // VALIDATION
-      // ----------------------------------------------
 
       if (
         !form.title.trim()
@@ -555,10 +434,6 @@ export default function AdminTradeFairsPage() {
         return;
       }
 
-      // ----------------------------------------------
-      // FORM DATA
-      // ----------------------------------------------
-
       const formData =
         new FormData();
 
@@ -577,9 +452,7 @@ export default function AdminTradeFairsPage() {
         form.description.trim()
       );
 
-      if (
-        form.date
-      ) {
+      if (form.date) {
         formData.append(
           "date",
           form.date
@@ -625,9 +498,7 @@ export default function AdminTradeFairsPage() {
       );
 
       selectedFiles.forEach(
-        (
-          file
-        ) => {
+        (file) => {
           formData.append(
             "images",
             file
@@ -635,9 +506,7 @@ export default function AdminTradeFairsPage() {
         }
       );
 
-      setSubmitting(
-        true
-      );
+      setSubmitting(true);
 
       try {
         const res =
@@ -646,45 +515,35 @@ export default function AdminTradeFairsPage() {
             ? await apiFetch(
                 `/trade-fairs/admin/${editingId}`,
                 {
-                  method:
-                    "PUT",
-                  body:
-                    formData,
+                  method: "PUT",
+                  body: formData,
                 }
               )
             : await apiFetch(
                 "/trade-fairs/admin",
                 {
-                  method:
-                    "POST",
-                  body:
-                    formData,
+                  method: "POST",
+                  body: formData,
                 }
               );
 
-        if (
-          !res.ok
-        ) {
+        if (!res.ok) {
           setFormError(
-            res.data
-              ?.message ||
-              res.data
-                ?.error ||
+            res.data?.message ||
+              res.data?.error ||
               "Unable to save trade fair."
           );
 
           return;
         }
 
-        setModalOpen(
-          false
-        );
+        setModalOpen(false);
 
         resetForm();
 
         setSuccess(
           modalMode ===
-            "edit"
+          "edit"
             ? "Trade fair updated successfully."
             : "Trade fair created successfully."
         );
@@ -697,32 +556,23 @@ export default function AdminTradeFairsPage() {
         );
 
         setFormError(
-          "Something went wrong while saving the trade fair."
+          err?.message ||
+            "Something went wrong while saving the trade fair."
         );
       } finally {
-        setSubmitting(
-          false
-        );
+        setSubmitting(false);
       }
     };
 
-
-  // ====================================================
-  // DELETE FAIR
-  // ====================================================
+  /* =======================================================
+     DELETE FAIR
+  ======================================================= */
 
   const handleDelete =
-    async (
-      id
-    ) => {
-      if (!id) {
-        return;
-      }
+    async (id) => {
+      if (!id) return;
 
-      setDeleting(
-        true
-      );
-
+      setDeleting(true);
       setError("");
 
       try {
@@ -730,26 +580,20 @@ export default function AdminTradeFairsPage() {
           await apiFetch(
             `/trade-fairs/admin/${id}`,
             {
-              method:
-                "DELETE",
+              method: "DELETE",
             }
           );
 
-        if (
-          !res.ok
-        ) {
+        if (!res.ok) {
           setError(
-            res.data
-              ?.message ||
+            res.data?.message ||
               "Failed to delete trade fair."
           );
 
           return;
         }
 
-        setDeleteId(
-          null
-        );
+        setDeleteId(null);
 
         setSuccess(
           "Trade fair deleted successfully."
@@ -763,19 +607,17 @@ export default function AdminTradeFairsPage() {
         );
 
         setError(
-          "Failed to delete trade fair."
+          err?.message ||
+            "Failed to delete trade fair."
         );
       } finally {
-        setDeleting(
-          false
-        );
+        setDeleting(false);
       }
     };
 
-
-  // ====================================================
-  // DELETE SINGLE IMAGE
-  // ====================================================
+  /* =======================================================
+     DELETE IMAGE
+  ======================================================= */
 
   const handleDeleteImage =
     async (
@@ -798,17 +640,13 @@ export default function AdminTradeFairsPage() {
           await apiFetch(
             `/trade-fairs/admin/${fairId}/images/${imageId}`,
             {
-              method:
-                "DELETE",
+              method: "DELETE",
             }
           );
 
-        if (
-          !res.ok
-        ) {
+        if (!res.ok) {
           setError(
-            res.data
-              ?.message ||
+            res.data?.message ||
               "Failed to delete image."
           );
 
@@ -827,7 +665,8 @@ export default function AdminTradeFairsPage() {
         );
 
         setError(
-          "Failed to delete image."
+          err?.message ||
+            "Failed to delete image."
         );
       } finally {
         setDeletingImageId(
@@ -836,26 +675,96 @@ export default function AdminTradeFairsPage() {
       }
     };
 
+  /* =======================================================
+     TABLE COMPONENT
+  ======================================================= */
 
-  // ====================================================
-  // TABLE SECTION
-  // ====================================================
+  const renderTable = (
+    title,
+    data
+  ) => {
+    const isPast =
+      title.startsWith(
+        "Past"
+      );
 
-  const renderTable =
-    (
-      title,
-      data
-    ) => (
-      <section className="nhf-form-section trade-fair-list-section">
+    return (
+      <section
+        style={{
+          width: "100%",
 
-        <div className="trade-fair-section-head">
+          background:
+            "#ffffff",
 
+          border:
+            "1px solid #dddddd",
+
+          borderRadius: "12px",
+
+          padding: "24px",
+
+          marginBottom:
+            "28px",
+
+          boxSizing:
+            "border-box",
+
+          color: "#000000",
+        }}
+      >
+        {/* SECTION HEADER */}
+
+        <div
+          style={{
+            display: "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "space-between",
+
+            gap: "20px",
+
+            marginBottom:
+              "20px",
+          }}
+        >
           <div>
-            <div className="nhf-form-section-title">
-              {title}
-            </div>
+            <h2
+              style={{
+                margin: 0,
 
-            <p className="nhf-page-sub">
+                color: "#000000",
+
+                fontSize: "20px",
+
+                lineHeight:
+                  "1.35",
+
+                fontWeight: 700,
+              }}
+            >
+              {title}
+            </h2>
+
+            <p
+              style={{
+                margin:
+                  "7px 0 0",
+
+                color: "#000000",
+
+                opacity: 0.6,
+
+                fontSize: "16px",
+
+                lineHeight:
+                  "1.4",
+
+                fontWeight: 400,
+              }}
+            >
               {data.length}{" "}
               {data.length ===
               1
@@ -866,89 +775,344 @@ export default function AdminTradeFairsPage() {
 
           <button
             type="button"
-            className="nhf-btn nhf-btn-primary nhf-btn-sm"
             onClick={() =>
               openCreate(
-                title.startsWith(
-                  "Past"
-                )
+                isPast
                   ? "past"
                   : "upcoming"
               )
             }
+            style={{
+              height: "44px",
+
+              minWidth: "90px",
+
+              padding:
+                "0 16px",
+
+              border:
+                "1px solid #000000",
+
+              borderRadius: "8px",
+
+              background:
+                "#000000",
+
+              color: "#ffffff",
+
+              display: "flex",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "center",
+
+              gap: "7px",
+
+              fontSize: "16px",
+
+              fontWeight: 700,
+
+              cursor: "pointer",
+            }}
           >
-            <Plus
-              size={13}
-            />
+            <Plus size={17} />
+
             Add
           </button>
-
         </div>
 
+        {/* EMPTY */}
 
         {data.length ===
         0 ? (
-          <div className="nhf-empty">
-            <div className="nhf-empty-icon">
+          <div
+            style={{
+              minHeight:
+                "250px",
+
+              border:
+                "1px dashed #cccccc",
+
+              borderRadius:
+                "10px",
+
+              background:
+                "#fafafa",
+
+              display: "flex",
+
+              flexDirection:
+                "column",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "center",
+
+              gap: "12px",
+
+              color:
+                "#000000",
+            }}
+          >
+            <div
+              style={{
+                width: "58px",
+
+                height: "58px",
+
+                borderRadius:
+                  "12px",
+
+                background:
+                  "#eeeeee",
+
+                display: "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+              }}
+            >
               <ImagePlus
-                size={22}
+                size={27}
               />
             </div>
 
-            No{" "}
-            {title.toLowerCase()}{" "}
-            added yet.
+            <p
+              style={{
+                margin: 0,
+
+                color:
+                  "#000000",
+
+                fontSize:
+                  "16px",
+
+                fontWeight:
+                  600,
+              }}
+            >
+              No{" "}
+              {title.toLowerCase()}{" "}
+              added yet.
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                openCreate(
+                  isPast
+                    ? "past"
+                    : "upcoming"
+                )
+              }
+              style={{
+                border:
+                  "none",
+
+                background:
+                  "transparent",
+
+                color:
+                  "#000000",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                gap: "6px",
+
+                fontSize:
+                  "15px",
+
+                fontWeight:
+                  700,
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              <Plus size={16} />
+
+              Add first fair
+            </button>
           </div>
         ) : (
-          <div className="nhf-table-wrap">
-            <table className="nhf-table">
+          /* TABLE */
+
+          <div
+            style={{
+              width: "100%",
+
+              overflowX: "auto",
+
+              overflowY:
+                "hidden",
+
+              border:
+                "1px solid #dddddd",
+
+              borderRadius:
+                "10px",
+
+              boxSizing:
+                "border-box",
+            }}
+          >
+            <table
+              style={{
+                width: "100%",
+
+                minWidth:
+                  "1100px",
+
+                borderCollapse:
+                  "collapse",
+
+                tableLayout:
+                  "fixed",
+
+                background:
+                  "#ffffff",
+              }}
+            >
               <thead>
                 <tr>
-                  <th>
-                    Image
-                  </th>
+                  {[
+                    {
+                      text:
+                        "Image",
+                      width:
+                        "90px",
+                    },
+                    {
+                      text:
+                        "Title",
+                      width:
+                        "210px",
+                    },
+                    {
+                      text:
+                        "Description",
+                      width:
+                        "260px",
+                    },
+                    {
+                      text:
+                        "Date",
+                      width:
+                        "150px",
+                    },
+                    {
+                      text:
+                        "Venue",
+                      width:
+                        "200px",
+                    },
+                    {
+                      text:
+                        "Images",
+                      width:
+                        "90px",
+                    },
+                    {
+                      text:
+                        "Status",
+                      width:
+                        "120px",
+                    },
+                    {
+                      text:
+                        "Actions",
+                      width:
+                        "120px",
+                    },
+                  ].map(
+                    (header) => (
+                      <th
+                        key={
+                          header.text
+                        }
+                        style={{
+                          width:
+                            header.width,
 
-                  <th>
-                    Title
-                  </th>
+                          height:
+                            "54px",
 
-                  <th>
-                    Description
-                  </th>
+                          padding:
+                            "0 15px",
 
-                  <th>
-                    Date
-                  </th>
+                          background:
+                            "#f5f5f5",
 
-                  <th>
-                    Venue
-                  </th>
+                          borderBottom:
+                            "1px solid #dddddd",
 
-                  <th>
-                    Images
-                  </th>
+                          color:
+                            "#000000",
 
-                  <th>
-                    Status
-                  </th>
+                          fontSize:
+                            "14px",
 
-                  <th>
-                    Actions
-                  </th>
+                          lineHeight:
+                            "1.3",
+
+                          fontWeight:
+                            700,
+
+                          textAlign:
+                            "left",
+
+                          whiteSpace:
+                            "nowrap",
+
+                          boxSizing:
+                            "border-box",
+                        }}
+                      >
+                        {
+                          header.text
+                        }
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
 
               <tbody>
                 {data.map(
-                  (
-                    fair
-                  ) => (
+                  (fair) => (
                     <tr
                       key={
                         fair._id
                       }
                     >
-                      <td>
+                      {/* IMAGE */}
+
+                      <td
+                        style={{
+                          height:
+                            "96px",
+
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
                         {getFairImage(
                           fair
                         ) ? (
@@ -957,34 +1121,172 @@ export default function AdminTradeFairsPage() {
                               fair
                             )}
                             alt={
-                              fair.title
+                              fair.title ||
+                              "Trade fair"
                             }
                             width={
-                              48
+                              64
                             }
                             height={
-                              48
+                              64
                             }
-                            className="nhf-table-thumb trade-fair-thumb"
-                            sizes="48px"
+                            sizes="64px"
+                            style={{
+                              width:
+                                "64px",
+
+                              height:
+                                "64px",
+
+                              objectFit:
+                                "cover",
+
+                              borderRadius:
+                                "8px",
+
+                              border:
+                                "1px solid #dddddd",
+
+                              display:
+                                "block",
+                            }}
                           />
                         ) : (
-                          <div className="nhf-table-thumb-placeholder">
-                            —
+                          <div
+                            style={{
+                              width:
+                                "64px",
+
+                              height:
+                                "64px",
+
+                              border:
+                                "1px solid #dddddd",
+
+                              borderRadius:
+                                "8px",
+
+                              background:
+                                "#f3f3f3",
+
+                              color:
+                                "#000000",
+
+                              opacity:
+                                0.4,
+
+                              display:
+                                "flex",
+
+                              alignItems:
+                                "center",
+
+                              justifyContent:
+                                "center",
+                            }}
+                          >
+                            <ImagePlus
+                              size={
+                                22
+                              }
+                            />
                           </div>
                         )}
                       </td>
 
-                      <td>
-                        <div className="trade-fair-title-cell">
-                          <strong>
-                            {
-                              fair.title
+                      {/* TITLE */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display:
+                              "flex",
+
+                            flexDirection:
+                              "column",
+
+                            gap: "5px",
+
+                            minWidth: 0,
+                          }}
+                        >
+                          <strong
+                            title={
+                              fair.title ||
+                              ""
                             }
+                            style={{
+                              color:
+                                "#000000",
+
+                              fontSize:
+                                "16px",
+
+                              lineHeight:
+                                "1.4",
+
+                              fontWeight:
+                                700,
+
+                              overflow:
+                                "hidden",
+
+                              textOverflow:
+                                "ellipsis",
+
+                              display:
+                                "-webkit-box",
+
+                              WebkitBoxOrient:
+                                "vertical",
+
+                              WebkitLineClamp:
+                                2,
+                            }}
+                          >
+                            {fair.title ||
+                              "Untitled"}
                           </strong>
 
                           {fair.location && (
-                            <span>
+                            <span
+                              title={
+                                fair.location
+                              }
+                              style={{
+                                color:
+                                  "#000000",
+
+                                opacity:
+                                  0.6,
+
+                                fontSize:
+                                  "14px",
+
+                                lineHeight:
+                                  "1.35",
+
+                                overflow:
+                                  "hidden",
+
+                                textOverflow:
+                                  "ellipsis",
+
+                                whiteSpace:
+                                  "nowrap",
+                              }}
+                            >
                               {
                                 fair.location
                               }
@@ -993,44 +1295,256 @@ export default function AdminTradeFairsPage() {
                         </div>
                       </td>
 
-                      <td>
-                        <div className="trade-fair-description-cell">
+                      {/* DESCRIPTION */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
+                        <div
+                          title={
+                            fair.description ||
+                            ""
+                          }
+                          style={{
+                            color:
+                              "#000000",
+
+                            opacity:
+                              0.65,
+
+                            fontSize:
+                              "16px",
+
+                            lineHeight:
+                              "1.45",
+
+                            display:
+                              "-webkit-box",
+
+                            WebkitBoxOrient:
+                              "vertical",
+
+                            WebkitLineClamp:
+                              3,
+
+                            overflow:
+                              "hidden",
+                          }}
+                        >
                           {fair.description ||
                             "—"}
                         </div>
                       </td>
 
-                      <td>
+                      {/* DATE */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+
+                          color:
+                            "#000000",
+
+                          fontSize:
+                            "16px",
+
+                          lineHeight:
+                            "1.4",
+                        }}
+                      >
                         {fair.dateText ||
                           formatDate(
                             fair.date
                           )}
                       </td>
 
-                      <td>
-                        {fair.venue ||
-                          fair.location ||
-                          "—"}
+                      {/* VENUE */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+
+                          color:
+                            "#000000",
+
+                          fontSize:
+                            "16px",
+
+                          lineHeight:
+                            "1.4",
+                        }}
+                      >
+                        <span
+                          title={
+                            fair.venue ||
+                            fair.location ||
+                            ""
+                          }
+                          style={{
+                            display:
+                              "block",
+
+                            overflow:
+                              "hidden",
+
+                            textOverflow:
+                              "ellipsis",
+
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
+                          {fair.venue ||
+                            fair.location ||
+                            "—"}
+                        </span>
                       </td>
 
-                      <td>
-                        <span className="nhf-badge nhf-badge-olive">
+                      {/* IMAGE COUNT */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
+                        <span
+                          style={{
+                            minWidth:
+                              "38px",
+
+                            height:
+                              "32px",
+
+                            padding:
+                              "0 9px",
+
+                            border:
+                              "1px solid #cccccc",
+
+                            borderRadius:
+                              "7px",
+
+                            background:
+                              "#f5f5f5",
+
+                            color:
+                              "#000000",
+
+                            display:
+                              "inline-flex",
+
+                            alignItems:
+                              "center",
+
+                            justifyContent:
+                              "center",
+
+                            fontSize:
+                              "15px",
+
+                            fontWeight:
+                              700,
+                          }}
+                        >
                           {Array.isArray(
                             fair.images
                           )
-                            ? fair.images
+                            ? fair
+                                .images
                                 .length
                             : 0}
                         </span>
                       </td>
 
-                      <td>
+                      {/* STATUS */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
                         <span
-                          className={`nhf-badge ${
-                            fair.active
-                              ? "nhf-badge-green"
-                              : "nhf-badge-red"
-                          }`}
+                          style={{
+                            minWidth:
+                              "80px",
+
+                            height:
+                              "32px",
+
+                            padding:
+                              "0 11px",
+
+                            border:
+                              "1px solid #cccccc",
+
+                            borderRadius:
+                              "999px",
+
+                            background:
+                              fair.active
+                                ? "#eeeeee"
+                                : "#f7f7f7",
+
+                            color:
+                              "#000000",
+
+                            opacity:
+                              fair.active
+                                ? 1
+                                : 0.55,
+
+                            display:
+                              "inline-flex",
+
+                            alignItems:
+                              "center",
+
+                            justifyContent:
+                              "center",
+
+                            fontSize:
+                              "14px",
+
+                            fontWeight:
+                              700,
+                          }}
                         >
                           {fair.active
                             ? "Active"
@@ -1038,44 +1552,121 @@ export default function AdminTradeFairsPage() {
                         </span>
                       </td>
 
-                      <td>
+                      {/* ACTIONS */}
+
+                      <td
+                        style={{
+                          padding:
+                            "14px 15px",
+
+                          borderBottom:
+                            "1px solid #e8e8e8",
+
+                          verticalAlign:
+                            "middle",
+                        }}
+                      >
                         <div
                           style={{
                             display:
                               "flex",
-                            gap: 4,
+
+                            alignItems:
+                              "center",
+
+                            gap: "7px",
                           }}
                         >
                           <button
                             type="button"
-                            className="nhf-btn nhf-btn-ghost nhf-btn-icon"
                             title="Edit"
                             onClick={() =>
                               openEdit(
                                 fair
                               )
                             }
+                            style={{
+                              width:
+                                "40px",
+
+                              height:
+                                "40px",
+
+                              border:
+                                "1px solid #d2d2d2",
+
+                              borderRadius:
+                                "8px",
+
+                              background:
+                                "#ffffff",
+
+                              color:
+                                "#000000",
+
+                              display:
+                                "flex",
+
+                              alignItems:
+                                "center",
+
+                              justifyContent:
+                                "center",
+
+                              cursor:
+                                "pointer",
+                            }}
                           >
                             <Pencil
                               size={
-                                13
+                                17
                               }
                             />
                           </button>
 
                           <button
                             type="button"
-                            className="nhf-btn nhf-btn-danger nhf-btn-icon"
                             title="Delete"
                             onClick={() =>
                               setDeleteId(
                                 fair._id
                               )
                             }
+                            style={{
+                              width:
+                                "40px",
+
+                              height:
+                                "40px",
+
+                              border:
+                                "1px solid #d2d2d2",
+
+                              borderRadius:
+                                "8px",
+
+                              background:
+                                "#ffffff",
+
+                              color:
+                                "#000000",
+
+                              display:
+                                "flex",
+
+                              alignItems:
+                                "center",
+
+                              justifyContent:
+                                "center",
+
+                              cursor:
+                                "pointer",
+                            }}
                           >
                             <Trash2
                               size={
-                                13
+                                17
                               }
                             />
                           </button>
@@ -1088,233 +1679,761 @@ export default function AdminTradeFairsPage() {
             </table>
           </div>
         )}
-
       </section>
     );
+  };
 
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
-  // ====================================================
-  // LOADING
-  // ====================================================
-
-  if (
-    loading
-  ) {
+  if (loading) {
     return (
       <AdminShell pageTitle="Trade Fairs">
         <div
           style={{
-            display:
-              "flex",
+            width: "100%",
+
+            minHeight: "500px",
+
+            display: "flex",
+
+            flexDirection:
+              "column",
+
             alignItems:
               "center",
+
             justifyContent:
               "center",
-            minHeight:
-              320,
+
+            gap: "14px",
+
             color:
-              "var(--nhf-muted)",
+              "#000000",
+
             fontSize:
-              13,
-            gap:
-              8,
+              "16px",
+
+            fontWeight:
+              600,
           }}
         >
           <RefreshCw
-            size={18}
-            className="nhf-spinner"
+            size={30}
+            style={{
+              animation:
+                "tradeFairSpin 0.8s linear infinite",
+            }}
           />
-          Loading trade fairs…
+
+          Loading trade fairs...
         </div>
+
+        <style jsx>{`
+          @keyframes tradeFairSpin {
+            from {
+              transform: rotate(0deg);
+            }
+
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
       </AdminShell>
     );
   }
 
-
-  // ====================================================
-  // RENDER
-  // ====================================================
+  /* =======================================================
+     MAIN
+  ======================================================= */
 
   return (
     <AdminShell pageTitle="Trade Fairs">
+      <div
+        style={{
+          width: "100%",
 
-      {/* ==================================================
-          HEADER
-      ================================================== */}
+          maxWidth: "1500px",
 
-      <div className="nhf-page-header">
+          margin: "0 auto",
 
-        <div>
-          <h1 className="nhf-page-title">
-            Trade Fairs
-          </h1>
+          padding:
+            "30px 32px 50px",
 
-          <p className="nhf-page-sub">
-            Manage past exhibitions and upcoming trade fairs.
-          </p>
-        </div>
+          boxSizing:
+            "border-box",
+
+          color: "#000000",
+        }}
+      >
+        {/* =================================================
+            HEADER
+        ================================================= */}
 
         <div
           style={{
-            display:
-              "flex",
-            gap:
-              8,
-            flexWrap:
-              "wrap",
-          }}
-        >
-          <button
-            type="button"
-            className="nhf-btn nhf-btn-ghost"
-            onClick={() =>
-              loadFairs()
-            }
-          >
-            <RefreshCw
-              size={13}
-            />
-            Refresh
-          </button>
+            width: "100%",
 
-          <button
-            type="button"
-            className="nhf-btn nhf-btn-primary"
-            onClick={() =>
-              openCreate(
-                "upcoming"
-              )
-            }
-          >
-            <Plus
-              size={14}
-            />
-            Upcoming Fair
-          </button>
-        </div>
+            minHeight: "72px",
 
-      </div>
-
-
-      {/* ==================================================
-          ALERTS
-      ================================================== */}
-
-      {error && (
-        <div
-          className="nhf-alert nhf-alert-error"
-          style={{
             marginBottom:
-              16,
+              "28px",
+
+            display: "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "space-between",
+
+            gap: "24px",
           }}
         >
-          {error}
-        </div>
-      )}
+          <div>
+            <h1
+              style={{
+                margin: 0,
 
-      {success && (
-        <div
-          className="nhf-alert nhf-alert-success"
-          style={{
-            marginBottom:
-              16,
-          }}
-        >
-          {success}
-        </div>
-      )}
+                color:
+                  "#000000",
 
+                fontSize:
+                  "20px",
 
-      {/* ==================================================
-          SUMMARY
-      ================================================== */}
+                lineHeight:
+                  "1.35",
 
-      <div className="trade-fair-summary">
+                fontWeight:
+                  700,
+              }}
+            >
+              Trade Fairs
+            </h1>
 
-        <div className="trade-fair-stat">
-          <span>
-            Past Fairs
-          </span>
+            <p
+              style={{
+                margin:
+                  "8px 0 0",
 
-          <strong>
-            {
-              pastFairs.length
-            }
-          </strong>
-        </div>
+                color:
+                  "#000000",
 
-        <div className="trade-fair-stat">
-          <span>
-            Upcoming
-          </span>
+                opacity: 0.62,
 
-          <strong>
-            {
-              upcomingFairs.length
-            }
-          </strong>
-        </div>
+                fontSize:
+                  "16px",
 
-        <div className="trade-fair-stat">
-          <span>
-            Total Images
-          </span>
+                lineHeight:
+                  "1.5",
 
-          <strong>
-            {fairs.reduce(
-              (
-                sum,
-                fair
-              ) =>
-                sum +
-                (Array.isArray(
-                  fair.images
+                fontWeight:
+                  400,
+              }}
+            >
+              Manage past exhibitions
+              and upcoming trade
+              fairs.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              gap: "10px",
+
+              flexWrap:
+                "wrap",
+            }}
+          >
+            {/* REFRESH */}
+
+            <button
+              type="button"
+              onClick={
+                loadFairs
+              }
+              style={{
+                height:
+                  "44px",
+
+                padding:
+                  "0 16px",
+
+                border:
+                  "1px solid #cccccc",
+
+                borderRadius:
+                  "8px",
+
+                background:
+                  "#ffffff",
+
+                color:
+                  "#000000",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                gap: "8px",
+
+                fontSize:
+                  "16px",
+
+                fontWeight:
+                  600,
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              <RefreshCw
+                size={17}
+              />
+
+              Refresh
+            </button>
+
+            {/* ADD UPCOMING */}
+
+            <button
+              type="button"
+              onClick={() =>
+                openCreate(
+                  "upcoming"
                 )
-                  ? fair
-                      .images
-                      .length
-                  : 0),
-              0
-            )}
-          </strong>
+              }
+              style={{
+                height:
+                  "44px",
+
+                padding:
+                  "0 17px",
+
+                border:
+                  "1px solid #000000",
+
+                borderRadius:
+                  "8px",
+
+                background:
+                  "#000000",
+
+                color:
+                  "#ffffff",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                gap: "8px",
+
+                fontSize:
+                  "16px",
+
+                fontWeight:
+                  700,
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              <Plus size={18} />
+
+              Upcoming Fair
+            </button>
+          </div>
         </div>
 
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
+        {error && (
+          <div
+            style={{
+              width: "100%",
+
+              minHeight:
+                "54px",
+
+              marginBottom:
+                "18px",
+
+              padding:
+                "10px 15px",
+
+              border:
+                "1px solid #d5d5d5",
+
+              borderRadius:
+                "9px",
+
+              background:
+                "#fafafa",
+
+              color:
+                "#000000",
+
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "space-between",
+
+              gap: "12px",
+
+              boxSizing:
+                "border-box",
+
+              fontSize:
+                "16px",
+            }}
+          >
+            <span>
+              {error}
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                setError("")
+              }
+              style={{
+                width:
+                  "32px",
+
+                height:
+                  "32px",
+
+                border:
+                  "none",
+
+                borderRadius:
+                  "6px",
+
+                background:
+                  "#eeeeee",
+
+                color:
+                  "#000000",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
+
+        {/* =================================================
+            SUCCESS
+        ================================================= */}
+
+        {success && (
+          <div
+            style={{
+              width: "100%",
+
+              minHeight:
+                "54px",
+
+              marginBottom:
+                "18px",
+
+              padding:
+                "10px 15px",
+
+              border:
+                "1px solid #cccccc",
+
+              borderRadius:
+                "9px",
+
+              background:
+                "#f7f7f7",
+
+              color:
+                "#000000",
+
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "space-between",
+
+              gap: "12px",
+
+              fontSize:
+                "16px",
+            }}
+          >
+            <span>
+              {success}
+            </span>
+
+            <button
+              type="button"
+              onClick={() =>
+                setSuccess("")
+              }
+              style={{
+                width:
+                  "32px",
+
+                height:
+                  "32px",
+
+                border:
+                  "none",
+
+                borderRadius:
+                  "6px",
+
+                background:
+                  "#eeeeee",
+
+                color:
+                  "#000000",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                cursor:
+                  "pointer",
+              }}
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
+
+        {/* =================================================
+            SUMMARY
+        ================================================= */}
+
+        <div
+          style={{
+            width: "100%",
+
+            display: "grid",
+
+            gridTemplateColumns:
+              "repeat(3, minmax(0, 1fr))",
+
+            gap: "18px",
+
+            marginBottom:
+              "30px",
+          }}
+        >
+          {/* PAST */}
+
+          <div
+            style={{
+              height:
+                "116px",
+
+              padding:
+                "20px 22px",
+
+              border:
+                "1px solid #dddddd",
+
+              borderRadius:
+                "10px",
+
+              background:
+                "#ffffff",
+
+              display:
+                "flex",
+
+              flexDirection:
+                "column",
+
+              justifyContent:
+                "center",
+
+              gap: "8px",
+
+              boxSizing:
+                "border-box",
+            }}
+          >
+            <span
+              style={{
+                color:
+                  "#000000",
+
+                opacity: 0.62,
+
+                fontSize:
+                  "15px",
+
+                fontWeight:
+                  600,
+              }}
+            >
+              Past Fairs
+            </span>
+
+            <strong
+              style={{
+                color:
+                  "#000000",
+
+                fontSize:
+                  "28px",
+
+                lineHeight:
+                  "1",
+
+                fontWeight:
+                  700,
+              }}
+            >
+              {
+                pastFairs.length
+              }
+            </strong>
+          </div>
+
+          {/* UPCOMING */}
+
+          <div
+            style={{
+              height:
+                "116px",
+
+              padding:
+                "20px 22px",
+
+              border:
+                "1px solid #dddddd",
+
+              borderRadius:
+                "10px",
+
+              background:
+                "#ffffff",
+
+              display:
+                "flex",
+
+              flexDirection:
+                "column",
+
+              justifyContent:
+                "center",
+
+              gap: "8px",
+
+              boxSizing:
+                "border-box",
+            }}
+          >
+            <span
+              style={{
+                color:
+                  "#000000",
+
+                opacity: 0.62,
+
+                fontSize:
+                  "15px",
+
+                fontWeight:
+                  600,
+              }}
+            >
+              Upcoming Fairs
+            </span>
+
+            <strong
+              style={{
+                color:
+                  "#000000",
+
+                fontSize:
+                  "28px",
+
+                lineHeight:
+                  "1",
+
+                fontWeight:
+                  700,
+              }}
+            >
+              {
+                upcomingFairs.length
+              }
+            </strong>
+          </div>
+
+          {/* IMAGES */}
+
+          <div
+            style={{
+              height:
+                "116px",
+
+              padding:
+                "20px 22px",
+
+              border:
+                "1px solid #dddddd",
+
+              borderRadius:
+                "10px",
+
+              background:
+                "#ffffff",
+
+              display:
+                "flex",
+
+              flexDirection:
+                "column",
+
+              justifyContent:
+                "center",
+
+              gap: "8px",
+
+              boxSizing:
+                "border-box",
+            }}
+          >
+            <span
+              style={{
+                color:
+                  "#000000",
+
+                opacity: 0.62,
+
+                fontSize:
+                  "15px",
+
+                fontWeight:
+                  600,
+              }}
+            >
+              Total Images
+            </span>
+
+            <strong
+              style={{
+                color:
+                  "#000000",
+
+                fontSize:
+                  "28px",
+
+                lineHeight:
+                  "1",
+
+                fontWeight:
+                  700,
+              }}
+            >
+              {totalImages}
+            </strong>
+          </div>
+        </div>
+
+        {/* =================================================
+            TABLES
+        ================================================= */}
+
+        {renderTable(
+          "Past Trade Fairs",
+          pastFairs
+        )}
+
+        {renderTable(
+          "Upcoming Trade Fairs",
+          upcomingFairs
+        )}
       </div>
 
-
-      {/* ==================================================
-          PAST
-      ================================================== */}
-
-      {renderTable(
-        "Past Trade Fairs",
-        pastFairs
-      )}
-
-
-      {/* ==================================================
-          UPCOMING
-      ================================================== */}
-
-      {renderTable(
-        "Upcoming Trade Fairs",
-        upcomingFairs
-      )}
-
-
-      {/* ==================================================
-          DELETE CONFIRM
-      ================================================== */}
+      {/* =====================================================
+          DELETE MODAL
+      ===================================================== */}
 
       {deleteId && (
         <div
-          className="nhf-modal-overlay"
+          style={{
+            position:
+              "fixed",
+
+            inset: 0,
+
+            zIndex: 9999,
+
+            padding:
+              "20px",
+
+            background:
+              "rgba(0,0,0,0.60)",
+
+            display: "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "center",
+
+            boxSizing:
+              "border-box",
+          }}
           onMouseDown={(
             event
           ) => {
             if (
               event.target ===
-              event.currentTarget &&
+                event.currentTarget &&
               !deleting
             ) {
               setDeleteId(
@@ -1324,19 +2443,92 @@ export default function AdminTradeFairsPage() {
           }}
         >
           <div
-            className="nhf-modal"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="nhf-modal-head">
+            style={{
+              width: "100%",
 
-              <h2 className="nhf-modal-title">
-                Delete Trade Fair
-              </h2>
+              maxWidth:
+                "520px",
+
+              background:
+                "#ffffff",
+
+              borderRadius:
+                "14px",
+
+              overflow:
+                "hidden",
+
+              boxShadow:
+                "0 25px 70px rgba(0,0,0,0.25)",
+            }}
+          >
+            {/* HEADER */}
+
+            <div
+              style={{
+                minHeight:
+                  "82px",
+
+                padding:
+                  "0 24px",
+
+                borderBottom:
+                  "1px solid #dddddd",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "space-between",
+
+                gap: "15px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "20px",
+
+                    lineHeight:
+                      "1.35",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
+                  Delete Trade Fair
+                </h2>
+
+                <p
+                  style={{
+                    margin:
+                      "5px 0 0",
+
+                    color:
+                      "#000000",
+
+                    opacity: 0.55,
+
+                    fontSize:
+                      "16px",
+                  }}
+                >
+                  This action cannot
+                  be undone.
+                </p>
+              </div>
 
               <button
                 type="button"
-                className="nhf-modal-close"
                 onClick={() =>
                   setDeleteId(
                     null
@@ -1345,35 +2537,103 @@ export default function AdminTradeFairsPage() {
                 disabled={
                   deleting
                 }
-              >
-                <X
-                  size={16}
-                />
-              </button>
+                style={{
+                  width:
+                    "40px",
 
+                  height:
+                    "40px",
+
+                  border:
+                    "1px solid #dddddd",
+
+                  borderRadius:
+                    "8px",
+
+                  background:
+                    "#ffffff",
+
+                  color:
+                    "#000000",
+
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "center",
+
+                  cursor:
+                    deleting
+                      ? "not-allowed"
+                      : "pointer",
+
+                  flexShrink: 0,
+                }}
+              >
+                <X size={19} />
+              </button>
             </div>
 
-            <div className="nhf-modal-body">
+            {/* BODY */}
 
-              <div className="nhf-alert nhf-alert-error">
-                This will delete the trade fair and its uploaded images from Cloudflare R2.
+            <div
+              style={{
+                padding:
+                  "24px",
+              }}
+            >
+              <div
+                style={{
+                  padding:
+                    "16px",
+
+                  border:
+                    "1px solid #dddddd",
+
+                  borderRadius:
+                    "9px",
+
+                  background:
+                    "#f7f7f7",
+
+                  color:
+                    "#000000",
+
+                  fontSize:
+                    "16px",
+
+                  lineHeight:
+                    "1.55",
+                }}
+              >
+                This will delete the
+                trade fair and its
+                uploaded images from
+                Cloudflare R2.
               </div>
 
               <div
                 style={{
-                  marginTop:
-                    18,
                   display:
                     "flex",
+
+                  alignItems:
+                    "center",
+
                   justifyContent:
                     "flex-end",
-                  gap:
-                    8,
+
+                  gap: "12px",
+
+                  marginTop:
+                    "22px",
                 }}
               >
                 <button
                   type="button"
-                  className="nhf-btn nhf-btn-ghost"
                   onClick={() =>
                     setDeleteId(
                       null
@@ -1382,13 +2642,42 @@ export default function AdminTradeFairsPage() {
                   disabled={
                     deleting
                   }
+                  style={{
+                    height:
+                      "46px",
+
+                    padding:
+                      "0 20px",
+
+                    border:
+                      "1px solid #cccccc",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#ffffff",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      600,
+
+                    cursor:
+                      deleting
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="button"
-                  className="nhf-btn nhf-btn-danger"
                   onClick={() =>
                     handleDelete(
                       deleteId
@@ -1397,51 +2686,204 @@ export default function AdminTradeFairsPage() {
                   disabled={
                     deleting
                   }
+                  style={{
+                    height:
+                      "46px",
+
+                    padding:
+                      "0 20px",
+
+                    border:
+                      "none",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#000000",
+
+                    color:
+                      "#ffffff",
+
+                    display:
+                      "flex",
+
+                    alignItems:
+                      "center",
+
+                    justifyContent:
+                      "center",
+
+                    gap: "8px",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+
+                    cursor:
+                      deleting
+                        ? "not-allowed"
+                        : "pointer",
+
+                    opacity:
+                      deleting
+                        ? 0.55
+                        : 1,
+                  }}
                 >
-                  {deleting
-                    ? "Deleting…"
-                    : "Delete"}
+                  {deleting ? (
+                    <>
+                      <RefreshCw
+                        size={17}
+                        style={{
+                          animation:
+                            "tradeFairSpin 0.8s linear infinite",
+                        }}
+                      />
+
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2
+                        size={17}
+                      />
+
+                      Delete
+                    </>
+                  )}
                 </button>
               </div>
-
             </div>
           </div>
         </div>
       )}
 
-
-      {/* ==================================================
+      {/* =====================================================
           CREATE / EDIT MODAL
-      ================================================== */}
+      ===================================================== */}
 
       {modalOpen && (
         <div
-          className="nhf-modal-overlay"
+          style={{
+            position:
+              "fixed",
+
+            inset: 0,
+
+            zIndex: 9999,
+
+            padding:
+              "20px",
+
+            background:
+              "rgba(0,0,0,0.60)",
+
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "center",
+
+            boxSizing:
+              "border-box",
+          }}
           onMouseDown={(
             event
           ) => {
             if (
               event.target ===
-              event.currentTarget &&
+                event.currentTarget &&
               !submitting
             ) {
               closeModal();
             }
           }}
         >
-
           <div
-            className="nhf-modal trade-fair-modal"
-            role="dialog"
-            aria-modal="true"
+            style={{
+              width: "100%",
+
+              maxWidth:
+                "820px",
+
+              height:
+                "min(880px, 94vh)",
+
+              background:
+                "#ffffff",
+
+              borderRadius:
+                "15px",
+
+              overflow:
+                "hidden",
+
+              boxShadow:
+                "0 25px 70px rgba(0,0,0,0.30)",
+
+              display:
+                "flex",
+
+              flexDirection:
+                "column",
+            }}
           >
+            {/* =================================================
+                HEADER
+            ================================================= */}
 
-            {/* MODAL HEADER */}
+            <div
+              style={{
+                height:
+                  "82px",
 
-            <div className="nhf-modal-head">
+                minHeight:
+                  "82px",
 
+                padding:
+                  "0 26px",
+
+                borderBottom:
+                  "1px solid #dddddd",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "space-between",
+
+                gap: "20px",
+
+                flexShrink: 0,
+              }}
+            >
               <div>
-                <h2 className="nhf-modal-title">
+                <h2
+                  style={{
+                    margin: 0,
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "20px",
+
+                    lineHeight:
+                      "1.35",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
                   {modalMode ===
                   "edit"
                     ? "Edit Trade Fair"
@@ -1451,11 +2893,18 @@ export default function AdminTradeFairsPage() {
                 <p
                   style={{
                     margin:
-                      "4px 0 0",
-                    fontSize:
-                      11,
+                      "5px 0 0",
+
                     color:
-                      "var(--nhf-muted)",
+                      "#000000",
+
+                    opacity: 0.58,
+
+                    fontSize:
+                      "16px",
+
+                    lineHeight:
+                      "1.4",
                   }}
                 >
                   {form.type ===
@@ -1467,58 +2916,183 @@ export default function AdminTradeFairsPage() {
 
               <button
                 type="button"
-                className="nhf-modal-close"
                 onClick={
                   closeModal
                 }
                 disabled={
                   submitting
                 }
-              >
-                <X
-                  size={16}
-                />
-              </button>
+                style={{
+                  width:
+                    "40px",
 
+                  height:
+                    "40px",
+
+                  border:
+                    "1px solid #d2d2d2",
+
+                  borderRadius:
+                    "8px",
+
+                  background:
+                    "#ffffff",
+
+                  color:
+                    "#000000",
+
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "center",
+
+                  cursor:
+                    submitting
+                      ? "not-allowed"
+                      : "pointer",
+
+                  flexShrink: 0,
+                }}
+              >
+                <X size={19} />
+              </button>
             </div>
 
-
-            {/* FORM */}
+            {/* =================================================
+                FORM
+            ================================================= */}
 
             <form
-              className="nhf-modal-body"
               onSubmit={
                 handleSubmit
               }
+              style={{
+                flex: 1,
+
+                minHeight: 0,
+
+                overflowY:
+                  "auto",
+
+                padding:
+                  "26px",
+
+                display:
+                  "flex",
+
+                flexDirection:
+                  "column",
+
+                gap: "23px",
+
+                boxSizing:
+                  "border-box",
+              }}
             >
+              {/* ERROR */}
 
               {formError && (
-                <div className="nhf-alert nhf-alert-error">
-                  {
-                    formError
-                  }
+                <div
+                  style={{
+                    width:
+                      "100%",
+
+                    minHeight:
+                      "52px",
+
+                    padding:
+                      "11px 14px",
+
+                    border:
+                      "1px solid #d4d4d4",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#fafafa",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    lineHeight:
+                      "1.45",
+
+                    boxSizing:
+                      "border-box",
+                  }}
+                >
+                  {formError}
                 </div>
               )}
 
-
               {/* TYPE */}
 
-              <div className="nhf-form-group">
+              <div
+                style={{
+                  width:
+                    "100%",
+                }}
+              >
+                <label
+                  style={{
+                    display:
+                      "block",
 
-                <label className="nhf-form-label">
+                    marginBottom:
+                      "10px",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
                   Trade Fair Type *
                 </label>
 
-                <div className="trade-fair-type-switch">
+                <div
+                  style={{
+                    width:
+                      "100%",
 
+                    padding:
+                      "4px",
+
+                    border:
+                      "1px solid #cccccc",
+
+                    borderRadius:
+                      "9px",
+
+                    background:
+                      "#f5f5f5",
+
+                    display:
+                      "grid",
+
+                    gridTemplateColumns:
+                      "1fr 1fr",
+
+                    gap: "4px",
+
+                    boxSizing:
+                      "border-box",
+                  }}
+                >
                   <button
                     type="button"
-                    className={
-                      form.type ===
-                      "past"
-                        ? "active"
-                        : ""
-                    }
                     onClick={() =>
                       modalMode ===
                         "create" &&
@@ -1531,18 +3105,46 @@ export default function AdminTradeFairsPage() {
                       modalMode ===
                       "edit"
                     }
+                    style={{
+                      height:
+                        "46px",
+
+                      border:
+                        "none",
+
+                      borderRadius:
+                        "7px",
+
+                      background:
+                        form.type ===
+                        "past"
+                          ? "#000000"
+                          : "transparent",
+
+                      color:
+                        form.type ===
+                        "past"
+                          ? "#ffffff"
+                          : "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        600,
+
+                      cursor:
+                        modalMode ===
+                        "edit"
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
                   >
                     Past Trade Fair
                   </button>
 
                   <button
                     type="button"
-                    className={
-                      form.type ===
-                      "upcoming"
-                        ? "active"
-                        : ""
-                    }
                     onClick={() =>
                       modalMode ===
                         "create" &&
@@ -1555,31 +3157,77 @@ export default function AdminTradeFairsPage() {
                       modalMode ===
                       "edit"
                     }
+                    style={{
+                      height:
+                        "46px",
+
+                      border:
+                        "none",
+
+                      borderRadius:
+                        "7px",
+
+                      background:
+                        form.type ===
+                        "upcoming"
+                          ? "#000000"
+                          : "transparent",
+
+                      color:
+                        form.type ===
+                        "upcoming"
+                          ? "#ffffff"
+                          : "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        600,
+
+                      cursor:
+                        modalMode ===
+                        "edit"
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
                   >
                     Upcoming Trade Fair
                   </button>
-
                 </div>
-
               </div>
-
 
               {/* TITLE */}
 
-              <div className="nhf-form-group">
+              <div>
+                <label
+                  style={{
+                    display:
+                      "block",
 
-                <label className="nhf-form-label">
+                    marginBottom:
+                      "10px",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
                   Title *
                 </label>
 
                 <input
-                  className="nhf-form-input"
+                  required
+                  type="text"
                   value={
                     form.title
                   }
-                  onChange={(
-                    event
-                  ) =>
+                  onChange={(event) =>
                     setField(
                       "title",
                       event.target
@@ -1587,101 +3235,259 @@ export default function AdminTradeFairsPage() {
                     )
                   }
                   placeholder="e.g. IHGF Delhi Fair Autumn 2026"
+                  style={{
+                    width:
+                      "100%",
+
+                    height:
+                      "48px",
+
+                    padding:
+                      "0 14px",
+
+                    border:
+                      "1px solid #cccccc",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#ffffff",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    outline:
+                      "none",
+
+                    boxSizing:
+                      "border-box",
+                  }}
                 />
-
               </div>
-
 
               {/* DESCRIPTION */}
 
-              <div className="nhf-form-group">
+              <div>
+                <label
+                  style={{
+                    display:
+                      "block",
 
-                <label className="nhf-form-label">
+                    marginBottom:
+                      "10px",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
                   Short Description
                 </label>
 
                 <textarea
-                  className="nhf-form-input"
                   value={
                     form.description
                   }
-                  onChange={(
-                    event
-                  ) =>
+                  onChange={(event) =>
                     setField(
                       "description",
                       event.target
                         .value
                     )
                   }
-                  placeholder="Write a short description for this trade fair…"
-                  rows={4}
+                  placeholder="Write a short description for this trade fair..."
+                  rows={5}
                   style={{
+                    width:
+                      "100%",
+
+                    minHeight:
+                      "135px",
+
+                    padding:
+                      "12px 14px",
+
+                    border:
+                      "1px solid #cccccc",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#ffffff",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    lineHeight:
+                      "1.5",
+
+                    outline:
+                      "none",
+
                     resize:
                       "vertical",
-                    minHeight:
-                      100,
+
+                    boxSizing:
+                      "border-box",
                   }}
                 />
-
               </div>
 
+              {/* DATE */}
 
-              {/* DATE + DATE TEXT */}
+              <div
+                style={{
+                  display:
+                    "grid",
 
-              <div className="nhf-form-row">
+                  gridTemplateColumns:
+                    "1fr 1fr",
 
-                <div className="nhf-form-group">
+                  gap: "20px",
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                  <label className="nhf-form-label">
+                      marginBottom:
+                        "10px",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Event Date
                   </label>
 
-                  <div className="trade-fair-input-icon">
-
+                  <div
+                    style={{
+                      position:
+                        "relative",
+                    }}
+                  >
                     <CalendarDays
-                      size={
-                        14
-                      }
+                      size={19}
+                      style={{
+                        position:
+                          "absolute",
+
+                        left:
+                          "14px",
+
+                        top:
+                          "50%",
+
+                        transform:
+                          "translateY(-50%)",
+
+                        color:
+                          "#000000",
+
+                        opacity:
+                          0.55,
+
+                        pointerEvents:
+                          "none",
+                      }}
                     />
 
                     <input
-                      className="nhf-form-input"
                       type="date"
                       value={
                         form.date
                       }
-                      onChange={(
-                        event
-                      ) =>
+                      onChange={(event) =>
                         setField(
                           "date",
-                          event
-                            .target
+                          event.target
                             .value
                         )
                       }
+                      style={{
+                        width:
+                          "100%",
+
+                        height:
+                          "48px",
+
+                        padding:
+                          "0 14px 0 46px",
+
+                        border:
+                          "1px solid #cccccc",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#ffffff",
+
+                        color:
+                          "#000000",
+
+                        fontSize:
+                          "16px",
+
+                        outline:
+                          "none",
+
+                        boxSizing:
+                          "border-box",
+                      }}
                     />
-
                   </div>
-
                 </div>
 
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                <div className="nhf-form-group">
+                      marginBottom:
+                        "10px",
 
-                  <label className="nhf-form-label">
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Date Text
                   </label>
 
                   <input
-                    className="nhf-form-input"
+                    type="text"
                     value={
                       form.dateText
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setField(
                         "dateText",
                         event.target
@@ -1689,39 +3495,114 @@ export default function AdminTradeFairsPage() {
                       )
                     }
                     placeholder="14th – 20th October 2026"
+                    style={{
+                      width:
+                        "100%",
+
+                      height:
+                        "48px",
+
+                      padding:
+                        "0 14px",
+
+                      border:
+                        "1px solid #cccccc",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#ffffff",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      outline:
+                        "none",
+
+                      boxSizing:
+                        "border-box",
+                    }}
                   />
-
                 </div>
-
               </div>
 
+              {/* VENUE */}
 
-              {/* VENUE + LOCATION */}
+              <div
+                style={{
+                  display:
+                    "grid",
 
-              <div className="nhf-form-row">
+                  gridTemplateColumns:
+                    "1fr 1fr",
 
-                <div className="nhf-form-group">
+                  gap: "20px",
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                  <label className="nhf-form-label">
+                      marginBottom:
+                        "10px",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Venue
                   </label>
 
-                  <div className="trade-fair-input-icon">
-
+                  <div
+                    style={{
+                      position:
+                        "relative",
+                    }}
+                  >
                     <MapPin
-                      size={
-                        14
-                      }
+                      size={19}
+                      style={{
+                        position:
+                          "absolute",
+
+                        left:
+                          "14px",
+
+                        top:
+                          "50%",
+
+                        transform:
+                          "translateY(-50%)",
+
+                        color:
+                          "#000000",
+
+                        opacity:
+                          0.55,
+
+                        pointerEvents:
+                          "none",
+                      }}
                     />
 
                     <input
-                      className="nhf-form-input"
+                      type="text"
                       value={
                         form.venue
                       }
-                      onChange={(
-                        event
-                      ) =>
+                      onChange={(event) =>
                         setField(
                           "venue",
                           event.target
@@ -1729,27 +3610,69 @@ export default function AdminTradeFairsPage() {
                         )
                       }
                       placeholder="India Expo Centre & Mart"
+                      style={{
+                        width:
+                          "100%",
+
+                        height:
+                          "48px",
+
+                        padding:
+                          "0 14px 0 46px",
+
+                        border:
+                          "1px solid #cccccc",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#ffffff",
+
+                        color:
+                          "#000000",
+
+                        fontSize:
+                          "16px",
+
+                        outline:
+                          "none",
+
+                        boxSizing:
+                          "border-box",
+                      }}
                     />
-
                   </div>
-
                 </div>
 
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                <div className="nhf-form-group">
+                      marginBottom:
+                        "10px",
 
-                  <label className="nhf-form-label">
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Location
                   </label>
 
                   <input
-                    className="nhf-form-input"
+                    type="text"
                     value={
                       form.location
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setField(
                         "location",
                         event.target
@@ -1757,39 +3680,114 @@ export default function AdminTradeFairsPage() {
                       )
                     }
                     placeholder="Greater Noida, Delhi NCR"
+                    style={{
+                      width:
+                        "100%",
+
+                      height:
+                        "48px",
+
+                      padding:
+                        "0 14px",
+
+                      border:
+                        "1px solid #cccccc",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#ffffff",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      outline:
+                        "none",
+
+                      boxSizing:
+                        "border-box",
+                    }}
                   />
-
                 </div>
-
               </div>
 
+              {/* TIMING */}
 
-              {/* TIMING + SORT */}
+              <div
+                style={{
+                  display:
+                    "grid",
 
-              <div className="nhf-form-row">
+                  gridTemplateColumns:
+                    "1fr 1fr",
 
-                <div className="nhf-form-group">
+                  gap: "20px",
+                }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                  <label className="nhf-form-label">
+                      marginBottom:
+                        "10px",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Timing
                   </label>
 
-                  <div className="trade-fair-input-icon">
-
+                  <div
+                    style={{
+                      position:
+                        "relative",
+                    }}
+                  >
                     <Clock3
-                      size={
-                        14
-                      }
+                      size={19}
+                      style={{
+                        position:
+                          "absolute",
+
+                        left:
+                          "14px",
+
+                        top:
+                          "50%",
+
+                        transform:
+                          "translateY(-50%)",
+
+                        color:
+                          "#000000",
+
+                        opacity:
+                          0.55,
+
+                        pointerEvents:
+                          "none",
+                      }}
                     />
 
                     <input
-                      className="nhf-form-input"
+                      type="text"
                       value={
                         form.timing
                       }
-                      onChange={(
-                        event
-                      ) =>
+                      onChange={(event) =>
                         setField(
                           "timing",
                           event.target
@@ -1797,102 +3795,324 @@ export default function AdminTradeFairsPage() {
                         )
                       }
                       placeholder="10:00 AM – 6:00 PM"
+                      style={{
+                        width:
+                          "100%",
+
+                        height:
+                          "48px",
+
+                        padding:
+                          "0 14px 0 46px",
+
+                        border:
+                          "1px solid #cccccc",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#ffffff",
+
+                        color:
+                          "#000000",
+
+                        fontSize:
+                          "16px",
+
+                        outline:
+                          "none",
+
+                        boxSizing:
+                          "border-box",
+                      }}
                     />
-
                   </div>
-
                 </div>
 
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                <div className="nhf-form-group">
+                      marginBottom:
+                        "10px",
 
-                  <label className="nhf-form-label">
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Sort Order
                   </label>
 
                   <input
-                    className="nhf-form-input"
                     type="number"
                     min="0"
                     value={
                       form.sortOrder
                     }
-                    onChange={(
-                      event
-                    ) =>
+                    onChange={(event) =>
                       setField(
                         "sortOrder",
                         event.target
                           .value
                       )
                     }
+                    style={{
+                      width:
+                        "100%",
+
+                      height:
+                        "48px",
+
+                      padding:
+                        "0 14px",
+
+                      border:
+                        "1px solid #cccccc",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#ffffff",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      outline:
+                        "none",
+
+                      boxSizing:
+                        "border-box",
+                    }}
                   />
-
                 </div>
-
               </div>
-
 
               {/* ACTIVE */}
 
               <div
-                className="nhf-form-group"
                 style={{
-                  marginTop:
-                    4,
+                  width:
+                    "100%",
+
+                  minHeight:
+                    "84px",
+
+                  padding:
+                    "16px 18px",
+
+                  border:
+                    "1px solid #dddddd",
+
+                  borderRadius:
+                    "9px",
+
+                  background:
+                    "#f8f8f8",
+
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "space-between",
+
+                  gap: "20px",
+
+                  boxSizing:
+                    "border-box",
                 }}
               >
-                <label className="trade-fair-checkbox">
+                <div>
+                  <p
+                    style={{
+                      margin: 0,
 
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      lineHeight:
+                        "1.4",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
+                    Show on website
+                  </p>
+
+                  <p
+                    style={{
+                      margin:
+                        "5px 0 0",
+
+                      color:
+                        "#000000",
+
+                      opacity: 0.55,
+
+                      fontSize:
+                        "14px",
+
+                      lineHeight:
+                        "1.4",
+                    }}
+                  >
+                    Enable this trade
+                    fair on the public
+                    website.
+                  </p>
+                </div>
+
+                <label
+                  style={{
+                    position:
+                      "relative",
+
+                    width:
+                      "54px",
+
+                    height:
+                      "30px",
+
+                    flexShrink: 0,
+
+                    cursor:
+                      "pointer",
+                  }}
+                >
                   <input
                     type="checkbox"
-                    checked={
-                      Boolean(
-                        form.active
-                      )
-                    }
-                    onChange={(
-                      event
-                    ) =>
+                    checked={Boolean(
+                      form.active
+                    )}
+                    onChange={(event) =>
                       setField(
                         "active",
                         event.target
                           .checked
                       )
                     }
+                    style={{
+                      position:
+                        "absolute",
+
+                      width: 0,
+
+                      height: 0,
+
+                      opacity: 0,
+                    }}
                   />
 
-                  <span>
-                    Show on website
-                  </span>
+                  <span
+                    style={{
+                      position:
+                        "absolute",
 
+                      inset: 0,
+
+                      borderRadius:
+                        "30px",
+
+                      background:
+                        form.active
+                          ? "#000000"
+                          : "#cccccc",
+
+                      transition:
+                        "0.2s ease",
+                    }}
+                  />
+
+                  <span
+                    style={{
+                      position:
+                        "absolute",
+
+                      width:
+                        "22px",
+
+                      height:
+                        "22px",
+
+                      left:
+                        form.active
+                          ? "28px"
+                          : "4px",
+
+                      top:
+                        "4px",
+
+                      borderRadius:
+                        "50%",
+
+                      background:
+                        "#ffffff",
+
+                      boxShadow:
+                        "0 2px 5px rgba(0,0,0,0.15)",
+
+                      transition:
+                        "0.2s ease",
+                    }}
+                  />
                 </label>
               </div>
-
 
               {/* EXISTING IMAGES */}
 
               {modalMode ===
                 "edit" && (
-                <div className="nhf-form-group">
+                <div>
+                  <label
+                    style={{
+                      display:
+                        "block",
 
-                  <label className="nhf-form-label">
+                      marginBottom:
+                        "10px",
+
+                      color:
+                        "#000000",
+
+                      fontSize:
+                        "16px",
+
+                      fontWeight:
+                        700,
+                    }}
+                  >
                     Existing Images
                   </label>
 
                   {(() => {
                     const currentFair =
                       fairs.find(
-                        (
-                          item
-                        ) =>
+                        (item) =>
                           item._id ===
                           editingId
                       );
 
                     const images =
-                      currentFair
-                        ?.images ||
+                      currentFair?.images ||
                       [];
 
                     if (
@@ -1900,36 +4120,100 @@ export default function AdminTradeFairsPage() {
                       0
                     ) {
                       return (
-                        <div className="trade-fair-no-images">
-                          No images uploaded.
+                        <div
+                          style={{
+                            minHeight:
+                              "58px",
+
+                            padding:
+                              "12px 14px",
+
+                            border:
+                              "1px dashed #cccccc",
+
+                            borderRadius:
+                              "8px",
+
+                            background:
+                              "#fafafa",
+
+                            color:
+                              "#000000",
+
+                            opacity:
+                              0.6,
+
+                            fontSize:
+                              "16px",
+
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+                          }}
+                        >
+                          No images
+                          uploaded.
                         </div>
                       );
                     }
 
                     return (
-                      <div className="trade-fair-image-grid">
+                      <div
+                        style={{
+                          width:
+                            "100%",
 
+                          display:
+                            "grid",
+
+                          gridTemplateColumns:
+                            "repeat(4, minmax(0, 1fr))",
+
+                          gap: "12px",
+                        }}
+                      >
                         {images.map(
-                          (
-                            image
-                          ) => (
+                          (image) => (
                             <div
                               key={
                                 image._id
                               }
-                              className="trade-fair-existing-image"
-                            >
+                              style={{
+                                position:
+                                  "relative",
 
+                                width:
+                                  "100%",
+
+                                aspectRatio:
+                                  "1 / 1",
+
+                                border:
+                                  "1px solid #dddddd",
+
+                                borderRadius:
+                                  "9px",
+
+                                overflow:
+                                  "hidden",
+
+                                background:
+                                  "#f3f3f3",
+                              }}
+                            >
                               <Image
                                 src={
                                   image.url
                                 }
                                 alt={
                                   image.alt ||
-                                  form.title
+                                  form.title ||
+                                  "Trade fair image"
                                 }
                                 fill
-                                sizes="120px"
+                                sizes="150px"
                                 style={{
                                   objectFit:
                                     "cover",
@@ -1938,8 +4222,6 @@ export default function AdminTradeFairsPage() {
 
                               <button
                                 type="button"
-                                className="trade-fair-image-delete"
-                                title="Delete image"
                                 onClick={() =>
                                   handleDeleteImage(
                                     editingId,
@@ -1950,41 +4232,99 @@ export default function AdminTradeFairsPage() {
                                   deletingImageId ===
                                   image._id
                                 }
+                                style={{
+                                  position:
+                                    "absolute",
+
+                                  top:
+                                    "8px",
+
+                                  right:
+                                    "8px",
+
+                                  width:
+                                    "34px",
+
+                                  height:
+                                    "34px",
+
+                                  border:
+                                    "1px solid #dddddd",
+
+                                  borderRadius:
+                                    "50%",
+
+                                  background:
+                                    "rgba(255,255,255,0.95)",
+
+                                  color:
+                                    "#000000",
+
+                                  display:
+                                    "flex",
+
+                                  alignItems:
+                                    "center",
+
+                                  justifyContent:
+                                    "center",
+
+                                  cursor:
+                                    "pointer",
+
+                                  zIndex:
+                                    2,
+                                }}
                               >
                                 {deletingImageId ===
                                 image._id ? (
                                   <RefreshCw
                                     size={
-                                      13
+                                      17
                                     }
-                                    className="nhf-spinner"
+                                    style={{
+                                      animation:
+                                        "tradeFairSpin 0.8s linear infinite",
+                                    }}
                                   />
                                 ) : (
                                   <Trash2
                                     size={
-                                      13
+                                      17
                                     }
                                   />
                                 )}
                               </button>
-
                             </div>
                           )
                         )}
-
                       </div>
                     );
                   })()}
-
                 </div>
               )}
 
-
               {/* NEW IMAGES */}
 
-              <div className="nhf-form-group">
+              <div>
+                <label
+                  style={{
+                    display:
+                      "block",
 
-                <label className="nhf-form-label">
+                    marginBottom:
+                      "10px",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
                   {form.type ===
                   "upcoming"
                     ? modalMode ===
@@ -2007,33 +4347,188 @@ export default function AdminTradeFairsPage() {
                   onChange={
                     handleFiles
                   }
-                  className="trade-fair-file-input"
+                  style={{
+                    width:
+                      "100%",
+
+                    minHeight:
+                      "50px",
+
+                    padding:
+                      "10px 12px",
+
+                    border:
+                      "1px dashed #bdbdbd",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#fafafa",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    cursor:
+                      "pointer",
+
+                    boxSizing:
+                      "border-box",
+                  }}
                 />
 
-                <div className="trade-fair-upload-help">
-                  <Upload
-                    size={
-                      16
-                    }
-                  />
+                {/* UPLOAD HELP */}
+
+                <div
+                  style={{
+                    width:
+                      "100%",
+
+                    minHeight:
+                      "70px",
+
+                    marginTop:
+                      "10px",
+
+                    padding:
+                      "12px 14px",
+
+                    border:
+                      "1px solid #dddddd",
+
+                    borderRadius:
+                      "9px",
+
+                    background:
+                      "#f7f7f7",
+
+                    display:
+                      "flex",
+
+                    alignItems:
+                      "center",
+
+                    gap: "12px",
+
+                    boxSizing:
+                      "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      width:
+                        "42px",
+
+                      height:
+                        "42px",
+
+                      borderRadius:
+                        "8px",
+
+                      background:
+                        "#ffffff",
+
+                      border:
+                        "1px solid #dddddd",
+
+                      display:
+                        "flex",
+
+                      alignItems:
+                        "center",
+
+                      justifyContent:
+                        "center",
+
+                      color:
+                        "#000000",
+
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Upload
+                      size={
+                        20
+                      }
+                    />
+                  </div>
 
                   <div>
-                    <strong>
+                    <strong
+                      style={{
+                        display:
+                          "block",
+
+                        color:
+                          "#000000",
+
+                        fontSize:
+                          "16px",
+
+                        fontWeight:
+                          700,
+
+                        lineHeight:
+                          "1.35",
+                      }}
+                    >
                       {form.type ===
                       "upcoming"
                         ? "One image"
                         : "Multiple images"}
                     </strong>
 
-                    <span>
-                      JPG, PNG, WEBP or AVIF
+                    <span
+                      style={{
+                        display:
+                          "block",
+
+                        marginTop:
+                          "4px",
+
+                        color:
+                          "#000000",
+
+                        opacity:
+                          0.55,
+
+                        fontSize:
+                          "14px",
+
+                        lineHeight:
+                          "1.35",
+                      }}
+                    >
+                      JPG, PNG, WEBP
+                      or AVIF
                     </span>
                   </div>
                 </div>
 
+                {/* SELECTED FILES */}
+
                 {selectedFiles.length >
                   0 && (
-                  <div className="trade-fair-selected-files">
+                  <div
+                    style={{
+                      width:
+                        "100%",
+
+                      marginTop:
+                        "10px",
+
+                      display:
+                        "flex",
+
+                      flexDirection:
+                        "column",
+
+                      gap: "8px",
+                    }}
+                  >
                     {selectedFiles.map(
                       (
                         file,
@@ -2041,9 +4536,58 @@ export default function AdminTradeFairsPage() {
                       ) => (
                         <div
                           key={`${file.name}-${index}`}
-                          className="trade-fair-selected-file"
+                          style={{
+                            minHeight:
+                              "48px",
+
+                            padding:
+                              "7px 10px",
+
+                            border:
+                              "1px solid #dddddd",
+
+                            borderRadius:
+                              "8px",
+
+                            background:
+                              "#ffffff",
+
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+
+                            justifyContent:
+                              "space-between",
+
+                            gap: "10px",
+                          }}
                         >
-                          <span>
+                          <span
+                            title={
+                              file.name
+                            }
+                            style={{
+                              color:
+                                "#000000",
+
+                              fontSize:
+                                "16px",
+
+                              lineHeight:
+                                "1.4",
+
+                              overflow:
+                                "hidden",
+
+                              textOverflow:
+                                "ellipsis",
+
+                              whiteSpace:
+                                "nowrap",
+                            }}
+                          >
                             {
                               file.name
                             }
@@ -2051,7 +4595,7 @@ export default function AdminTradeFairsPage() {
 
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={() =>
                               setSelectedFiles(
                                 (
                                   current
@@ -2064,12 +4608,46 @@ export default function AdminTradeFairsPage() {
                                       i !==
                                       index
                                   )
-                              );
+                              )
+                            }
+                            style={{
+                              width:
+                                "32px",
+
+                              height:
+                                "32px",
+
+                              border:
+                                "none",
+
+                              borderRadius:
+                                "6px",
+
+                              background:
+                                "#eeeeee",
+
+                              color:
+                                "#000000",
+
+                              display:
+                                "flex",
+
+                              alignItems:
+                                "center",
+
+                              justifyContent:
+                                "center",
+
+                              cursor:
+                                "pointer",
+
+                              flexShrink:
+                                0,
                             }}
                           >
                             <X
                               size={
-                                12
+                                17
                               }
                             />
                           </button>
@@ -2078,63 +4656,149 @@ export default function AdminTradeFairsPage() {
                     )}
                   </div>
                 )}
-
               </div>
 
-
-              {/* ACTIONS */}
+              {/* FOOTER */}
 
               <div
-                className="nhf-modal-actions"
                 style={{
+                  width:
+                    "100%",
+
+                  paddingTop:
+                    "20px",
+
+                  borderTop:
+                    "1px solid #dddddd",
+
                   display:
                     "flex",
+
+                  alignItems:
+                    "center",
+
                   justifyContent:
                     "flex-end",
-                  gap:
-                    8,
+
+                  gap: "12px",
+
                   marginTop:
-                    8,
+                    "2px",
                 }}
               >
-
                 <button
                   type="button"
-                  className="nhf-btn nhf-btn-ghost"
                   onClick={
                     closeModal
                   }
                   disabled={
                     submitting
                   }
+                  style={{
+                    height:
+                      "46px",
+
+                    padding:
+                      "0 21px",
+
+                    border:
+                      "1px solid #cccccc",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#ffffff",
+
+                    color:
+                      "#000000",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      600,
+
+                    cursor:
+                      submitting
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
                 >
                   Cancel
                 </button>
 
                 <button
                   type="submit"
-                  className="nhf-btn nhf-btn-primary"
                   disabled={
                     submitting
                   }
+                  style={{
+                    height:
+                      "46px",
+
+                    minWidth:
+                      "175px",
+
+                    padding:
+                      "0 21px",
+
+                    border:
+                      "1px solid #000000",
+
+                    borderRadius:
+                      "8px",
+
+                    background:
+                      "#000000",
+
+                    color:
+                      "#ffffff",
+
+                    display:
+                      "flex",
+
+                    alignItems:
+                      "center",
+
+                    justifyContent:
+                      "center",
+
+                    gap: "8px",
+
+                    fontSize:
+                      "16px",
+
+                    fontWeight:
+                      700,
+
+                    cursor:
+                      submitting
+                        ? "not-allowed"
+                        : "pointer",
+
+                    opacity:
+                      submitting
+                        ? 0.55
+                        : 1,
+                  }}
                 >
                   {submitting ? (
                     <>
                       <RefreshCw
-                        size={
-                          13
-                        }
-                        className="nhf-spinner"
+                        size={18}
+                        style={{
+                          animation:
+                            "tradeFairSpin 0.8s linear infinite",
+                        }}
                       />
 
-                      Saving…
+                      Saving...
                     </>
                   ) : (
                     <>
                       <Upload
-                        size={
-                          13
-                        }
+                        size={18}
                       />
 
                       {modalMode ===
@@ -2144,315 +4808,24 @@ export default function AdminTradeFairsPage() {
                     </>
                   )}
                 </button>
-
               </div>
-
             </form>
-
           </div>
-
         </div>
       )}
 
-
-      {/* ==================================================
-          PAGE STYLES
-      ================================================== */}
-
+      {/* ONLY animation */}
       <style jsx>{`
-
-        .trade-fair-summary {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 12px;
-          margin-bottom: 20px;
-        }
-
-        .trade-fair-stat {
-          background: #fff;
-          border: 1px solid #e9e4da;
-          padding: 18px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 5px;
-        }
-
-        .trade-fair-stat span {
-          font-size: 11px;
-          color: var(--nhf-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.07em;
-        }
-
-        .trade-fair-stat strong {
-          font-size: 24px;
-          color: var(--nhf-text);
-          font-weight: 600;
-        }
-
-        .trade-fair-list-section {
-          margin-bottom: 20px;
-        }
-
-        .trade-fair-section-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-
-        .trade-fair-title-cell {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          min-width: 150px;
-        }
-
-        .trade-fair-title-cell strong {
-          color: var(--nhf-text);
-          font-size: 12px;
-        }
-
-        .trade-fair-title-cell span {
-          color: var(--nhf-muted);
-          font-size: 10px;
-        }
-
-        .trade-fair-description-cell {
-          max-width: 230px;
-          color: var(--nhf-muted);
-          font-size: 11px;
-          line-height: 1.5;
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          -webkit-line-clamp: 3;
-          overflow: hidden;
-        }
-
-        .trade-fair-thumb {
-          object-fit: cover;
-          border-radius: 4px;
-        }
-
-        .trade-fair-modal {
-          max-width: 760px;
-        }
-
-        .trade-fair-type-switch {
-          display: flex;
-          gap: 6px;
-          padding: 4px;
-          border: 1px solid #ddd6ca;
-          background: #f8f6f1;
-          width: fit-content;
-        }
-
-        .trade-fair-type-switch button {
-          border: 0;
-          background: transparent;
-          padding: 8px 13px;
-          font-size: 11px;
-          cursor: pointer;
-          color: var(--nhf-muted);
-        }
-
-        .trade-fair-type-switch button.active {
-          background: #2d5c43;
-          color: #fff;
-        }
-
-        .trade-fair-type-switch button:disabled {
-          cursor: not-allowed;
-          opacity: 0.95;
-        }
-
-        .trade-fair-input-icon {
-          position: relative;
-        }
-
-        .trade-fair-input-icon svg {
-          position: absolute;
-          left: 10px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #a69e90;
-          pointer-events: none;
-          z-index: 1;
-        }
-
-        .trade-fair-input-icon .nhf-form-input {
-          padding-left: 32px;
-        }
-
-        .trade-fair-checkbox {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          color: var(--nhf-text);
-          cursor: pointer;
-        }
-
-        .trade-fair-checkbox input {
-          accent-color: #2d5c43;
-          width: 15px;
-          height: 15px;
-        }
-
-        .trade-fair-file-input {
-          width: 100%;
-          padding: 10px;
-          border: 1px dashed #cfc7b8;
-          background: #faf9f6;
-          font-size: 11px;
-          cursor: pointer;
-          box-sizing: border-box;
-        }
-
-        .trade-fair-upload-help {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-top: 8px;
-          padding: 10px 12px;
-          background: #f6f7ef;
-          border: 1px solid #e1e4d3;
-          color: #68705b;
-        }
-
-        .trade-fair-upload-help div {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .trade-fair-upload-help strong {
-          font-size: 11px;
-          color: #394331;
-        }
-
-        .trade-fair-upload-help span {
-          font-size: 10px;
-          color: var(--nhf-muted);
-        }
-
-        .trade-fair-selected-files {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          margin-top: 10px;
-        }
-
-        .trade-fair-selected-file {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          border: 1px solid #e4dfd5;
-          padding: 8px 10px;
-          background: #fff;
-          font-size: 11px;
-        }
-
-        .trade-fair-selected-file span {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .trade-fair-selected-file button {
-          border: 0;
-          background: transparent;
-          cursor: pointer;
-          color: #a14d4d;
-          padding: 2px;
-          flex-shrink: 0;
-        }
-
-        .trade-fair-image-grid {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 8px;
-          margin-top: 8px;
-        }
-
-        .trade-fair-existing-image {
-          position: relative;
-          aspect-ratio: 1 / 1;
-          overflow: hidden;
-          border: 1px solid #ddd8cf;
-          background: #f3f1ec;
-        }
-
-        .trade-fair-image-delete {
-          position: absolute;
-          right: 6px;
-          top: 6px;
-          width: 28px;
-          height: 28px;
-          border: 0;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.94);
-          color: #a34848;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-        }
-
-        .trade-fair-image-delete:disabled {
-          cursor: wait;
-          opacity: 0.7;
-        }
-
-        .trade-fair-no-images {
-          padding: 14px;
-          background: #faf9f6;
-          border: 1px solid #e6e1d8;
-          color: var(--nhf-muted);
-          font-size: 11px;
-        }
-
-        @media (max-width: 900px) {
-          .trade-fair-summary {
-            grid-template-columns: 1fr;
+        @keyframes tradeFairSpin {
+          from {
+            transform: rotate(0deg);
           }
 
-          .trade-fair-section-head {
-            align-items: flex-start;
-          }
-
-          .trade-fair-table-wrap {
-            overflow-x: auto;
-          }
-
-          .trade-fair-modal {
-            max-width: calc(100vw - 30px);
-          }
-
-          .trade-fair-image-grid {
-            grid-template-columns: repeat(3, 1fr);
+          to {
+            transform: rotate(360deg);
           }
         }
-
-        @media (max-width: 640px) {
-          .trade-fair-type-switch {
-            width: 100%;
-          }
-
-          .trade-fair-type-switch button {
-            flex: 1;
-          }
-
-          .trade-fair-image-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-
       `}</style>
-
     </AdminShell>
   );
 }

@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  useState,
   useEffect,
+  useMemo,
+  useState,
 } from "react";
 
 import Link from "next/link";
-
 import { useRouter } from "next/navigation";
-
 import toast from "react-hot-toast";
 
 import {
@@ -21,79 +20,76 @@ import {
   getWishlist,
 } from "@/lib/wishlist";
 
+/* =========================================================
+   CONFIG
+========================================================= */
 
-// ======================================================
-// CONFIG
-// ======================================================
+const BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5001/api/v1"
+).replace(/\/$/, "");
 
-const BASE =
-  (
-    process.env
-      .NEXT_PUBLIC_API_URL ||
-    "http://localhost:5001/api/v1"
-  ).replace(
-    /\/$/,
-    ""
-  );
+const LIMIT = 12;
 
-const ACCENT =
-  "#7b7f5c";
+const COLORS = {
+  page: "#FDFFF1",
+  text: "#111111",
+  muted: "#666666",
+  accent: "#7B7F5C",
+  border: "#C8CAB4",
+};
 
-const BG =
-  "#fdfff1";
-
-const BORDER =
-  "#c8cab4";
-
-const LIMIT =
-  12;
-
-
-// ======================================================
-// FETCH NEW ARRIVALS
-// ======================================================
+/* =========================================================
+   FETCH PRODUCTS
+========================================================= */
 
 async function fetchNewArrivals(
   page = 1
 ) {
   try {
-    const res =
+    const response =
       await fetch(
         `${BASE}/products?newArrivals=true&page=${page}&limit=${LIMIT}`,
         {
-          method:
-            "GET",
+          method: "GET",
 
           headers: {
             Accept:
               "application/json",
           },
 
-          cache:
-            "no-store",
+          cache: "no-store",
         }
       );
 
-    if (
-      !res.ok
-    ) {
-      return {
-        products: [],
-        total: 0,
-        pages: 1,
-      };
+    if (!response.ok) {
+      throw new Error(
+        "Failed to fetch products."
+      );
     }
 
     const body =
-      await res.json();
+      await response.json();
 
-    return (
-      body?.data ?? {
-        products: [],
-        total: 0,
-        pages: 1,
-      }
-    );
+    return {
+      products:
+        Array.isArray(
+          body?.data?.products
+        )
+          ? body.data.products
+          : [],
+
+      total: Number(
+        body?.data?.total || 0
+      ),
+
+      pages: Math.max(
+        1,
+        Number(
+          body?.data?.pages || 1
+        )
+      ),
+    };
   } catch (error) {
     console.error(
       "NEW ARRIVALS ERROR:",
@@ -108,10 +104,9 @@ async function fetchNewArrivals(
   }
 }
 
-
-// ======================================================
-// LOGIN CHECK
-// ======================================================
+/* =========================================================
+   LOGIN
+========================================================= */
 
 function isLoggedIn() {
   if (
@@ -128,14 +123,204 @@ function isLoggedIn() {
   );
 }
 
+/* =========================================================
+   COLORS
+========================================================= */
 
-// ======================================================
-// PAGE
-// ======================================================
+function getColors(
+  product
+) {
+  if (
+    !Array.isArray(
+      product?.colors
+    )
+  ) {
+    return [];
+  }
+
+  return product.colors.filter(
+    (color) =>
+      String(
+        color || ""
+      ).trim()
+  );
+}
+
+/* =========================================================
+   SIZES
+========================================================= */
+
+function getSizes(
+  product
+) {
+  if (
+    !Array.isArray(
+      product?.sizes
+    )
+  ) {
+    return [];
+  }
+
+  return product.sizes.filter(
+    (size) =>
+      String(
+        size?.name || ""
+      ).trim()
+  );
+}
+
+/* =========================================================
+   IMAGES
+========================================================= */
+
+function getProductImages(
+  product
+) {
+  const images = [];
+
+  if (
+    product?.mainImage
+  ) {
+    images.push(
+      product.mainImage
+    );
+  }
+
+  if (
+    Array.isArray(
+      product?.galleryImages
+    )
+  ) {
+    product.galleryImages.forEach(
+      (image) => {
+        if (
+          image &&
+          !images.includes(
+            image
+          )
+        ) {
+          images.push(
+            image
+          );
+        }
+      }
+    );
+  }
+
+  return images;
+}
+
+/* =========================================================
+   PRICING
+========================================================= */
+
+function getPricing(
+  product,
+  selectedSize
+) {
+  if (selectedSize) {
+    return {
+      actualPrice:
+        Number(
+          selectedSize.actualPrice ||
+            0
+        ),
+
+      sellingPrice:
+        Number(
+          selectedSize.sellingPrice ||
+            0
+        ),
+    };
+  }
+
+  return {
+    actualPrice:
+      Number(
+        product?.actualPrice ??
+          product?.price ??
+          0
+      ),
+
+    sellingPrice:
+      Number(
+        product?.sellingPrice ??
+          product?.price ??
+          0
+      ),
+  };
+}
+
+/* =========================================================
+   DISCOUNT
+========================================================= */
+
+function getDiscount(
+  actualPrice,
+  sellingPrice
+) {
+  const actual =
+    Number(
+      actualPrice || 0
+    );
+
+  const selling =
+    Number(
+      sellingPrice || 0
+    );
+
+  if (
+    actual <= 0 ||
+    selling <= 0 ||
+    selling >= actual
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    ((actual -
+      selling) /
+      actual) *
+      100
+  );
+}
+
+/* =========================================================
+   PRICE FORMAT
+========================================================= */
+
+function formatPrice(
+  value
+) {
+  const amount =
+    Number(
+      value || 0
+    );
+
+  if (
+    !Number.isFinite(
+      amount
+    )
+  ) {
+    return "₹0";
+  }
+
+  return `₹${amount.toLocaleString(
+    "en-IN"
+  )}`;
+}
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
 
 export default function NewArrivalsPage() {
   const router =
     useRouter();
+
+  /* =======================================================
+     PRODUCTS
+  ======================================================= */
 
   const [
     products,
@@ -162,221 +347,110 @@ export default function NewArrivalsPage() {
     setLoading,
   ] = useState(true);
 
+  /* =======================================================
+     SELECTED COLOURS
+  ======================================================= */
+
+  const [
+    selectedColors,
+    setSelectedColors,
+  ] = useState({});
+
+  /* =======================================================
+     SELECTED SIZES
+  ======================================================= */
+
+  const [
+    selectedSizes,
+    setSelectedSizes,
+  ] = useState({});
+
+  /* =======================================================
+     QUANTITY
+  ======================================================= */
+
   const [
     quantities,
     setQuantities,
   ] = useState({});
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
 
   const [
     wishlist,
     setWishlist,
   ] = useState({});
 
+  /* =======================================================
+     HOVER IMAGES
 
-  // ====================================================
-  // REDIRECT TO LOGIN
-  // ====================================================
+     true = gallery/secondary image
+     false = main image
+  ======================================================= */
 
-  const redirectToLogin =
-    (
-      redirect = "/"
-    ) => {
-      router.push(
-        `/login?redirect=${encodeURIComponent(
-          redirect
-        )}`
-      );
-    };
+  const [
+    hoveredProducts,
+    setHoveredProducts,
+  ] = useState({});
 
-
-  // ====================================================
-  // GUEST LOGIN FLOW
-  // ====================================================
-
-  const openLoginForAction =
-    ({
-      type,
-      product,
-    }) => {
-      if (
-        typeof window ===
-        "undefined"
-      ) {
-        return;
-      }
-
-      /*
-       * ----------------------------------------------
-       * SAVE PENDING ACTION
-       * ----------------------------------------------
-       */
-
-      if (
-        type ===
-        "cart"
-      ) {
-        sessionStorage.setItem(
-          "pendingCartProduct",
-          JSON.stringify({
-            product,
-            quantity: 1,
-          })
-        );
-
-        sessionStorage.setItem(
-          "pendingCartRedirect",
-          window.location.pathname +
-            window.location.search
-        );
-      }
-
-      if (
-        type ===
-        "wishlist"
-      ) {
-        sessionStorage.setItem(
-          "pendingWishlistProduct",
-          JSON.stringify({
-            product,
-          })
-        );
-
-        sessionStorage.setItem(
-          "pendingWishlistRedirect",
-          window.location.pathname +
-            window.location.search
-        );
-      }
-
-      if (
-        type ===
-        "buy-now"
-      ) {
-        sessionStorage.setItem(
-          "pendingBuyNowProduct",
-          JSON.stringify({
-            product,
-            quantity: 1,
-          })
-        );
-      }
-
-      /*
-       * ----------------------------------------------
-       * TOAST
-       * ----------------------------------------------
-       */
-
-      toast.error("Please login first", {
-        duration: 2200,
-      });
-
-      /*
-       * ----------------------------------------------
-       * LOGIN PAGE
-       *
-       * Tumhare current Header mein actual
-       * login popup component nahi hai.
-       * Header guest ko /login par hi bhejta hai.
-       *
-       * Isliye same existing login UI use karna.
-       * ----------------------------------------------
-       */
-
-      setTimeout(
-        () => {
-          if (
-            type ===
-            "buy-now"
-          ) {
-            redirectToLogin(
-              "/checkout"
-            );
-          } else {
-            redirectToLogin(
-              window.location.pathname +
-                window.location.search
-            );
-          }
-        },
-        650
-      );
-    };
-
-
-  // ====================================================
-  // LOAD WISHLIST
-  // ====================================================
+  /* =======================================================
+     LOAD WISHLIST
+  ======================================================= */
 
   useEffect(() => {
-    let mounted =
-      true;
+    let mounted = true;
 
-    const loadWishlist =
-      async () => {
-        try {
-          /*
-           * Guest ke liye protected
-           * wishlist API ko call mat karo.
-           */
-          if (
-            !isLoggedIn()
-          ) {
-            if (
-              mounted
-            ) {
-              setWishlist(
-                {}
-              );
-            }
-
-            return;
-          }
-
-          const saved =
-            await getWishlist();
-
-          if (
-            !Array.isArray(
-              saved
-            )
-          ) {
-            return;
-          }
-
-          const map =
-            {};
-
-          saved.forEach(
-            (
-              item
-            ) => {
-              if (
-                item?.slug
-              ) {
-                map[
-                  item.slug
-                ] = true;
-              }
-            }
-          );
-
-          if (
-            mounted
-          ) {
-            setWishlist(
-              map
-            );
-          }
-        } catch (
-          error
+    async function loadWishlist() {
+      try {
+        if (
+          !isLoggedIn()
         ) {
-          console.error(
-            "LOAD WISHLIST ERROR:",
-            error
+          return;
+        }
+
+        const result =
+          await getWishlist();
+
+        if (
+          !Array.isArray(
+            result
+          )
+        ) {
+          return;
+        }
+
+        const map = {};
+
+        result.forEach(
+          (item) => {
+            if (
+              item?.slug
+            ) {
+              map[
+                item.slug
+              ] = true;
+            }
+          }
+        );
+
+        if (
+          mounted
+        ) {
+          setWishlist(
+            map
           );
         }
-      };
+      } catch (
+        error
+      ) {
+        console.error(
+          "WISHLIST LOAD ERROR:",
+          error
+        );
+      }
+    }
 
     loadWishlist();
 
@@ -386,25 +460,19 @@ export default function NewArrivalsPage() {
     };
   }, []);
 
-
-  // ====================================================
-  // LOAD PRODUCTS
-  // ====================================================
+  /* =======================================================
+     LOAD PRODUCTS
+  ======================================================= */
 
   useEffect(() => {
-    let mounted =
-      true;
+    let mounted = true;
 
-    setLoading(
-      true
-    );
+    setLoading(true);
 
     fetchNewArrivals(
       page
     ).then(
-      (
-        data
-      ) => {
+      (result) => {
         if (
           !mounted
         ) {
@@ -412,104 +480,521 @@ export default function NewArrivalsPage() {
         }
 
         setProducts(
-          data.products ??
-            []
+          result.products
         );
 
         setTotal(
-          data.total ??
-            0
+          result.total
         );
 
         setPages(
-          data.pages ??
-            1
+          result.pages
         );
 
-        setLoading(
-          false
+        setLoading(false);
+
+        /*
+         * Reset hover states after
+         * pagination change.
+         */
+
+        setHoveredProducts(
+          {}
+        );
+
+        /*
+         * Reset quantity states
+         * for newly fetched page.
+         */
+
+        setQuantities(
+          {}
+        );
+
+        /*
+         * Keep selected colour/size
+         * only for currently useful
+         * page items.
+         */
+
+        setSelectedColors(
+          {}
+        );
+
+        setSelectedSizes(
+          {}
         );
       }
     );
 
-    if (
-      typeof window !==
-      "undefined"
-    ) {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
 
     return () => {
       mounted =
         false;
     };
-  }, [
-    page,
-  ]);
+  }, [page]);
 
+  /* =======================================================
+     IMAGE HOVER
+  ======================================================= */
 
-  // ====================================================
-  // SAVED / WISHLIST
-  // ====================================================
+  const handleImageEnter =
+    (product) => {
+      const images =
+        getProductImages(
+          product
+        );
 
-  const handleToggleWishlist =
-    async (
-      e,
+      if (
+        images.length < 2
+      ) {
+        return;
+      }
+
+      setHoveredProducts(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            true,
+        })
+      );
+    };
+
+  const handleImageLeave =
+    (product) => {
+      setHoveredProducts(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            false,
+        })
+      );
+    };
+
+  /*
+   * Mobile/touch support.
+   *
+   * Finger touches image -> alternate image.
+   */
+
+  const handleImageTouch =
+    (
+      event,
       product
     ) => {
-      e.preventDefault();
-      e.stopPropagation();
+      event.stopPropagation();
+
+      const images =
+        getProductImages(
+          product
+        );
+
+      if (
+        images.length < 2
+      ) {
+        return;
+      }
+
+      setHoveredProducts(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            true,
+        })
+      );
+    };
+
+  /* =======================================================
+     COLOUR SELECT
+  ======================================================= */
+
+  const handleColorSelect =
+    (
+      event,
+      product,
+      color
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setSelectedColors(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            color,
+        })
+      );
 
       /*
-       * ================================================
-       * NOT LOGGED IN
-       * ================================================
+       * Variant change means
+       * current displayed quantity
+       * should reset.
+       */
+
+      setQuantities(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            0,
+        })
+      );
+    };
+
+  /* =======================================================
+     SIZE SELECT
+  ======================================================= */
+
+  const handleSizeSelect =
+    (
+      event,
+      product,
+      sizeName
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setSelectedSizes(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            sizeName,
+        })
+      );
+
+      /*
+       * Variant change means
+       * current displayed quantity
+       * should reset.
+       */
+
+      setQuantities(
+        (current) => ({
+          ...current,
+
+          [product.slug]:
+            0,
+        })
+      );
+    };
+
+  /* =======================================================
+     VALIDATE PRODUCT
+  ======================================================= */
+
+  const validateProduct =
+    (product) => {
+      const colors =
+        getColors(
+          product
+        );
+
+      const sizes =
+        getSizes(
+          product
+        );
+
+      const selectedColor =
+        selectedColors[
+          product.slug
+        ];
+
+      const selectedSize =
+        selectedSizes[
+          product.slug
+        ];
+
+      if (
+        colors.length >
+          0 &&
+        !selectedColor
+      ) {
+        toast.error(
+          "Please select colour first.",
+          {
+            duration:
+              1800,
+
+            position:
+              "top-right",
+          }
+        );
+
+        return false;
+      }
+
+      if (
+        sizes.length >
+          0 &&
+        !selectedSize
+      ) {
+        toast.error(
+          "Please select size first.",
+          {
+            duration:
+              1800,
+
+            position:
+              "top-right",
+          }
+        );
+
+        return false;
+      }
+
+      return true;
+    };
+
+  /* =======================================================
+     BUILD CART PRODUCT
+  ======================================================= */
+
+  const buildCartProduct =
+    (product) => {
+      const sizes =
+        getSizes(
+          product
+        );
+
+      const selectedSizeName =
+        selectedSizes[
+          product.slug
+        ] || "";
+
+      const selectedSize =
+        sizes.find(
+          (size) =>
+            String(
+              size.name
+            ).trim() ===
+            String(
+              selectedSizeName
+            ).trim()
+        ) || null;
+
+      const pricing =
+        getPricing(
+          product,
+          selectedSize
+        );
+
+      return {
+        ...product,
+
+        selectedColor:
+          selectedColors[
+            product.slug
+          ] || "",
+
+        selectedSize:
+          selectedSize
+            ? selectedSize.name
+            : "",
+
+        selectedSizeActualPrice:
+          pricing.actualPrice,
+
+        selectedSizeSellingPrice:
+          pricing.sellingPrice,
+
+        selectedShippingCost:
+          Number(
+            product.shippingCost ||
+              0
+          ),
+      };
+    };
+
+  /* =======================================================
+     ADD TO CART
+  ======================================================= */
+
+  const handleAddToCart =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      /*
+       * Required variant
+       * must be selected first.
+       */
+
+      if (
+        !validateProduct(
+          product
+        )
+      ) {
+        return;
+      }
+
+      /*
+       * Login check
        */
 
       if (
         !isLoggedIn()
       ) {
-        openLoginForAction({
-          type:
-            "wishlist",
+        if (
+          typeof window !==
+          "undefined"
+        ) {
+          sessionStorage.setItem(
+            "pendingCartProduct",
+            JSON.stringify({
+              product:
+                buildCartProduct(
+                  product
+                ),
 
-          product,
-        });
+              quantity: 1,
+            })
+          );
+
+          sessionStorage.setItem(
+            "pendingCartRedirect",
+            window.location.pathname
+          );
+        }
+
+        toast.error(
+          "Please login first.",
+          {
+            duration:
+              1800,
+
+            position:
+              "top-right",
+          }
+        );
+
+        setTimeout(() => {
+          router.push(
+            `/login?redirect=${encodeURIComponent(
+              window.location.pathname
+            )}`
+          );
+        }, 500);
 
         return;
       }
 
-      /*
-       * ================================================
-       * LOGGED IN
-       * ================================================
-       */
+      try {
+        const cartProduct =
+          buildCartProduct(
+            product
+          );
+
+        await addToCart(
+          cartProduct,
+          1
+        );
+
+        setQuantities(
+          (current) => ({
+            ...current,
+
+            [product.slug]:
+              1,
+          })
+        );
+
+        toast.success(
+          "Added to cart.",
+          {
+            duration:
+              1600,
+
+            position:
+              "top-right",
+          }
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          "ADD TO CART ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Unable to add to cart.",
+          {
+            duration:
+              2000,
+
+            position:
+              "top-right",
+          }
+        );
+      }
+    };
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const handleWishlist =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !isLoggedIn()
+      ) {
+        toast.error(
+          "Please login first.",
+          {
+            duration:
+              1800,
+
+            position:
+              "top-right",
+          }
+        );
+
+        router.push(
+          `/login?redirect=${encodeURIComponent(
+            window.location.pathname
+          )}`
+        );
+
+        return;
+      }
 
       try {
-        const nowSaved =
+        const result =
           await toggleWishlist(
             product
           );
 
         setWishlist(
-          (
-            prev
-          ) => {
-            const copy =
-              {
-                ...prev,
-              };
+          (current) => {
+            const copy = {
+              ...current,
+            };
 
             if (
-              nowSaved
+              result
             ) {
               copy[
                 product.slug
-              ] =
-                true;
+              ] = true;
             } else {
               delete copy[
                 product.slug
@@ -529,469 +1014,818 @@ export default function NewArrivalsPage() {
       }
     };
 
+  /* =======================================================
+     INCREASE
+  ======================================================= */
 
-  // ====================================================
-  // ADD TO CART
-  // ====================================================
-
-  const handleAddToCart =
+  const increaseQuantity =
     async (
-      e,
+      event,
       product
     ) => {
-      e.preventDefault();
-      e.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
-      /*
-       * ================================================
-       * NOT LOGGED IN
-       * ================================================
-       */
+      if (
+        !validateProduct(
+          product
+        )
+      ) {
+        return;
+      }
 
       if (
         !isLoggedIn()
       ) {
-        openLoginForAction({
-          type:
-            "cart",
-
-          product,
-        });
-
         return;
       }
 
-      /*
-       * ================================================
-       * LOGGED IN
-       * ================================================
-       */
-
-      try {
-        await addToCart(
-          product,
-          1
-        );
-
-        setQuantities(
-          (
-            prev
-          ) => ({
-            ...prev,
-
-            [product.slug]:
-              1,
-          })
-        );
-      } catch (
-        error
-      ) {
-        console.error(
-          "ADD TO CART ERROR:",
-          error
-        );
-      }
-    };
-
-
-  // ====================================================
-  // INCREASE QUANTITY
-  // ====================================================
-
-  const increaseQty =
-    async (
-      e,
-      product
-    ) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (
-        !isLoggedIn()
-      ) {
-        openLoginForAction({
-          type:
-            "cart",
-
-          product,
-        });
-
-        return;
-      }
-
-      const qty =
-        (
+      const current =
+        Number(
           quantities[
             product.slug
           ] || 1
-        ) + 1;
+        );
+
+      const next =
+        current + 1;
 
       try {
         await updateQty(
           product._id,
-          qty
+          next
         );
 
         setQuantities(
-          (
-            prev
-          ) => ({
-            ...prev,
+          (state) => ({
+            ...state,
 
             [product.slug]:
-              qty,
+              next,
           })
         );
       } catch (
         error
       ) {
         console.error(
-          "INCREASE QTY ERROR:",
+          "INCREASE ERROR:",
           error
         );
       }
     };
 
+  /* =======================================================
+     DECREASE
+  ======================================================= */
 
-  // ====================================================
-  // DECREASE QUANTITY
-  // ====================================================
-
-  const decreaseQty =
+  const decreaseQuantity =
     async (
-      e,
+      event,
       product
     ) => {
-      e.preventDefault();
-      e.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
       if (
         !isLoggedIn()
       ) {
-        openLoginForAction({
-          type:
-            "cart",
-
-          product,
-        });
-
         return;
       }
 
-      const qty =
-        (
+      const current =
+        Number(
           quantities[
             product.slug
           ] || 1
-        ) - 1;
+        );
+
+      const next =
+        current - 1;
 
       try {
-        if (
-          qty <=
-          0
-        ) {
-          await updateQty(
-            product._id,
+        await updateQty(
+          product._id,
+          Math.max(
+            next,
             0
-          );
+          )
+        );
 
-          setQuantities(
-            (
-              prev
-            ) => {
-              const copy =
-                {
-                  ...prev,
-                };
+        setQuantities(
+          (state) => {
+            const copy = {
+              ...state,
+            };
 
+            if (
+              next <= 0
+            ) {
               delete copy[
                 product.slug
               ];
-
-              return copy;
+            } else {
+              copy[
+                product.slug
+              ] = next;
             }
-          );
-        } else {
-          await updateQty(
-            product._id,
-            qty
-          );
 
-          setQuantities(
-            (
-              prev
-            ) => ({
-              ...prev,
-
-              [product.slug]:
-                qty,
-            })
-          );
-        }
+            return copy;
+          }
+        );
       } catch (
         error
       ) {
         console.error(
-          "DECREASE QTY ERROR:",
+          "DECREASE ERROR:",
           error
         );
       }
     };
 
+  /* =======================================================
+     PAGINATION
+  ======================================================= */
 
-  // ====================================================
-  // PAGE NUMBERS (for pagination bar)
-  // ====================================================
+  const pageNumbers =
+    useMemo(() => {
+      if (
+        pages <= 1
+      ) {
+        return [1];
+      }
 
-  const getPageNumbers = () => {
-    const arr = [];
-    const maxToShow = 5;
+      const numbers = [];
 
-    if (pages <= maxToShow) {
-      for (let i = 1; i <= pages; i++) arr.push(i);
-      return arr;
-    }
+      let start =
+        Math.max(
+          1,
+          page - 2
+        );
 
-    let start = Math.max(1, page - 2);
-    let end = Math.min(pages, start + maxToShow - 1);
+      let end =
+        Math.min(
+          pages,
+          page + 2
+        );
 
-    if (end - start < maxToShow - 1) {
-      start = Math.max(1, end - maxToShow + 1);
-    }
+      if (
+        page <= 2
+      ) {
+        start = 1;
 
-    for (let i = start; i <= end; i++) arr.push(i);
-    return arr;
-  };
+        end = Math.min(
+          pages,
+          5
+        );
+      }
 
+      if (
+        page >=
+        pages - 1
+      ) {
+        start =
+          Math.max(
+            1,
+            pages - 4
+          );
 
-  // ====================================================
-  // SHOWING
-  // ====================================================
+        end =
+          pages;
+      }
 
-  const showingFrom =
+      for (
+        let i = start;
+        i <= end;
+        i++
+      ) {
+        numbers.push(
+          i
+        );
+      }
+
+      return numbers;
+    }, [
+      page,
+      pages,
+    ]);
+
+  const from =
     total === 0
       ? 0
-      : (page - 1) * LIMIT + 1;
+      : (page - 1) *
+          LIMIT +
+        1;
 
-  const showingTo =
+  const to =
     Math.min(
-      page *
-        LIMIT,
+      page * LIMIT,
       total
     );
 
-
-  // ====================================================
-  // RENDER
-  // ====================================================
+  /* =======================================================
+     RENDER
+  ======================================================= */
 
   return (
-    <main className="na-page">
+    <main className="new-arrivals-page">
 
       {/* ==================================================
           HERO
       ================================================== */}
 
-      <div className="na-hero">
-
+      <section className="new-arrivals-hero">
         <img
           src="/images/new-arrivals-hero.jpg"
           alt="New Arrivals"
-          className="na-hero-img"
+          className="new-arrivals-hero-image"
         />
 
-        <div className="na-hero-overlay">
-          <h1 className="na-hero-title">
+        <div className="new-arrivals-hero-overlay">
+          <h1>
             NEW ARRIVALS
           </h1>
         </div>
-
-      </div>
-
+      </section>
 
       {/* ==================================================
           HEADER
       ================================================== */}
 
-      <div className="na-header">
+      <section className="new-arrivals-heading">
+        <div>
+          <h2>
+            New Arrivals
+          </h2>
 
-        <h2 className="na-heading">
-          New Arrivals
-        </h2>
-
-        <a
-          href="/enquiry"
-          className="na-bulk-link"
-        >
-          Bulk Order Request →
-        </a>
-
-      </div>
-
+          <p>
+            {loading
+              ? "Loading..."
+              : `${total} products`}
+          </p>
+        </div>
+      </section>
 
       {/* ==================================================
-          CONTROLS
+          PRODUCT GRID
       ================================================== */}
 
-      <div className="na-controls">
-
-        <span className="na-count">
-          {loading
-            ? "Loading…"
-            : `${total} Products`}
-        </span>
-
-      </div>
-
-
-      {/* ==================================================
-          GRID
-      ================================================== */}
-
-      <div className="na-grid">
+      <section className="new-arrivals-grid">
 
         {loading ? (
           Array.from({
             length:
               LIMIT,
           }).map(
-            (
-              _,
-              i
-            ) => (
-              <CardSkeleton
+            (_, index) => (
+              <ProductSkeleton
                 key={
-                  i
+                  index
                 }
               />
             )
           )
         ) : products.length ===
           0 ? (
-          <div className="na-empty">
-
+          <div className="empty-products">
             <p>
-              No new arrivals yet.
+              No new arrivals
+              available.
             </p>
-
-            <Link
-              href="/"
-              style={{
-                color:
-                  ACCENT,
-
-                fontSize:
-                  14,
-              }}
-            >
-              ← Back to Home
-            </Link>
-
           </div>
         ) : (
           products.map(
             (
               product
-            ) => (
-              <Link
-                href={`/products/${product.slug}`}
-                key={
-                  product._id
-                }
-                className="na-card-link"
-              >
+            ) => {
+              const colors =
+                getColors(
+                  product
+                );
 
-                <div className="na-card">
+              const sizes =
+                getSizes(
+                  product
+                );
 
-                  {/* IMAGE */}
+              const images =
+                getProductImages(
+                  product
+                );
 
-                  <div className="na-img-wrap">
+              /*
+               * First image = main image
+               * Second image = hover image
+               *
+               * If gallery doesn't exist,
+               * main image remains.
+               */
 
-                    {product.mainImage ? (
-                      <img
-                        src={
-                          product.mainImage
-                        }
-                        alt={
-                          product.name
-                        }
-                        className="na-img"
-                      />
-                    ) : (
-                      <div className="na-img-placeholder" />
-                    )}
+              const mainImage =
+                images[0] ||
+                "";
 
-                    {/* WISHLIST */}
+              const hoverImage =
+                images[1] ||
+                mainImage;
 
-                    <button
-                      type="button"
-                      className={`na-wishlist${
-                        wishlist[
-                          product.slug
-                        ]
-                          ? " active"
-                          : ""
-                      }`}
-                      onClick={(
-                        e
-                      ) =>
-                        handleToggleWishlist(
-                          e,
-                          product
-                        )
-                      }
-                      aria-label="Wishlist"
+              const isHovered =
+                Boolean(
+                  hoveredProducts[
+                    product.slug
+                  ]
+                );
+
+              const selectedColor =
+                selectedColors[
+                  product.slug
+                ] || "";
+
+              const selectedSizeName =
+                selectedSizes[
+                  product.slug
+                ] || "";
+
+              const selectedSize =
+                sizes.find(
+                  (size) =>
+                    String(
+                      size.name
+                    ).trim() ===
+                    String(
+                      selectedSizeName
+                    ).trim()
+                ) || null;
+
+              const pricing =
+                getPricing(
+                  product,
+                  selectedSize
+                );
+
+              const discount =
+                getDiscount(
+                  pricing.actualPrice,
+                  pricing.sellingPrice
+                );
+
+              const needsColor =
+                colors.length >
+                  0 &&
+                !selectedColor;
+
+              const needsSize =
+                sizes.length >
+                  0 &&
+                !selectedSize;
+
+              const quantity =
+                quantities[
+                  product.slug
+                ] || 0;
+
+              return (
+                <article
+                  key={
+                    product._id
+                  }
+                  className="product-card"
+                >
+
+                  {/* ========================================
+                      PRODUCT IMAGE
+                  ======================================== */}
+
+                  <div
+                    className="product-image-link"
+                    onMouseEnter={() =>
+                      handleImageEnter(
+                        product
+                      )
+                    }
+                    onMouseLeave={() =>
+                      handleImageLeave(
+                        product
+                      )
+                    }
+                    onTouchStart={(
+                      event
+                    ) =>
+                      handleImageTouch(
+                        event,
+                        product
+                      )
+                    }
+                  >
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="product-image-link-inner"
                     >
-                      {
-                        wishlist[
-                          product.slug
-                        ]
-                          ? "♥"
-                          : "♡"
-                      }
-                    </button>
+                      <div className="product-image-box">
 
+                        {mainImage ? (
+                          <>
+                            {/* MAIN IMAGE */}
+
+                            <img
+                              src={
+                                mainImage
+                              }
+                              alt={
+                                product.name ||
+                                "Product"
+                              }
+                              className={`product-image product-image-main${
+                                isHovered &&
+                                images.length >
+                                  1
+                                  ? " image-hidden"
+                                  : ""
+                              }`}
+                            />
+
+                            {/* HOVER IMAGE */}
+
+                            {images.length >
+                              1 && (
+                              <img
+                                src={
+                                  hoverImage
+                                }
+                                alt={
+                                  product.name ||
+                                  "Product preview"
+                                }
+                                className={`product-image product-image-hover${
+                                  isHovered
+                                    ? " image-visible"
+                                    : ""
+                                }`}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="product-image-placeholder" />
+                        )}
+
+                        {/* WISHLIST */}
+
+                        <button
+                          type="button"
+                          className={`product-wishlist${
+                            wishlist[
+                              product.slug
+                            ]
+                              ? " active"
+                              : ""
+                          }`}
+                          onClick={(
+                            event
+                          ) =>
+                            handleWishlist(
+                              event,
+                              product
+                            )
+                          }
+                          aria-label="Wishlist"
+                        >
+                          {
+                            wishlist[
+                              product.slug
+                            ]
+                              ? "♥"
+                              : "♡"
+                          }
+                        </button>
+
+                        {/* IMAGE INDICATOR */}
+
+                      
+
+                      </div>
+                    </Link>
                   </div>
 
+                  {/* ========================================
+                      PRODUCT CONTENT
+                  ======================================== */}
 
-                  {/* INFO */}
+                  <div className="product-content">
 
-                  <div className="na-info">
+                    {/* ======================================
+                        COLOUR
+                    ====================================== */}
 
-                    <div className="na-name-row">
+                    {colors.length >
+                      0 && (
+                      <div
+                        className="product-colours-block"
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
 
-                      <h3 className="na-name">
-                        {product.name?.toUpperCase()}
-                      </h3>
+                        <div className="product-colour-header">
 
-                      <span className="na-name-rule" />
+                          <span className="product-colour-label">
+                            Colour
+                          </span>
+
+                          {!selectedColor && (
+                            <span className="product-required">
+                              Select
+                            </span>
+                          )}
+
+                          {selectedColor && (
+                            <span className="product-selected">
+                              Selected
+                            </span>
+                          )}
+
+                        </div>
+
+                        <div className="product-colours">
+
+                          {colors.map(
+                            (
+                              color,
+                              index
+                            ) => (
+                              <button
+                                key={`${product._id}-color-${index}`}
+                                type="button"
+                                className={`product-color${
+                                  selectedColor ===
+                                  color
+                                    ? " selected"
+                                    : ""
+                                }`}
+                                style={{
+                                  backgroundColor:
+                                    color,
+                                }}
+                                onClick={(
+                                  event
+                                ) =>
+                                  handleColorSelect(
+                                    event,
+                                    product,
+                                    color
+                                  )
+                                }
+                                aria-label={`Select colour ${
+                                  index +
+                                  1
+                                }`}
+                              />
+                            )
+                          )}
+
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ======================================
+                        NAME
+                    ====================================== */}
+
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="product-name"
+                    >
+                      {
+                        product.name
+                      }
+                    </Link>
+
+                    {/* ======================================
+                        PRICE
+                    ====================================== */}
+
+                    <div className="product-price-area">
+
+                      <div className="product-price-row">
+
+                        <span className="product-selling-price">
+                          {sizes.length >
+                            0 &&
+                          !selectedSize
+                            ? `From ${formatPrice(
+                                pricing.sellingPrice
+                              )}`
+                            : formatPrice(
+                                pricing.sellingPrice
+                              )}
+                        </span>
+
+                        {pricing.actualPrice >
+                          0 &&
+                          pricing.actualPrice !==
+                            pricing.sellingPrice && (
+                            <span className="product-actual-price">
+                              {formatPrice(
+                                pricing.actualPrice
+                              )}
+                            </span>
+                          )}
+
+                        {discount >
+                          0 && (
+                          <span className="product-discount">
+                            {discount}%
+                            OFF
+                          </span>
+                        )}
+
+                      </div>
+
+                      <p className="product-shipping">
+                        {Number(
+                          product.shippingCost ||
+                            0
+                        ) > 0
+                          ? `Shipping ${formatPrice(
+                              product.shippingCost
+                            )}`
+                          : "Free Shipping"}
+                      </p>
 
                     </div>
 
+                    {/* ======================================
+                        SIZE
+                    ====================================== */}
 
-                    <p className="na-price">
-                      ₹
-                      {Number(
-                        product.price ||
-                          0
-                      ).toLocaleString(
-                        "en-IN"
+                    {sizes.length >
+                      0 && (
+                      <div
+                        className={`product-size-section${
+                          needsSize
+                            ? " required"
+                            : ""
+                        }`}
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+
+                        <div className="product-size-header">
+
+                          <span>
+                            Size
+                          </span>
+
+                          {selectedSize ? (
+                            <small className="product-size-selected">
+                              {
+                                selectedSize.name
+                              }
+                            </small>
+                          ) : (
+                            <small className="product-size-required">
+                              Select
+                            </small>
+                          )}
+
+                        </div>
+
+                        <div className="product-size-list">
+
+                          {sizes.map(
+                            (
+                              size,
+                              index
+                            ) => (
+                              <button
+                                key={`${product._id}-size-${index}`}
+                                type="button"
+                                className={`product-size-button${
+                                  selectedSizeName ===
+                                  size.name
+                                    ? " selected"
+                                    : ""
+                                }`}
+                                onClick={(
+                                  event
+                                ) =>
+                                  handleSizeSelect(
+                                    event,
+                                    product,
+                                    size.name
+                                  )
+                                }
+                              >
+                                {
+                                  size.name
+                                }
+                              </button>
+                            )
+                          )}
+
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* ======================================
+                        ACTION AREA
+                    ====================================== */}
+
+                    <div
+                      className="product-action-area"
+                      onClick={(
+                        event
+                      ) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                    >
+
+                      {/* ====================================
+                          ADD TO CART / QUANTITY
+                      ==================================== */}
+
+                      {quantity >
+                      0 ? (
+                        <div className="product-quantity">
+
+                          <button
+                            type="button"
+                            onClick={(
+                              event
+                            ) =>
+                              decreaseQuantity(
+                                event,
+                                product
+                              )
+                            }
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+
+                          <span>
+                            {
+                              quantity
+                            }
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(
+                              event
+                            ) =>
+                              increaseQuantity(
+                                event,
+                                product
+                              )
+                            }
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`product-add-cart${
+                            needsColor ||
+                            needsSize
+                              ? " requires-selection"
+                              : ""
+                          }`}
+                          onClick={(
+                            event
+                          ) =>
+                            handleAddToCart(
+                              event,
+                              product
+                            )
+                          }
+                        >
+                          ADD TO CART
+                        </button>
                       )}
-                    </p>
 
-
-                    <div className="na-actions">
-
-                      {/* BULK ENQUIRY */}
+                      {/* ====================================
+                          BULK PRICE ENQUIRY
+                      ==================================== */}
 
                       <button
                         type="button"
-                        className="na-btn-enquiry"
+                        className="product-bulk-button"
                         onClick={(
-                          e
+                          event
                         ) => {
-                          e.preventDefault();
-                          e.stopPropagation();
+                          event.preventDefault();
+                          event.stopPropagation();
 
                           router.push(
                             `/enquiry1/${product.slug}`
@@ -1001,172 +1835,105 @@ export default function NewArrivalsPage() {
                         BULK PRICE ENQUIRY ↗
                       </button>
 
-
-                      {/* ADD TO CART */}
-
-                      {!quantities[
-                        product.slug
-                      ] ? (
-                        <button
-                          type="button"
-                          className="na-btn-cart"
-                          onClick={(
-                            e
-                          ) =>
-                            handleAddToCart(
-                              e,
-                              product
-                            )
-                          }
-                        >
-                          <span className="na-cart-dot">
-                            •
-                          </span>
-                          ADD TO CART
-                        </button>
-                      ) : (
-                        <div
-                          className="na-qty"
-                          onClick={(
-                            e
-                          ) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                        >
-
-                          <button
-                            type="button"
-                            onClick={(
-                              e
-                            ) =>
-                              decreaseQty(
-                                e,
-                                product
-                              )
-                            }
-                          >
-                            −
-                          </button>
-
-                          <span>
-                            {
-                              quantities[
-                                product.slug
-                              ]
-                            }
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={(
-                              e
-                            ) =>
-                              increaseQty(
-                                e,
-                                product
-                              )
-                            }
-                          >
-                            +
-                          </button>
-
-                        </div>
-                      )}
-
                     </div>
-
                   </div>
-
-                </div>
-
-              </Link>
-            )
+                </article>
+              );
+            }
           )
         )}
 
-      </div>
-
+      </section>
 
       {/* ==================================================
           PAGINATION
       ================================================== */}
 
       {!loading &&
-        total >
-          0 && (
-          <div className="na-pagination">
+        total > 0 && (
+          <section className="products-pagination">
 
-            <p className="na-showing">
-              Showing {showingFrom} – {showingTo} of {total}
-            </p>
+            <div className="pagination-info">
+              Showing{" "}
+              {from} –{" "}
+              {to} of{" "}
+              {total}
+            </div>
 
-            {pages > 1 && (
-              <div className="na-pagenums">
+            {pages >
+              1 && (
+              <div className="pagination-buttons">
 
                 <button
                   type="button"
-                  className="na-pagebtn na-pagebtn-arrow"
-                  disabled={page <= 1}
+                  className="pagination-arrow"
+                  disabled={
+                    page ===
+                    1
+                  }
                   onClick={() =>
-                    setPage((p) => Math.max(1, p - 1))
+                    setPage(
+                      (
+                        current
+                      ) =>
+                        Math.max(
+                          1,
+                          current -
+                            1
+                        )
+                    )
                   }
                   aria-label="Previous page"
                 >
                   ‹
                 </button>
 
-                {getPageNumbers()[0] > 1 && (
-                  <>
+                {pageNumbers.map(
+                  (
+                    number
+                  ) => (
                     <button
+                      key={
+                        number
+                      }
                       type="button"
-                      className="na-pagebtn"
-                      onClick={() => setPage(1)}
+                      className={`pagination-number${
+                        page ===
+                        number
+                          ? " active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setPage(
+                          number
+                        )
+                      }
                     >
-                      1
+                      {
+                        number
+                      }
                     </button>
-                    {getPageNumbers()[0] > 2 && (
-                      <span className="na-pagedots">…</span>
-                    )}
-                  </>
-                )}
-
-                {getPageNumbers().map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={`na-pagebtn${
-                      n === page ? " active" : ""
-                    }`}
-                    onClick={() => setPage(n)}
-                  >
-                    {n}
-                  </button>
-                ))}
-
-                {getPageNumbers()[getPageNumbers().length - 1] <
-                  pages && (
-                  <>
-                    {getPageNumbers()[getPageNumbers().length - 1] <
-                      pages - 1 && (
-                      <span className="na-pagedots">…</span>
-                    )}
-                    <button
-                      type="button"
-                      className="na-pagebtn"
-                      onClick={() => setPage(pages)}
-                    >
-                      {pages}
-                    </button>
-                  </>
+                  )
                 )}
 
                 <button
                   type="button"
-                  className="na-pagebtn na-pagebtn-arrow"
-                  disabled={page >= pages}
+                  className="pagination-arrow"
+                  disabled={
+                    page ===
+                    pages
+                  }
                   onClick={() =>
-                    setPage((p) => Math.min(pages, p + 1))
+                    setPage(
+                      (
+                        current
+                      ) =>
+                        Math.min(
+                          pages,
+                          current +
+                            1
+                        )
+                    )
                   }
                   aria-label="Next page"
                 >
@@ -1178,7 +1945,7 @@ export default function NewArrivalsPage() {
 
             <button
               type="button"
-              className="na-back-top"
+              className="back-top"
               onClick={() =>
                 window.scrollTo(
                   {
@@ -1192,765 +1959,2052 @@ export default function NewArrivalsPage() {
               ↑ BACK TO TOP
             </button>
 
-          </div>
+          </section>
         )}
 
-
       {/* ==================================================
-          STYLES
+          GLOBAL CSS
       ================================================== */}
 
-      <style jsx>{`
-
-        .na-page {
-          background: ${BG};
-          min-height: 100vh;
+      <style jsx global>{`
+        * {
+          box-sizing: border-box;
         }
 
+        html,
+        body {
+          margin: 0;
+          padding: 0;
+          background: ${COLORS.page};
+        }
 
-        /* ===============================================
+        body {
+          overflow-x: hidden;
+        }
+
+        /* ==================================================
+           PAGE
+        ================================================== */
+
+        .new-arrivals-page {
+          width: 100%;
+          min-height: 100vh;
+
+          margin: 0;
+          padding: 0;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            ${COLORS.text};
+
+          overflow-x: hidden;
+        }
+
+        /* ==================================================
            HERO
-        =============================================== */
+        ================================================== */
 
-        .na-hero {
+        .new-arrivals-hero {
           position: relative;
+
           width: 100%;
           height: 440px;
+
           overflow: hidden;
+
+          background:
+            ${COLORS.page};
         }
 
-        .na-hero-img {
+        .new-arrivals-hero-image {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+
           display: block;
+
+          object-fit: cover;
         }
 
-        .na-hero-overlay {
+        .new-arrivals-hero-overlay {
           position: absolute;
           inset: 0;
-          background: rgba(0, 0, 0, 0.28);
+
           display: flex;
           align-items: center;
           justify-content: center;
+
+          background:
+            rgba(
+              0,
+              0,
+              0,
+              0.24
+            );
         }
 
-        .na-hero-title {
-          font-family: "Tobias TRIAL", serif;
-          font-size: clamp(32px, 5vw, 64px);
-          font-weight: 500;
-          color: #fff;
-          letter-spacing: 0.08em;
+        .new-arrivals-hero-overlay h1 {
           margin: 0;
+
+          color: #ffffff;
+
+          font-family:
+            "Tobias TRIAL",
+            Georgia,
+            serif;
+
+          font-size:
+            clamp(
+              34px,
+              5vw,
+              64px
+            );
+
+          line-height: 1;
+
+          font-weight: 500;
+
+          letter-spacing:
+            0.08em;
+
+          text-align: center;
         }
 
-
-        /* ===============================================
+        /* ==================================================
            HEADER
-        =============================================== */
+        ================================================== */
 
-        .na-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 36px 60px 20px;
-          gap: 16px;
-        }
+        .new-arrivals-heading {
+          width: 100%;
+          max-width: 1500px;
 
-        .na-heading {
-          font-family: "Tobias TRIAL", serif;
-          font-size: 40px;
-          font-weight: 500;
-          color: ${ACCENT};
-          letter-spacing: -0.02em;
-          margin: 0;
-        }
-
-        .na-bulk-link {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 16px;
-          color: ${ACCENT};
-          text-decoration: none;
-          border-bottom: 1px solid ${ACCENT};
-          padding-bottom: 2px;
-          white-space: nowrap;
-        }
-
-
-        /* ===============================================
-           CONTROLS
-        =============================================== */
-
-        .na-controls {
-          display: flex;
-          justify-content: flex-end;
-          padding: 0 60px 16px;
-        }
-
-        .na-count {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 14px;
-          color: #555;
-        }
-
-
-        /* ===============================================
-           GRID
-        =============================================== */
-
-        .na-grid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          align-items: start;
-          gap: 28px 20px;
-          padding: 0 60px 40px;
-          max-width: 1800px;
           margin: 0 auto;
+
+          padding:
+            38px 44px
+            22px;
         }
 
-        .na-card-link {
-          text-decoration: none;
-          display: block;
-          width: 100%;
-        }
-
-        .na-card {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          padding: 14px;
-          box-sizing: border-box;
-          background: rgba(255, 255, 255, 0.78);
-          border: 1px solid #e2e3d7;
-          border-radius: 22px;
-          box-shadow:
-            0 12px 34px rgba(61, 67, 41, 0.08),
-            0 2px 8px rgba(61, 67, 41, 0.04);
-          transition:
-            transform 0.25s ease,
-            box-shadow 0.25s ease;
-        }
-
-        .na-card:hover {
-          transform: translateY(-3px);
-          box-shadow:
-            0 18px 42px rgba(61, 67, 41, 0.12),
-            0 4px 12px rgba(61, 67, 41, 0.05);
-        }
-
-        .na-img-wrap {
-          position: relative;
-          width: 100%;
-          aspect-ratio: 4 / 3;
-          border-radius: 15px;
-          overflow: hidden;
-          background: #e8e9da;
-        }
-
-        .na-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-          transition: transform 0.4s ease;
-        }
-
-        .na-card:hover .na-img {
-          transform: scale(1.025);
-        }
-
-        .na-img-placeholder {
-          width: 100%;
-          height: 100%;
-          background: #e8e9da;
-        }
-
-
-        /* ===============================================
-           WISHLIST
-        =============================================== */
-
-        .na-wishlist {
-          position: absolute;
-          top: 14px;
-          right: 14px;
-          background: rgba(255, 255, 255, 0.96);
-          border: 1px solid rgba(123, 127, 92, 0.12);
-          border-radius: 50%;
-          width: 54px;
-          height: 54px;
-          font-size: 28px;
-          line-height: 1;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #b4b5a4;
-          box-shadow: 0 5px 16px rgba(0, 0, 0, 0.10);
-          z-index: 4;
-          transition: transform 0.2s ease, color 0.2s ease;
-        }
-
-        .na-wishlist:hover {
-          transform: scale(1.04);
-          color: ${ACCENT};
-        }
-
-        .na-wishlist.active {
-          color: #9b3043;
-        }
-
-
-        /* ===============================================
-           INFO
-        =============================================== */
-
-        .na-info {
-          padding: 18px 8px 4px;
-        }
-
-        .na-name-row {
-          display: flex;
-          align-items: center;
-          gap: 18px;
-          min-height: 40px;
-          margin-bottom: 14px;
-        }
-
-        .na-name {
-          flex: 0 1 auto;
-          min-width: 0;
-          height: auto;
+        .new-arrivals-heading h2 {
           margin: 0;
-          font-family: "Tobias TRIAL", "Playfair Display", Georgia, serif;
-          font-size: 25px;
-          line-height: 1.15;
+
+          color:
+            ${COLORS.accent};
+
+          font-family:
+            "Tobias TRIAL",
+            Georgia,
+            serif;
+
+          font-size: 40px;
+
+          line-height: 1.1;
+
           font-weight: 500;
-          letter-spacing: -0.02em;
-          color: #151515;
-          overflow: visible;
-          display: block;
-          text-overflow: clip;
-          text-transform: uppercase;
         }
 
-        .na-name-rule {
-          width: 86px;
-          height: 1px;
-          background: #b9a764;
-          flex: 0 0 auto;
-          margin-left: auto;
-          margin-top: 8px;
+        .new-arrivals-heading p {
+          margin:
+            7px 0 0;
+
+          color:
+            ${COLORS.muted};
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size: 14px;
+
+          line-height: 1.4;
         }
 
-        .na-price {
-          margin: 0 0 20px;
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 23px;
-          line-height: 1;
-          font-weight: 700;
-          letter-spacing: 0;
-          color: #171717;
-        }
+        /* ==================================================
+           GRID
+           
+           DESKTOP = 4
+           
+           align-items: stretch so every card in a row
+           takes on the height of the tallest card —
+           this is what makes card sizes uniform.
+        ================================================== */
 
+        .new-arrivals-grid {
+          width: 100%;
+          max-width: 1500px;
 
-        /* ===============================================
-           ACTIONS
-        =============================================== */
+          margin: 0 auto;
 
-        .na-actions {
+          padding:
+            0 44px 50px;
+
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 12px;
+
+          grid-template-columns:
+            repeat(
+              4,
+              minmax(
+                0,
+                1fr
+              )
+            );
+
+          column-gap: 18px;
+
+          row-gap: 22px;
+
           align-items: stretch;
         }
 
-        .na-btn-enquiry,
-        .na-btn-cart {
+        /* ==================================================
+           CARD
+           
+           PAGE BACKGROUND
+           
+           height: 100% + flex column so the card fills
+           the stretched grid cell and its content can
+           push the action buttons to the bottom evenly.
+        ================================================== */
+
+        .product-card {
           width: 100%;
-          min-height: 60px;
-          box-sizing: border-box;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 14px 16px;
-          font-family: "Mona Sans", "Inter", sans-serif;
-          font-size: 12px;
-          line-height: 1.35;
-          font-weight: 700;
-          letter-spacing: 0.055em;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition:
-            background-color 0.2s ease,
-            border-color 0.2s ease,
-            color 0.2s ease,
-            transform 0.15s ease;
-        }
-
-        .na-btn-enquiry {
-          background: ${ACCENT};
-          color: #fff;
-          border: 1px solid ${ACCENT};
-        }
-
-        .na-btn-enquiry:hover {
-          background: #676a4c;
-          border-color: #676a4c;
-        }
-
-        .na-btn-cart {
-          background: transparent;
-          color: #1b1b1b;
-          border: 1px solid ${BORDER};
-        }
-
-        .na-btn-cart:hover {
-          background: #f4f5eb;
-          border-color: ${ACCENT};
-        }
-
-        .na-cart-dot {
-          font-size: 19px;
-          line-height: 0;
-          margin-right: 8px;
-          transform: translateY(-1px);
-        }
-
-
-        /* ===============================================
-           QUANTITY
-        =============================================== */
-
-        .na-qty {
-          display: inline-flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          min-height: 60px;
-          width: 100%;
+          height: 100%;
           min-width: 0;
-          box-sizing: border-box;
-          border: 1px solid ${BORDER};
-          padding: 0 14px;
-          background: transparent;
-        }
 
-        .na-qty button {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-size: 22px;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          color: #111;
-        }
-
-        .na-qty span {
-          font-family: "Mona Sans", sans-serif;
-          font-weight: 600;
-          font-size: 14px;
-          text-align: center;
-          min-width: 18px;
-        }
-
-        .na-empty {
-          grid-column: 1 / -1;
-          text-align: center;
-          padding: 80px 20px;
-          color: #555;
-        }
-
-
-        /* ===============================================
-           PAGINATION
-        =============================================== */
-
-        .na-pagination {
-          text-align: center;
-          padding: 20px 60px 60px;
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 18px;
+
+          background:
+            ${COLORS.page};
+
+          border:
+            1px solid
+            rgba(
+              123,
+              127,
+              92,
+              0.19
+            );
+
+          border-radius: 12px;
+
+          overflow: hidden;
+
+          box-shadow:
+            0 2px 9px
+              rgba(
+                40,
+                45,
+                25,
+                0.05
+              );
+
+          transition:
+            transform
+              0.2s ease,
+            box-shadow
+              0.2s ease;
         }
 
-        .na-showing {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          color: #777;
-          margin: 0;
+        .product-card:hover {
+          transform:
+            translateY(
+              -2px
+            );
+
+          box-shadow:
+            0 9px 24px
+              rgba(
+                40,
+                45,
+                25,
+                0.09
+              );
         }
 
-        .na-pagenums {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          justify-content: center;
+        /* ==================================================
+           IMAGE WRAPPER
+        ================================================== */
+
+        .product-image-link {
+          position: relative;
+
+          display: block;
+
+          width: 100%;
+
+          cursor: pointer;
+
+          touch-action:
+            manipulation;
         }
 
-        .na-pagebtn {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          background: ${BG};
-          border: 1px solid ${BORDER};
-          color: #0e0e0e;
+        .product-image-link-inner {
+          display: block;
+
+          width: 100%;
+
+          text-decoration:
+            none;
+
+          color: inherit;
+        }
+
+        .product-image-box {
+          position: relative;
+
+          width: 100%;
+
+          aspect-ratio:
+            1 / 1;
+
+          overflow: hidden;
+
+          background:
+            ${COLORS.page};
+        }
+
+        /*
+         * Both images occupy EXACTLY
+         * same position.
+         */
+
+        .product-image {
+          position: absolute;
+
+          inset: 0;
+
+          width: 100%;
+          height: 100%;
+
+          display: block;
+
+          object-fit: cover;
+
+          transition:
+            opacity
+              0.35s ease,
+            transform
+              0.45s ease;
+        }
+
+        .product-image-main {
+          opacity: 1;
+
+          z-index: 1;
+        }
+
+        .product-image-hover {
+          opacity: 0;
+
+          z-index: 2;
+        }
+
+        .product-image-main.image-hidden {
+          opacity: 0;
+        }
+
+        .product-image-hover.image-visible {
+          opacity: 1;
+        }
+
+        .product-image-placeholder {
+          width: 100%;
+          height: 100%;
+
+          background:
+            ${COLORS.page};
+        }
+
+        /*
+         * Slight zoom on hover only
+         * for secondary image.
+         */
+
+        .product-image-box:hover
+          .product-image-hover.image-visible {
+          transform:
+            scale(
+              1.025
+            );
+        }
+
+        /* ==================================================
+           HOVER IMAGE TEXT
+        ================================================== */
+
+        .image-hover-indicator {
+          position: absolute;
+
+          left: 50%;
+          bottom: 11px;
+
+          transform:
+            translateX(
+              -50%
+            );
+
+          z-index: 7;
+
+          pointer-events:
+            none;
+
+          padding:
+            5px 8px;
+
+          border-radius:
+            5px;
+
+          background:
+            rgba(
+              17,
+              17,
+              17,
+              0.74
+            );
+
+          color:
+            #ffffff;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            600;
+
+          opacity: 0;
+
+          transition:
+            opacity
+              0.2s ease;
+        }
+
+        .product-image-box:hover
+          .image-hover-indicator {
+          opacity: 1;
+        }
+
+        /* ==================================================
+           WISHLIST
+        ================================================== */
+
+        .product-wishlist {
+          position: absolute;
+
+          top: 12px;
+          right: 12px;
+
           width: 38px;
           height: 38px;
-          border-radius: 50%;
-          cursor: pointer;
+
+          padding: 0;
+
+          border:
+            1px solid
+              #d4d4d4;
+
+          border-radius:
+            50%;
+
+          background:
+            ${COLORS.page};
+
+          color: #777777;
+
           display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          font-size:
+            21px;
+
+          line-height:
+            1;
+
+          cursor:
+            pointer;
+
+          z-index: 10;
+
+          transition:
+            transform
+              0.15s ease,
+            color
+              0.15s ease;
         }
 
-        .na-pagebtn:hover:not(:disabled) {
-          background: #f4f5eb;
-          border-color: ${ACCENT};
+        .product-wishlist:hover {
+          transform:
+            scale(
+              1.06
+            );
+
+          color:
+            ${COLORS.accent};
         }
 
-        .na-pagebtn.active {
-          background: ${ACCENT};
-          border-color: ${ACCENT};
-          color: #fff;
+        .product-wishlist.active {
+          color:
+            #b4002e;
         }
 
-        .na-pagebtn:disabled {
-          opacity: 0.35;
-          cursor: not-allowed;
+        /* ==================================================
+           CONTENT
+           
+           flex: 1 + flex column so this area grows to
+           fill the remaining stretched card height, and
+           the action area (margin-top: auto, below) is
+           pinned to the bottom of every card.
+        ================================================== */
+
+        .product-content {
+          width: 100%;
+          min-width: 0;
+          flex: 1;
+
+          display: flex;
+          flex-direction: column;
+
+          padding:
+            11px;
+
+          background:
+            ${COLORS.page};
         }
 
-        .na-pagebtn-arrow {
-          font-size: 18px;
+        /* ==================================================
+           COLOUR
+        ================================================== */
+
+        .product-colours-block {
+          width: 100%;
+
+          margin-bottom:
+            7px;
         }
 
-        .na-pagedots {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 13px;
-          color: #999;
-          padding: 0 2px;
+        .product-colour-header {
+          width: 100%;
+
+          display: flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap: 8px;
+
+          margin-bottom:
+            6px;
         }
 
-        .na-back-top {
-          font-family: "Mona Sans", sans-serif;
-          font-size: 12px;
-          color: ${ACCENT};
-          background: none;
-          border: none;
-          cursor: pointer;
-          letter-spacing: 0.06em;
+        .product-colour-label {
+          color:
+            #555555;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            11px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            600;
         }
 
+        .product-required {
+          color:
+            #888888;
 
-        /* ===============================================
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        .product-selected {
+          color:
+            ${COLORS.accent};
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            8px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        .product-colours {
+          width: 100%;
+
+          display: flex;
+
+          align-items:
+            center;
+
+          flex-wrap:
+            wrap;
+
+          gap: 8px;
+        }
+
+        .product-color {
+          width: 22px;
+          height: 22px;
+
+          padding: 0;
+
+          border:
+            1px solid
+              #9d9d9d;
+
+          border-radius:
+            50%;
+
+          outline: none;
+
+          cursor:
+            pointer;
+
+          transition:
+            transform
+              0.15s ease,
+            box-shadow
+              0.15s ease;
+        }
+
+        .product-color:hover {
+          transform:
+            scale(
+              1.08
+            );
+        }
+
+        .product-color.selected {
+          border:
+            2px solid
+              #111111;
+
+          box-shadow:
+            0 0 0 2px
+              ${COLORS.page},
+            0 0 0 3px
+              #111111;
+        }
+
+        /* ==================================================
+           NAME
+        ================================================== */
+
+        .product-name {
+          display:
+            -webkit-box;
+
+          width: 100%;
+
+          margin:
+            0 0 7px;
+
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            16px;
+
+          line-height:
+            1.3;
+
+          font-weight:
+            700;
+
+          text-decoration:
+            none;
+
+          overflow:
+            hidden;
+
+          text-overflow:
+            ellipsis;
+
+          -webkit-line-clamp:
+            2;
+
+          -webkit-box-orient:
+            vertical;
+        }
+
+        .product-name:hover {
+          text-decoration:
+            underline;
+        }
+
+        /* ==================================================
+           PRICE
+        ================================================== */
+
+        .product-price-area {
+          width: 100%;
+
+          margin-bottom:
+            7px;
+        }
+
+        .product-price-row {
+          width: 100%;
+
+          display: flex;
+
+          align-items:
+            baseline;
+
+          flex-wrap:
+            wrap;
+
+          gap: 6px;
+        }
+
+        .product-selling-price {
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            20px;
+
+          line-height:
+            1.15;
+
+          font-weight:
+            700;
+        }
+
+        .product-actual-price {
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            12px;
+
+          line-height:
+            1;
+
+          font-weight:
+            500;
+
+          text-decoration:
+            line-through;
+        }
+
+        .product-discount {
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          min-height:
+            21px;
+
+          padding:
+            0 6px;
+
+          border-radius:
+            4px;
+
+          background:
+            #dfe8cc;
+
+          color:
+            #38602d;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            9px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+        }
+
+        .product-shipping {
+          margin:
+            4px 0 0;
+
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            10px;
+
+          line-height:
+            1.35;
+
+          font-weight:
+            500;
+        }
+
+        /* ==================================================
+           SIZE
+        ================================================== */
+
+        .product-size-section {
+          width: 100%;
+
+          margin-bottom:
+            7px;
+
+          padding:
+            7px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.18
+            );
+
+          border:
+            1px solid
+              rgba(
+                123,
+                127,
+                92,
+                0.22
+              );
+
+          border-radius:
+            7px;
+        }
+
+        .product-size-header {
+          width: 100%;
+
+          display: flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          gap: 8px;
+
+          margin-bottom:
+            6px;
+
+          color:
+            #333333;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            10px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            700;
+        }
+
+        .product-size-header small {
+          color:
+            ${COLORS.accent};
+
+          font-size:
+            9px;
+
+          font-weight:
+            700;
+        }
+
+        .product-size-required {
+          color:
+            #888888 !important;
+
+          text-transform:
+            uppercase;
+        }
+
+        .product-size-list {
+          width: 100%;
+
+          display: flex;
+
+          align-items:
+            center;
+
+          flex-wrap:
+            wrap;
+
+          gap: 5px;
+        }
+
+        .product-size-button {
+          min-width:
+            35px;
+
+          min-height:
+            26px;
+
+          padding:
+            0 8px;
+
+          border:
+            1px solid
+              #c9c9c9;
+
+          border-radius:
+            5px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            9px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          cursor:
+            pointer;
+
+          transition:
+            background
+              0.15s ease,
+            color
+              0.15s ease,
+            border-color
+              0.15s ease;
+        }
+
+        .product-size-button:hover {
+          border-color:
+            ${COLORS.accent};
+        }
+
+        .product-size-button.selected {
+          background:
+            ${COLORS.accent};
+
+          border-color:
+            ${COLORS.accent};
+
+          color:
+            #ffffff;
+        }
+
+        /* ==================================================
+           ACTIONS
+           
+           margin-top: auto pins this block to the bottom
+           of the flex-column card, regardless of whether
+           colour/size sections above are present.
+        ================================================== */
+
+        .product-action-area {
+          width: 100%;
+
+          margin-top: auto;
+
+          display: flex;
+
+          flex-direction:
+            column;
+
+          gap:
+            6px;
+        }
+
+        /* ==================================================
+           ADD TO CART
+        ================================================== */
+
+        .product-add-cart {
+          width: 100%;
+
+          min-height:
+            40px;
+
+          padding:
+            0 12px;
+
+          border:
+            1px solid
+              #111111;
+
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            11px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.03em;
+
+          cursor:
+            pointer;
+
+          transition:
+            background
+              0.18s ease,
+            color
+              0.18s ease,
+            border-color
+              0.18s ease;
+        }
+
+        /*
+         * IMPORTANT:
+         * Hover text remains visible.
+         */
+
+        .product-add-cart:hover {
+          background:
+            #111111;
+
+          border-color:
+            #111111;
+
+          color:
+            #ffffff;
+        }
+
+        .product-add-cart.requires-selection {
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
+        }
+
+        /* ==================================================
+           BULK PRICE ENQUIRY
+           
+           BELOW ADD TO CART
+        ================================================== */
+
+        .product-bulk-button {
+          width: 100%;
+
+          min-height:
+            37px;
+
+          padding:
+            0 12px;
+
+          border:
+            1px solid
+              ${COLORS.accent};
+
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            ${COLORS.accent};
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            10px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.03em;
+
+          cursor:
+            pointer;
+
+          transition:
+            background
+              0.18s ease,
+            color
+              0.18s ease;
+        }
+
+        .product-bulk-button:hover {
+          background:
+            ${COLORS.accent};
+
+          color:
+            #ffffff;
+        }
+
+        /* ==================================================
+           QUANTITY
+        ================================================== */
+
+        .product-quantity {
+          width: 100%;
+
+          min-height:
+            40px;
+
+          border:
+            1px solid
+              #111111;
+
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+
+          display: flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+        }
+
+        .product-quantity button {
+          width:
+            38px;
+
+          height:
+            38px;
+
+          padding: 0;
+
+          border:
+            none;
+
+          background:
+            transparent;
+
+          color:
+            #111111;
+
+          font-size:
+            19px;
+
+          line-height:
+            1;
+
+          cursor:
+            pointer;
+        }
+
+        .product-quantity span {
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            12px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+        }
+
+        /* ==================================================
+           PAGINATION
+        ================================================== */
+
+        .products-pagination {
+          width: 100%;
+
+          max-width:
+            1500px;
+
+          margin:
+            0 auto;
+
+          padding:
+            10px 44px
+            60px;
+
+          display: flex;
+
+          flex-direction:
+            column;
+
+          align-items:
+            center;
+
+          gap:
+            14px;
+        }
+
+        .pagination-info {
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            12px;
+        }
+
+        .pagination-buttons {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          flex-wrap:
+            wrap;
+
+          gap:
+            6px;
+        }
+
+        .pagination-number,
+        .pagination-arrow {
+          width:
+            36px;
+
+          height:
+            36px;
+
+          padding:
+            0;
+
+          border:
+            1px solid
+              ${COLORS.border};
+
+          border-radius:
+            50%;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            12px;
+
+          line-height:
+            1;
+
+          font-weight:
+            600;
+
+          cursor:
+            pointer;
+        }
+
+        .pagination-number:hover,
+        .pagination-arrow:hover:not(
+          :disabled
+        ) {
+          border-color:
+            ${COLORS.accent};
+        }
+
+        .pagination-number.active {
+          background:
+            ${COLORS.accent};
+
+          border-color:
+            ${COLORS.accent};
+
+          color:
+            #ffffff;
+        }
+
+        .pagination-arrow {
+          font-size:
+            17px;
+        }
+
+        .pagination-arrow:disabled {
+          opacity:
+            0.3;
+
+          cursor:
+            not-allowed;
+        }
+
+        .back-top {
+          border:
+            none;
+
+          background:
+            transparent;
+
+          color:
+            ${COLORS.accent};
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            10px;
+
+          line-height:
+            1.3;
+
+          font-weight:
+            700;
+
+          cursor:
+            pointer;
+        }
+
+        /* ==================================================
+           EMPTY
+        ================================================== */
+
+        .empty-products {
+          grid-column:
+            1 / -1;
+
+          padding:
+            80px 20px;
+
+          text-align:
+            center;
+
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            14px;
+        }
+
+        /* ==================================================
+           SKELETON
+           
+           Kept same flex/height rules as .product-card
+           so skeleton placeholders line up evenly too.
+        ================================================== */
+
+        .product-skeleton-card {
+          width: 100%;
+          height: 100%;
+
+          display: flex;
+          flex-direction: column;
+
+          background:
+            ${COLORS.page};
+
+          border:
+            1px solid
+              rgba(
+                123,
+                127,
+                92,
+                0.15
+              );
+
+          border-radius:
+            12px;
+
+          overflow:
+            hidden;
+        }
+
+        .product-skeleton-image {
+          width: 100%;
+
+          aspect-ratio:
+            1 / 1;
+
+          background:
+            linear-gradient(
+              90deg,
+              #efefe5 25%,
+              #f7f7ef 50%,
+              #efefe5 75%
+            );
+
+          background-size:
+            200% 100%;
+
+          animation:
+            naSkeleton
+            1.4s
+            infinite;
+        }
+
+        .product-skeleton-content {
+          flex: 1;
+
+          display: flex;
+          flex-direction: column;
+
+          padding:
+            11px;
+        }
+
+        .product-skeleton-colors {
+          display:
+            flex;
+
+          gap:
+            7px;
+
+          margin-bottom:
+            10px;
+        }
+
+        .product-skeleton-colors span {
+          width:
+            20px;
+
+          height:
+            20px;
+
+          border-radius:
+            50%;
+
+          background:
+            #e6e6dc;
+        }
+
+        .product-skeleton-name {
+          width:
+            75%;
+
+          height:
+            18px;
+
+          margin-bottom:
+            10px;
+
+          border-radius:
+            4px;
+
+          background:
+            #e6e6dc;
+        }
+
+        .product-skeleton-price {
+          width:
+            38%;
+
+          height:
+            20px;
+
+          margin-bottom:
+            12px;
+
+          border-radius:
+            4px;
+
+          background:
+            #e6e6dc;
+        }
+
+        .product-skeleton-button {
+          width:
+            100%;
+
+          height:
+            40px;
+
+          margin-top:
+            auto;
+
+          border-radius:
+            6px;
+
+          background:
+            #e6e6dc;
+        }
+
+        @keyframes naSkeleton {
+          0% {
+            background-position:
+              200%
+              0;
+          }
+
+          100% {
+            background-position:
+              -200%
+              0;
+          }
+        }
+
+        /* ==================================================
            TABLET
-        =============================================== */
+           3 CARDS
+        ================================================== */
 
         @media (max-width: 1100px) {
+          .new-arrivals-heading {
+            padding-left:
+              28px;
 
-          .na-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 24px 18px;
+            padding-right:
+              28px;
           }
 
+          .new-arrivals-grid {
+            padding-left:
+              28px;
+
+            padding-right:
+              28px;
+
+            grid-template-columns:
+              repeat(
+                3,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            column-gap:
+              14px;
+
+            row-gap:
+              20px;
+          }
+
+          .products-pagination {
+            padding-left:
+              28px;
+
+            padding-right:
+              28px;
+          }
+
+          .product-name {
+            font-size:
+              15px;
+          }
+
+          .product-selling-price {
+            font-size:
+              18px;
+          }
         }
 
-        @media (max-width: 900px) {
-
-          .na-hero {
-            height: 320px;
-          }
-
-          .na-header,
-          .na-controls,
-          .na-pagination {
-            padding-left: 24px;
-            padding-right: 24px;
-          }
-
-          .na-heading {
-            font-size: 30px;
-          }
-
-          .na-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 0 24px 32px;
-            gap: 20px 14px;
-          }
-
-        }
-
-
-        /* ===============================================
+        /* ==================================================
            MOBILE
-        =============================================== */
+           EXACTLY 2 CARDS
+        ================================================== */
 
-        @media (max-width: 560px) {
-
-          .na-hero {
-            height: 200px;
+        @media (max-width: 700px) {
+          .new-arrivals-hero {
+            height:
+              220px;
           }
 
-          .na-hero-title {
-            font-size: 28px;
+          .new-arrivals-hero-overlay h1 {
+            font-size:
+              29px;
           }
 
-          .na-header {
-            padding: 20px 16px 12px;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 8px;
+          .new-arrivals-heading {
+            padding:
+              23px 14px
+              15px;
           }
 
-          .na-heading {
-            font-size: 26px;
+          .new-arrivals-heading h2 {
+            font-size:
+              28px;
           }
 
-          .na-controls {
-            padding: 0 16px 12px;
+          .new-arrivals-heading p {
+            font-size:
+              11px;
           }
 
-          .na-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            padding: 0 12px 28px;
-            gap: 14px 10px;
+          .new-arrivals-grid {
+            width:
+              100%;
+
+            padding:
+              0 10px 35px;
+
+            grid-template-columns:
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            column-gap:
+              8px;
+
+            row-gap:
+              14px;
           }
 
-          .na-card {
-            padding: 8px;
-            border-radius: 16px;
+          .product-card {
+            border-radius:
+              8px;
           }
 
-          .na-img-wrap {
-            aspect-ratio: 4 / 3.35;
-            border-radius: 12px;
+          .product-image-box {
+            aspect-ratio:
+              1 / 1.04;
           }
 
-          .na-wishlist {
-            top: 10px;
-            right: 10px;
-            width: 48px;
-            height: 48px;
-            font-size: 25px;
+          .product-wishlist {
+            top:
+              7px;
+
+            right:
+              7px;
+
+            width:
+              31px;
+
+            height:
+              31px;
+
+            font-size:
+              17px;
           }
 
-          .na-info {
-            padding: 15px 6px 4px;
+          /*
+           * Hide hover helper on mobile.
+           * Touch still swaps image.
+           */
+
+          .image-hover-indicator {
+            display:
+              none;
           }
 
-          .na-name-row {
-            gap: 12px;
-            margin-bottom: 11px;
+          .product-content {
+            padding:
+              8px;
           }
 
-          .na-name {
-            font-size: 15px;
-            line-height: 1.2;
+          .product-colours-block {
+            margin-bottom:
+              6px;
           }
 
-          .na-name-rule {
-            width: 30px;
+          .product-colour-label {
+            font-size:
+              8px;
           }
 
-          .na-price {
-            font-size: 16px;
-            margin-bottom: 12px;
+          .product-required,
+          .product-selected {
+            font-size:
+              7px;
           }
 
-          .na-actions {
-            grid-template-columns: 1fr;
-            gap: 7px;
+          .product-colours {
+            gap:
+              6px;
           }
 
-          .na-btn-enquiry,
-          .na-btn-cart,
-          .na-qty {
-            min-height: 42px;
+          .product-color {
+            width:
+              17px;
+
+            height:
+              17px;
           }
 
-          .na-btn-enquiry,
-          .na-btn-cart {
-            font-size: 8px;
-            padding: 8px 6px;
-            letter-spacing: 0.03em;
+          .product-name {
+            margin-bottom:
+              6px;
+
+            font-size:
+              12px;
+
+            line-height:
+              1.28;
           }
 
-          .na-cart-dot {
-            font-size: 16px;
-            margin-right: 5px;
+          .product-selling-price {
+            font-size:
+              15px;
           }
 
-          .na-pagination {
-            padding: 12px 16px 40px;
-            gap: 14px;
+          .product-actual-price {
+            font-size:
+              8px;
           }
 
-          .na-pagebtn {
-            width: 34px;
-            height: 34px;
-            font-size: 12px;
+          .product-discount {
+            min-height:
+              17px;
+
+            padding:
+              0 4px;
+
+            font-size:
+              7px;
           }
 
-          .na-price {
-            font-size: 19px;
+          .product-shipping {
+            margin-top:
+              3px;
+
+            font-size:
+              8px;
           }
 
+          .product-price-area {
+            margin-bottom:
+              6px;
+          }
+
+          .product-size-section {
+            padding:
+              6px;
+
+            margin-bottom:
+              6px;
+          }
+
+          .product-size-header {
+            font-size:
+              8px;
+
+            margin-bottom:
+              5px;
+          }
+
+          .product-size-header small {
+            font-size:
+              7px;
+          }
+
+          .product-size-list {
+            gap:
+              4px;
+          }
+
+          .product-size-button {
+            min-width:
+              27px;
+
+            min-height:
+              23px;
+
+            padding:
+              0 5px;
+
+            font-size:
+              7px;
+          }
+
+          .product-action-area {
+            gap:
+              5px;
+          }
+
+          .product-add-cart {
+            min-height:
+              35px;
+
+            font-size:
+              8px;
+          }
+
+          .product-bulk-button {
+            min-height:
+              33px;
+
+            font-size:
+              7px;
+          }
+
+          .product-quantity {
+            min-height:
+              35px;
+          }
+
+          .product-quantity button {
+            width:
+              30px;
+
+            height:
+              33px;
+
+            font-size:
+              17px;
+          }
+
+          .product-quantity span {
+            font-size:
+              10px;
+          }
+
+          .products-pagination {
+            padding:
+              7px 14px
+              40px;
+          }
+
+          .pagination-info {
+            font-size:
+              10px;
+          }
+
+          .pagination-number,
+          .pagination-arrow {
+            width:
+              31px;
+
+            height:
+              31px;
+
+            font-size:
+              10px;
+          }
+
+          .pagination-arrow {
+            font-size:
+              15px;
+          }
+
+          .back-top {
+            font-size:
+              8px;
+          }
         }
 
-        @media (max-width: 420px) {
+        /* ==================================================
+           VERY SMALL MOBILE
+        ================================================== */
 
-          .na-grid {
-            padding-left: 12px;
-            padding-right: 12px;
+        @media (max-width: 380px) {
+          .new-arrivals-grid {
+            padding-left:
+              7px;
+
+            padding-right:
+              7px;
+
+            column-gap:
+              7px;
           }
 
-          .na-card {
-            padding: 8px;
-            border-radius: 16px;
+          .product-content {
+            padding:
+              7px;
           }
 
-          .na-name {
-            font-size: 18px;
+          .product-name {
+            font-size:
+              11px;
           }
 
-          .na-name-rule {
-            width: 42px;
+          .product-selling-price {
+            font-size:
+              14px;
           }
 
-          .na-price {
-            font-size: 19px;
+          .product-color {
+            width:
+              16px;
+
+            height:
+              16px;
           }
 
-          .na-btn-enquiry,
-          .na-btn-cart {
-            font-size: 9px;
-            letter-spacing: 0.04em;
-            padding-left: 6px;
-            padding-right: 6px;
+          .product-size-button {
+            min-width:
+              25px;
+
+            min-height:
+              22px;
+
+            padding:
+              0 4px;
+
+            font-size:
+              7px;
           }
 
-          .na-pagebtn {
-            width: 30px;
-            height: 30px;
-            font-size: 11px;
+          .product-add-cart {
+            min-height:
+              34px;
+
+            font-size:
+              7px;
           }
 
-          .na-pagenums {
-            gap: 5px;
-          }
+          .product-bulk-button {
+            min-height:
+              32px;
 
+            font-size:
+              6.5px;
+          }
         }
-
       `}</style>
-
     </main>
   );
 }
 
+/* =========================================================
+   SKELETON
+========================================================= */
 
-// ======================================================
-// SKELETON
-// ======================================================
-
-function CardSkeleton() {
+function ProductSkeleton() {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div className="product-skeleton-card">
 
-      <div
-        style={{
-          width: "100%",
-          aspectRatio: "4/3",
-          background: "#e8e9da",
-          position: "relative",
-          overflow: "hidden",
-          borderRadius: 2,
-        }}
-      >
+      <div className="product-skeleton-image" />
 
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(90deg,#e8e9da 25%,#f0f0e8 50%,#e8e9da 75%)",
-            backgroundSize: "200% 100%",
-            animation: "shimmer 1.4s infinite",
-          }}
-        />
+      <div className="product-skeleton-content">
 
-      </div>
-
-
-      <div
-        style={{
-          padding: "10px 4px 0",
-        }}
-      >
-
-        <div
-          style={{
-            height: 14,
-            background: "#e8e9da",
-            borderRadius: 3,
-            marginBottom: 10,
-            width: "80%",
-          }}
-        />
-
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-          }}
-        >
-
-          <div
-            style={{
-              height: 38,
-              background: "#e8e9da",
-              borderRadius: 2,
-              flex: 1,
-            }}
-          />
-
-          <div
-            style={{
-              height: 38,
-              background: "#e8e9da",
-              borderRadius: 2,
-              width: 80,
-            }}
-          />
-
+        <div className="product-skeleton-colors">
+          <span />
+          <span />
+          <span />
         </div>
 
+        <div className="product-skeleton-name" />
+
+        <div className="product-skeleton-price" />
+
+        <div className="product-skeleton-button" />
+
       </div>
-
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% {
-            background-position: 200% 0;
-          }
-
-          100% {
-            background-position: -200% 0;
-          }
-        }
-      `}</style>
 
     </div>
   );

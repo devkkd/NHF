@@ -1,23 +1,17 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { apiFetch } from "@/lib/api";
-import { getCart, getCartSubtotal, formatPrice } from "@/lib/cart";
+import { getCartResponse, formatPrice } from "@/lib/cart";
 import Link from "next/link";
 import Script from "next/script";
 
 /* -------------------------------------------------------------------------- */
 /*  CONSTANTS                                                                  */
 /* -------------------------------------------------------------------------- */
-
-// Flat shipping + tax rules — swap for API-driven values when the
-// rates service is ready.
-const FREE_SHIPPING_THRESHOLD = 5000;
-const STANDARD_SHIPPING_FEE = 199;
-const TAX_RATE = 0.03; // 3% GST on jewellery, adjust per finance guidance
 
 const PAYMENT_METHODS = [
   {
@@ -40,6 +34,15 @@ export default function CheckoutPage() {
   /* ---------------------------- Core state ---------------------------- */
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState([]);
+  const [summary, setSummary] = useState({
+    subtotal: 0,
+    shipping: 0,
+    tax: 0,
+    discount: 0,
+    total: 0,
+    grandTotal: 0,
+    itemCount: 0,
+  });
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [tempAddress, setTempAddress] = useState(null);
@@ -89,22 +92,127 @@ altMobile:""
 
   const loadCheckout = useCallback(async () => {
     setLoading(true);
+    setOrderError("");
+
     try {
-     const cartItems = await getCart();
-      setCart(Array.isArray(cartItems) ? cartItems : []);
+      const cartResponse = await getCartResponse();
 
-  const response = await apiFetch("/user/addresses");
+      /*
+       * The cart helper normally returns the API payload directly.
+       * Keep this defensive in case the helper is wrapped one level
+       * deeper by another API utility.
+       */
+      const payload = cartResponse?.data || cartResponse || {};
 
-const addressList = response.data?.addresses || [];
+      const cartItems = Array.isArray(payload?.cart?.items)
+        ? payload.cart.items
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : [];
+
+      const backendSummary =
+        payload?.summary ||
+        payload?.cart?.summary ||
+        {};
+
+      const subtotalValue = Number(
+        backendSummary.subtotal ?? 0
+      );
+
+      const shippingValue = Number(
+        backendSummary.shipping ?? 0
+      );
+
+      const rawTaxValue = Number(
+        backendSummary.tax ?? 0
+      );
+
+      const discountValue = Number(
+        backendSummary.discount ?? 0
+      );
+
+      /*
+       * IMPORTANT:
+       * Never put the tax rate in frontend code.
+       * The backend is the source of truth.
+       *
+       * If the cart API returns tax=0 but its total already contains
+       * the tax (which can happen while an older response/cache is
+       * being returned), derive the visible tax from that backend
+       * total. This keeps the amount shown here identical to the
+       * amount that will be sent to Razorpay.
+       */
+      const returnedTotal =
+        backendSummary.grandTotal ??
+        backendSummary.total ??
+        backendSummary.finalTotal;
+
+      const hasReturnedTotal =
+        returnedTotal !== undefined &&
+        returnedTotal !== null &&
+        Number.isFinite(Number(returnedTotal));
+
+      const totalValue = hasReturnedTotal
+        ? Number(returnedTotal)
+        : Math.max(
+            subtotalValue +
+              shippingValue +
+              rawTaxValue -
+              discountValue,
+            0
+          );
+
+      const impliedTax =
+        totalValue -
+        subtotalValue -
+        shippingValue +
+        discountValue;
+
+      const taxValue =
+        rawTaxValue > 0
+          ? rawTaxValue
+          : hasReturnedTotal && impliedTax > 0
+            ? Math.round(impliedTax * 100) / 100
+            : 0;
+
+      setCart(cartItems);
+
+      setSummary({
+        subtotal: subtotalValue,
+        shipping: shippingValue,
+        tax: taxValue,
+        discount: discountValue,
+        total: totalValue,
+        grandTotal: totalValue,
+        itemCount: Number(
+          backendSummary.itemCount ??
+            cartItems.reduce(
+              (sum, item) => sum + Number(item?.quantity || 0),
+              0
+            )
+        ),
+      });
+
+      const response = await apiFetch("/user/addresses");
+      const addressList = Array.isArray(response?.data?.addresses)
+        ? response.data.addresses
+        : [];
 
       setAddresses(addressList);
 
       const defaultAddress =
-        addressList.find((addr) => addr.isDefault) || addressList[0] || null;
+        addressList.find((addr) => addr.isDefault) ||
+        addressList[0] ||
+        null;
+
       setSelectedAddress(defaultAddress);
       setTempAddress(defaultAddress);
     } catch (error) {
       console.error("Failed to load checkout data:", error);
+      setOrderError(
+        error?.message ||
+          "Unable to load checkout. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -234,7 +342,7 @@ altMobile:""
     try {
       const response = await apiFetch("/checkout/coupon/apply", {
         method: "POST",
-        body: JSON.stringify({ code, cartTotal: subtotal }),
+        body: JSON.stringify({ code, cartTotal: summary.subtotal }),
       });
 
      if(!response.ok) {
@@ -267,161 +375,266 @@ altMobile:""
   /*  PRICE CALCULATIONS                                                         */
   /* -------------------------------------------------------------------------- */
 
- const subtotal = useMemo(() => {
-  return cart.reduce(
-    (sum, item) => {
-      const product =
-        item?.product || {};
-
-      const price =
-        Number(
-          product?.price || 0
-        );
-
-      const quantity =
-        Number(
-          item?.quantity || 1
-        );
-
-      return (
-        sum +
-        price * quantity
-      );
-    },
-    0
-  );
-}, [cart]);
-
-  const shipping = useMemo(() => {
-    if (cart.length === 0) return 0;
-    return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_FEE;
-  }, [subtotal, cart.length]);
-
-  const tax = useMemo(() => Math.round(subtotal * TAX_RATE), [subtotal]);
-
-  const discount = useMemo(() => {
-    if (!coupon) return 0;
-    if (coupon.type === "percent") {
-      return Math.round((subtotal * coupon.discount) / 100);
-    }
-    return Math.min(coupon.discount, subtotal);
-  }, [coupon, subtotal]);
-
-  const grandTotal = useMemo(
-    () => Math.max(subtotal + shipping + tax - discount, 0),
-    [subtotal, shipping, tax, discount]
+  // Pricing is controlled by the backend cart summary. The frontend never
+  // recalculates shipping/tax from hardcoded values.
+  const subtotal = Number(summary.subtotal || 0);
+  const shipping = Number(summary.shipping || 0);
+  const tax = Number(summary.tax || 0);
+  const discount = Number(summary.discount || 0);
+  const grandTotal = Number(
+    summary.grandTotal ?? summary.total ?? 0
   );
 
   /* -------------------------------------------------------------------------- */
   /*  PLACE ORDER                                                                */
   /* -------------------------------------------------------------------------- */
 
- const handlePlaceOrder = async () => {
-  if (!selectedAddress) {
-    setOrderError("Please select a delivery address.");
-    return;
-  }
-
-  if (cart.length === 0) {
-    setOrderError("Your bag is empty.");
-    return;
-  }
-
-  setOrderError("");
-  setPlacingOrder(true);
-
-  try {
-    // STEP 1 - Create Order
-    const orderRes = await apiFetch("/orders", {
-      method: "POST",
-      body: JSON.stringify({
-        addressId: selectedAddress._id,
-        paymentMethod,
-      }),
-    });
-
-    if (!orderRes.ok) {
-      throw new Error(
-        orderRes.data?.message || "Failed to create order."
-      );
-    }
-
-    // COD Order
-    if (paymentMethod === "cod") {
-      window.location.href = "/checkout/success";
+  const handlePlaceOrder = async () => {
+    // Prevent accidental double-clicks / duplicate orders.
+    if (placingOrder) {
       return;
     }
 
-    // STEP 2 - Create Razorpay Order
-    const razorpayRes = await apiFetch("/orders/razorpay", {
-      method: "POST",
-      body: JSON.stringify({
-        orderId: orderRes.data.order._id,
-      }),
-    });
-
-    if (!razorpayRes.ok) {
-      throw new Error(
-        razorpayRes.data?.message || "Failed to create payment."
-      );
+    if (!selectedAddress?._id) {
+      setOrderError("Please select a delivery address.");
+      return;
     }
 
-    // STEP 3 - Open Razorpay
-    const options = {
-      key: razorpayRes.data.key,
-      amount: razorpayRes.data.order.amount,
-      currency: razorpayRes.data.order.currency,
-      name: "Nikita Home Furnishings",
-      description: "Order Payment",
-      order_id: razorpayRes.data.order.id,
+    if (cart.length === 0) {
+      setOrderError("Your bag is empty.");
+      return;
+    }
 
-      handler: async function (response) {
-        const verifyRes = await apiFetch("/orders/verify", {
-          method: "POST",
-          body: JSON.stringify({
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          }),
-        });
+    if (!['razorpay', 'cod'].includes(paymentMethod)) {
+      setOrderError("Please select a valid payment method.");
+      return;
+    }
 
-        if (verifyRes.ok) {
-          window.location.href = "/checkout/success";
-        } else {
-          alert(
-            verifyRes.data?.message ||
-              "Payment verification failed."
-          );
-        }
-      },
+    setOrderError("");
+    setPlacingOrder(true);
 
-      modal: {
-    ondismiss: function () {
-      window.location.href = "/checkout/failed";
-    },
-  },
+    try {
+      /* ------------------------------------------------------------
+         STEP 1: CREATE LOCAL ORDER
 
-      theme: {
-        color: "#111111",
-      },
-    };
-    if (!window.Razorpay) {
-  throw new Error("Razorpay SDK failed to load.");
-}
+         Backend keeps every new order in:
+         - orderStatus: pending
+         - adminApproval.status: pending
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
-  } catch (error) {
-    console.error("Order placement failed:", error);
+         Shiprocket is NOT called from checkout.
+         Admin approval will start fulfilment later.
+      ------------------------------------------------------------ */
+      const orderRes = await apiFetch("/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          addressId: selectedAddress._id,
+          paymentMethod,
+          couponCode: coupon?.code || "",
+        }),
+      });
 
-    setOrderError(
-      error.message ||
-        "We couldn't place your order. Please try again."
-    );
-  } finally {
-    setPlacingOrder(false);
-  }
-};
+      if (!orderRes?.ok) {
+        throw new Error(
+          orderRes?.data?.message ||
+            orderRes?.message ||
+            "Failed to create order."
+        );
+      }
+
+      const createdOrder =
+        orderRes?.data?.order ||
+        orderRes?.order ||
+        null;
+
+      if (!createdOrder?._id) {
+        throw new Error(
+          "Order was created but no order ID was returned."
+        );
+      }
+
+      /* ------------------------------------------------------------
+         STEP 2: COD
+
+         COD needs no Razorpay payment.
+         The order still remains pending until admin approves it.
+      ------------------------------------------------------------ */
+      if (paymentMethod === "cod") {
+        window.location.href =
+          `/checkout/success?orderId=${encodeURIComponent(
+            createdOrder._id
+          )}`;
+        return;
+      }
+
+      /* ------------------------------------------------------------
+         STEP 3: CREATE RAZORPAY ORDER
+      ------------------------------------------------------------ */
+      const razorpayRes = await apiFetch("/orders/razorpay", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: createdOrder._id,
+        }),
+      });
+
+      if (!razorpayRes?.ok) {
+        throw new Error(
+          razorpayRes?.data?.message ||
+            razorpayRes?.message ||
+            "Failed to create payment."
+        );
+      }
+
+      const razorpayPayload =
+        razorpayRes?.data ||
+        razorpayRes ||
+        {};
+
+      const razorpayOrder =
+        razorpayPayload?.order ||
+        razorpayPayload?.data?.order ||
+        null;
+
+      const razorpayKey =
+        razorpayPayload?.key ||
+        razorpayPayload?.data?.key ||
+        "";
+
+      if (!razorpayKey || !razorpayOrder?.id) {
+        throw new Error(
+          "Invalid Razorpay response from server."
+        );
+      }
+
+      if (typeof window === "undefined" || !window.Razorpay) {
+        throw new Error(
+          "Razorpay SDK failed to load. Please refresh the page."
+        );
+      }
+
+      /* ------------------------------------------------------------
+         STEP 4: OPEN RAZORPAY CHECKOUT
+      ------------------------------------------------------------ */
+      const options = {
+        key: razorpayKey,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency || "INR",
+        name: "Nikita Home Furnishings",
+        description: `Order #${createdOrder._id}`,
+        order_id: razorpayOrder.id,
+        prefill: {
+          name: [
+            selectedAddress?.firstName,
+            selectedAddress?.lastName,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          email: selectedAddress?.email || "",
+          contact: selectedAddress?.mobile || "",
+        },
+        notes: {
+          orderId: createdOrder._id,
+        },
+        handler: async (response) => {
+          try {
+            setPlacingOrder(true);
+            setOrderError("");
+
+            if (
+              !response?.razorpay_order_id ||
+              !response?.razorpay_payment_id ||
+              !response?.razorpay_signature
+            ) {
+              throw new Error(
+                "Incomplete payment response received from Razorpay."
+              );
+            }
+
+            /* --------------------------------------------------------
+               STEP 5: VERIFY PAYMENT ON BACKEND
+
+               IMPORTANT:
+               Payment success only changes paymentStatus to paid.
+               Backend intentionally keeps orderStatus = pending until
+               an admin approves the order.
+            -------------------------------------------------------- */
+            const verifyRes = await apiFetch("/orders/verify", {
+              method: "POST",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            if (!verifyRes?.ok) {
+              throw new Error(
+                verifyRes?.data?.message ||
+                  verifyRes?.message ||
+                  "Payment verification failed."
+              );
+            }
+
+            window.location.href =
+              `/checkout/success?orderId=${encodeURIComponent(
+                createdOrder._id
+              )}`;
+          } catch (error) {
+            console.error(
+              "Payment verification failed:",
+              error
+            );
+
+            setOrderError(
+              error?.message ||
+                "Payment verification failed. Please contact support if money was deducted."
+            );
+          } finally {
+            setPlacingOrder(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPlacingOrder(false);
+            setOrderError(
+              "Payment window closed. Your order is still pending; you can try again."
+            );
+          },
+        },
+        theme: {
+          color: "#111111",
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", (response) => {
+        console.error(
+          "Razorpay payment failed:",
+          response?.error
+        );
+
+        setPlacingOrder(false);
+        setOrderError(
+          response?.error?.description ||
+            "Payment failed. Your order is still pending. Please try again."
+        );
+      });
+
+      rzp.open();
+    } catch (error) {
+      console.error(
+        "Order placement failed:",
+        error
+      );
+
+      setOrderError(
+        error?.message ||
+          "We couldn't place your order. Please try again."
+      );
+
+      setPlacingOrder(false);
+    }
+  };
 
   /* -------------------------------------------------------------------------- */
   /*  DERIVED HELPERS                                                            */
@@ -532,7 +745,7 @@ ${selectedAddress.lastName}`}</p>
                       Your Bag
                     </h2>
                     <span className="chk-item-count">
-                      {cart.length} {cart.length === 1 ? "item" : "items"}
+                      {summary.itemCount || cart.length} {summary.itemCount === 1 || cart.length === 1 ? "item" : "items"}
                     </span>
                   </div>
 
@@ -593,10 +806,13 @@ ${selectedAddress.lastName}`}</p>
         item?.quantity || 1
       );
 
-    const price =
-      Number(
-        product?.price || 0
-      );
+    const price = Number(
+      item?.selectedSellingPrice ??
+        item?.selectedSizeSellingPrice ??
+        product?.sellingPrice ??
+        product?.price ??
+        0
+    );
 
     return (
       <li
@@ -620,26 +836,17 @@ ${selectedAddress.lastName}`}</p>
           </p>
 
           <div className="chk-product-meta">
-            {item?.variant && (
+            {item?.selectedColorName || item?.selectedColor ? (
               <span>
-                Variant:{" "}
-                {item.variant}
+                Color: {item.selectedColorName || item.selectedColor}
               </span>
-            )}
+            ) : null}
 
-            {item?.color && (
+            {item?.selectedSize ? (
               <span>
-                Color:{" "}
-                {item.color}
+                Size: {item.selectedSize}
               </span>
-            )}
-
-            {item?.size && (
-              <span>
-                Size:{" "}
-                {item.size}
-              </span>
-            )}
+            ) : null}
           </div>
 
           <div className="chk-product-qty">
@@ -706,7 +913,7 @@ ${selectedAddress.lastName}`}</p>
                     </div>
 
                     {/* ---------------- Coupon ---------------- */}
-                    <div className="chk-coupon">
+                    {/* <div className="chk-coupon">
                       {coupon ? (
                         <div className="chk-coupon-applied">
                           <span>
@@ -753,7 +960,7 @@ ${selectedAddress.lastName}`}</p>
                           {couponError}
                         </p>
                       )}
-                    </div>
+                    </div> */}
                   </section>
 
                   {/* ---------------- Payment ---------------- */}

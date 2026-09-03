@@ -1234,3 +1234,233 @@ export async function deleteProduct(
 
   return res.data;
 }
+// ======================================================
+// ADMIN ORDER APPROVAL
+// ======================================================
+
+/**
+ * Get all orders waiting for admin approval
+ */
+export async function getPendingOrders() {
+  const res = await apiFetch(
+    "/orders/admin/pending"
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Get complete approval details of an order
+ */
+export async function getAdminOrderApproval(
+  id
+) {
+  if (!id) {
+    return {
+      success: false,
+      message: "Order ID is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/admin/${id}/approval`
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Approve order
+ *
+ * Backend flow:
+ * 1. Validate order
+ * 2. Create Shiprocket order
+ * 3. Assign AWB
+ * 4. Request pickup
+ * 5. Mark admin approval as approved
+ * 6. Confirm order
+ */
+export async function approveAdminOrder(
+  id
+) {
+  if (!id) {
+    return {
+      success: false,
+      message: "Order ID is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/admin/${id}/approve`,
+    {
+      method: "PATCH",
+    }
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Reject order
+ */
+export async function rejectAdminOrder(
+  id,
+  reason
+) {
+  if (!id) {
+    return {
+      success: false,
+      message: "Order ID is required.",
+    };
+  }
+
+  if (!reason?.trim()) {
+    return {
+      success: false,
+      message: "Rejection reason is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/admin/${id}/reject`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        reason: reason.trim(),
+      }),
+    }
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Get latest Shiprocket tracking for admin
+ */
+export async function getAdminOrderTracking(
+  id
+) {
+  if (!id) {
+    return {
+      success: false,
+      message: "Order ID is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/admin/${id}/tracking`
+  );
+
+  return res.data;
+}
+
+
+// ======================================================
+// ADMIN ORDER REQUESTS
+// Cancel / Return / Replacement
+// ======================================================
+
+
+/**
+ * Get all customer order requests
+ *
+ * Includes:
+ * - cancel
+ * - return
+ * - replacement
+ */
+export async function getAllOrderRequests() {
+  const res = await apiFetch(
+    "/orders/requests/admin/all"
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Get one order request
+ */
+export async function getAdminOrderRequest(
+  requestId
+) {
+  if (!requestId) {
+    return {
+      success: false,
+      message: "Request ID is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/requests/admin/${requestId}`
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Approve cancel / return / replacement request
+ */
+export async function approveOrderRequest(
+  requestId,
+  adminNote = ""
+) {
+  if (!requestId) {
+    return {
+      success: false,
+      message: "Request ID is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/requests/admin/${requestId}/approve`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        adminNote: adminNote?.trim() || "",
+      }),
+    }
+  );
+
+  return res.data;
+}
+
+
+/**
+ * Reject cancel / return / replacement request
+ */
+export async function rejectOrderRequest(
+  requestId,
+  adminNote
+) {
+  if (!requestId) {
+    return {
+      success: false,
+      message: "Request ID is required.",
+    };
+  }
+
+  if (!adminNote?.trim()) {
+    return {
+      success: false,
+      message: "Rejection reason is required.",
+    };
+  }
+
+  const res = await apiFetch(
+    `/orders/requests/admin/${requestId}/reject`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        adminNote: adminNote.trim(),
+      }),
+    }
+  );
+
+  return res.data;
+}

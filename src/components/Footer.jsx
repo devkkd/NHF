@@ -716,12 +716,15 @@ export default function Footer() {
           color: #7B7F5C;
         }
 
-        .f-link-head {
-          font-weight: 700;
-          font-size: 12px;
-          color: #7B7F5C;
-          margin-bottom: 2px;
-        }
+       .f-link-head {
+  display: block !important;
+  font-family: 'Mona Sans', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  color: #7B7F5C !important;
+  margin: 0 0 10px 0 !important;
+}
 
         .f-company-col {
           min-width: 160px;

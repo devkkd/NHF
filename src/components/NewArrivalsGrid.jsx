@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  useState,
-  useRef,
-  useEffect,
   useCallback,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,50 +16,79 @@ import {
   updateQty,
 } from "@/lib/cart";
 
-const FALLBACK = [
-  {
-    slug: "product-1",
-    mainImage:
-      "/images/product-1.jpg",
-    name:
-      "HAND BLOCK PERCALE PRINTED BEDSHEET",
-  },
-  {
-    slug: "product-2",
-    mainImage:
-      "/images/product-2.jpg",
-    name:
-      "HAND BLOCK PERCALE PRINTED BEDSHEET",
-  },
-  {
-    slug: "product-3",
-    mainImage:
-      "/images/product-3.jpg",
-    name:
-      "HAND BLOCK PERCALE PRINTED BEDSHEET",
-  },
-];
+import {
+  getWishlist,
+  toggleWishlist,
+} from "@/lib/wishlist";
 
-const ACCENT = "#7b7f5c";
-const BG = "#fdfff1";
-const BORDER = "#c8cab4";
+/* =========================================================
+   CONFIG
+========================================================= */
 
 const BASE = (
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:5001/api/v1"
 ).replace(/\/$/, "");
 
-const NEW_ARRIVALS_LIMIT = 20;
+const LIMIT = 20;
 
+const COLORS = {
+  page: "#FDFFF1",
+  text: "#111111",
+  muted: "#666666",
+  accent: "#7B7F5C",
+  border: "#C8CAB4",
+};
 
-// ======================================================
-// LOGIN
-// ======================================================
+/* =========================================================
+   FETCH PRODUCTS
+========================================================= */
+
+async function fetchNewArrivals() {
+  try {
+    const response = await fetch(
+      `${BASE}/products?newArrivals=true&page=1&limit=${LIMIT}`,
+      {
+        method: "GET",
+
+        headers: {
+          Accept: "application/json",
+        },
+
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch products: ${response.status}`
+      );
+    }
+
+    const body = await response.json();
+
+    return Array.isArray(
+      body?.data?.products
+    )
+      ? body.data.products
+      : [];
+  } catch (error) {
+    console.error(
+      "NEW ARRIVALS ERROR:",
+      error
+    );
+
+    return [];
+  }
+}
+
+/* =========================================================
+   LOGIN
+========================================================= */
 
 function isLoggedIn() {
   if (
-    typeof window ===
-    "undefined"
+    typeof window === "undefined"
   ) {
     return false;
   }
@@ -72,300 +100,1032 @@ function isLoggedIn() {
   );
 }
 
+/* =========================================================
+   COLORS
+========================================================= */
 
-// ======================================================
-// COMPONENT
-// ======================================================
+function getColors(product) {
+  if (
+    !Array.isArray(
+      product?.colors
+    )
+  ) {
+    return [];
+  }
 
-export default function NewArrivalsGrid({
-  products = [],
-}) {
+  return product.colors.filter(
+    (color) =>
+      String(
+        color || ""
+      ).trim()
+  );
+}
+
+/* =========================================================
+   SIZES
+========================================================= */
+
+function getSizes(product) {
+  if (
+    !Array.isArray(
+      product?.sizes
+    )
+  ) {
+    return [];
+  }
+
+  return product.sizes.filter(
+    (size) =>
+      String(
+        size?.name || ""
+      ).trim()
+  );
+}
+
+/* =========================================================
+   IMAGES
+========================================================= */
+
+function getProductImages(product) {
+  const images = [];
+
+  if (
+    typeof product?.mainImage ===
+      "string" &&
+    product.mainImage.trim()
+  ) {
+    images.push(
+      product.mainImage
+    );
+  }
+
+  if (
+    Array.isArray(
+      product?.galleryImages
+    )
+  ) {
+    product.galleryImages.forEach(
+      (image) => {
+        if (
+          typeof image === "string" &&
+          image.trim() &&
+          !images.includes(image)
+        ) {
+          images.push(image);
+        }
+      }
+    );
+  }
+
+  return images;
+}
+
+/* =========================================================
+   PRICE
+========================================================= */
+
+function getPricing(
+  product,
+  selectedSize
+) {
+  if (selectedSize) {
+    return {
+      actualPrice:
+        Number(
+          selectedSize.actualPrice ||
+            0
+        ),
+
+      sellingPrice:
+        Number(
+          selectedSize.sellingPrice ||
+            0
+        ),
+    };
+  }
+
+  return {
+    actualPrice:
+      Number(
+        product?.actualPrice ??
+          product?.price ??
+          0
+      ),
+
+    sellingPrice:
+      Number(
+        product?.sellingPrice ??
+          product?.price ??
+          0
+      ),
+  };
+}
+
+/* =========================================================
+   DISCOUNT
+========================================================= */
+
+function getDiscount(
+  actualPrice,
+  sellingPrice
+) {
+  const actual =
+    Number(
+      actualPrice || 0
+    );
+
+  const selling =
+    Number(
+      sellingPrice || 0
+    );
+
+  if (
+    actual <= 0 ||
+    selling <= 0 ||
+    selling >= actual
+  ) {
+    return 0;
+  }
+
+  return Math.round(
+    (
+      (actual - selling) /
+      actual
+    ) *
+      100
+  );
+}
+
+/* =========================================================
+   PRICE FORMAT
+========================================================= */
+
+function formatPrice(value) {
+  const amount =
+    Number(value || 0);
+
+  if (
+    !Number.isFinite(amount)
+  ) {
+    return "₹0";
+  }
+
+  return `₹${amount.toLocaleString(
+    "en-IN"
+  )}`;
+}
+
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+export default function NewArrivalsGrid() {
   const router =
     useRouter();
 
-  const scrollRef =
-    useRef(null);
-
-  const [quantities, setQuantities] =
-    useState({});
-
-  const [apiProducts, setApiProducts] =
-    useState([]);
-
-  const [productsLoading, setProductsLoading] =
-    useState(true);
+  /* =======================================================
+     PRODUCTS
+  ======================================================= */
 
   const [
-    canScrollLeft,
-    setCanScrollLeft,
-  ] = useState(false);
+    products,
+    setProducts,
+  ] = useState([]);
 
   const [
-    canScrollRight,
-    setCanScrollRight,
-  ] = useState(false);
+    loading,
+    setLoading,
+  ] = useState(true);
 
+  /* =======================================================
+     VARIANTS
+  ======================================================= */
 
-  // ====================================================
-  // LOAD NEW ARRIVALS DIRECTLY FROM BACKEND
-  // ====================================================
+  const [
+    selectedColors,
+    setSelectedColors,
+  ] = useState({});
+
+  const [
+    selectedSizes,
+    setSelectedSizes,
+  ] = useState({});
+
+  /* =======================================================
+     QUANTITY
+  ======================================================= */
+
+  const [
+    quantities,
+    setQuantities,
+  ] = useState({});
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const [
+    wishlist,
+    setWishlist,
+  ] = useState({});
+
+  /* =======================================================
+     IMAGE HOVER
+  ======================================================= */
+
+  const [
+    hoveredProducts,
+    setHoveredProducts,
+  ] = useState({});
+
+  /* =======================================================
+     LOAD PRODUCTS
+  ======================================================= */
 
   useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
 
-    const loadNewArrivals = async () => {
-      try {
-        const res = await fetch(
-          `${BASE}/products?newArrivals=true&page=1&limit=${NEW_ARRIVALS_LIMIT}`,
-          {
-            method: "GET",
-            headers: {
-              Accept: "application/json",
-            },
-            cache: "no-store",
-          }
-        );
+    const loadProducts =
+      async () => {
+        setLoading(true);
 
-        if (!res.ok) {
-          return;
+        const result =
+          await fetchNewArrivals();
+
+        if (mounted) {
+          setProducts(
+            result
+          );
+
+          setLoading(
+            false
+          );
         }
+      };
 
-        const body = await res.json();
-
-        const list = Array.isArray(body?.data?.products)
-          ? body.data.products
-          : Array.isArray(body?.products)
-            ? body.products
-            : [];
-
-        if (!cancelled) {
-          setApiProducts(list);
-        }
-      } catch (error) {
-        console.error(
-          "HOME NEW ARRIVALS FETCH ERROR:",
-          error
-        );
-      } finally {
-        if (!cancelled) {
-          setProductsLoading(false);
-        }
-      }
-    };
-
-    loadNewArrivals();
+    loadProducts();
 
     return () => {
-      cancelled = true;
+      mounted = false;
     };
   }, []);
 
+  /* =======================================================
+     LOAD WISHLIST
+  ======================================================= */
 
-  // ====================================================
-  // DRAG
-  // ====================================================
+  useEffect(() => {
+    let mounted = true;
 
-  const dragging =
-    useRef(false);
+    const loadWishlist =
+      async () => {
+        try {
+          if (
+            !isLoggedIn()
+          ) {
+            if (
+              mounted
+            ) {
+              setWishlist(
+                {}
+              );
+            }
 
-  const dragStartX =
-    useRef(0);
+            return;
+          }
 
-  const dragStartScroll =
-    useRef(0);
+          const result =
+            await getWishlist();
 
-  const hasDragged =
-    useRef(false);
+          if (
+            !Array.isArray(
+              result
+            )
+          ) {
+            return;
+          }
 
+          const map = {};
 
-  // ====================================================
-  // LOGIN FLOW
-  // ====================================================
+          result.forEach(
+            (item) => {
+              if (
+                item?.slug
+              ) {
+                map[
+                  item.slug
+                ] = true;
+              }
+            }
+          );
 
-  const redirectToLogin = (
-    redirect = "/"
-  ) => {
-    router.push(
-      `/login?redirect=${encodeURIComponent(
-        redirect
-      )}`
-    );
-  };
+          if (
+            mounted
+          ) {
+            setWishlist(
+              map
+            );
+          }
+        } catch (error) {
+          console.error(
+            "WISHLIST LOAD ERROR:",
+            error
+          );
+        }
+      };
 
+    loadWishlist();
 
-  const openLoginForAction = ({
-    type,
-    product,
-  }) => {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return;
-    }
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-    const currentPath =
-      window.location.pathname +
-      window.location.search;
+  /* =======================================================
+     LOGIN REDIRECT
+  ======================================================= */
 
-    if (
-      type === "cart"
-    ) {
-      sessionStorage.setItem(
-        "pendingCartProduct",
-        JSON.stringify({
-          product,
-          quantity: 1,
-        })
+  const redirectToLogin =
+    (redirect = "/") => {
+      router.push(
+        `/login?redirect=${encodeURIComponent(
+          redirect
+        )}`
       );
+    };
 
-      sessionStorage.setItem(
-        "pendingCartRedirect",
-        currentPath
-      );
-    }
+  /* =======================================================
+     SAVE PENDING ACTION
+  ======================================================= */
 
-    if (
-      type === "wishlist"
-    ) {
-      sessionStorage.setItem(
-        "pendingWishlistProduct",
-        JSON.stringify({
-          product,
-        })
-      );
-
-      sessionStorage.setItem(
-        "pendingWishlistRedirect",
-        currentPath
-      );
-    }
-
-    toast.error(
-      "Please login first",
-      {
-        duration: 2200,
-        position:
-          "top-right",
+  const savePendingAction =
+    (
+      type,
+      product
+    ) => {
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        return;
       }
-    );
 
-    setTimeout(() => {
-      redirectToLogin(
-        currentPath
-      );
-    }, 650);
-  };
+      const redirectPath =
+        window.location.pathname +
+        window.location.search;
 
+      if (
+        type === "cart"
+      ) {
+        sessionStorage.setItem(
+          "pendingCartProduct",
+          JSON.stringify({
+            product,
+            quantity: 1,
+          })
+        );
 
-  // ====================================================
-  // CART
-  // ====================================================
+        sessionStorage.setItem(
+          "pendingCartRedirect",
+          redirectPath
+        );
+      }
 
-  const handleAddToCart = (
-    e,
-    product
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
+      if (
+        type === "wishlist"
+      ) {
+        sessionStorage.setItem(
+          "pendingWishlistProduct",
+          JSON.stringify({
+            product,
+          })
+        );
 
-    if (
-      !isLoggedIn()
-    ) {
-      openLoginForAction({
-        type: "cart",
-        product,
-      });
+        sessionStorage.setItem(
+          "pendingWishlistRedirect",
+          redirectPath
+        );
+      }
+    };
 
-      return;
-    }
+  /* =======================================================
+     COLOUR
+  ======================================================= */
 
-    addToCart(
+  const handleColorSelect =
+    (
+      event,
       product,
-      1
-    );
+      color
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-    setQuantities(
-      (prev) => ({
-        ...prev,
-        [product.slug]: 1,
-      })
-    );
-  };
-
-
-  const increaseQty = (
-    e,
-    product
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (
-      !isLoggedIn()
-    ) {
-      openLoginForAction({
-        type: "cart",
-        product,
-      });
-
-      return;
-    }
-
-    const qty =
-      (quantities[
-        product.slug
-      ] || 1) + 1;
-
-    updateQty(
-      product._id,
-      qty
-    );
-
-    setQuantities(
-      (prev) => ({
-        ...prev,
-        [product.slug]: qty,
-      })
-    );
-  };
-
-
-  const decreaseQty = (
-    e,
-    product
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (
-      !isLoggedIn()
-    ) {
-      openLoginForAction({
-        type: "cart",
-        product,
-      });
-
-      return;
-    }
-
-    const qty =
-      (quantities[
-        product.slug
-      ] || 1) - 1;
-
-    if (
-      qty <= 0
-    ) {
-      updateQty(
-        product._id,
-        0
+      setSelectedColors(
+        (current) => ({
+          ...current,
+          [product.slug]:
+            color,
+        })
       );
+
+      /*
+       * Variant change:
+       * reset displayed quantity.
+       */
 
       setQuantities(
-        (prev) => {
+        (current) => ({
+          ...current,
+          [product.slug]:
+            0,
+        })
+      );
+    };
+
+  /* =======================================================
+     SIZE
+  ======================================================= */
+
+  const handleSizeSelect =
+    (
+      event,
+      product,
+      sizeName
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setSelectedSizes(
+        (current) => ({
+          ...current,
+          [product.slug]:
+            sizeName,
+        })
+      );
+
+      /*
+       * Variant change:
+       * reset displayed quantity.
+       */
+
+      setQuantities(
+        (current) => ({
+          ...current,
+          [product.slug]:
+            0,
+        })
+      );
+    };
+
+  /* =======================================================
+     BUILD CART PRODUCT
+  ======================================================= */
+
+  const buildCartProduct =
+    (product) => {
+      const sizes =
+        getSizes(
+          product
+        );
+
+      const selectedColor =
+        selectedColors[
+          product.slug
+        ] || "";
+
+      const selectedSizeName =
+        selectedSizes[
+          product.slug
+        ] || "";
+
+      const selectedSize =
+        sizes.find(
+          (size) =>
+            String(
+              size?.name ||
+                ""
+            )
+              .trim()
+              .toLowerCase() ===
+            String(
+              selectedSizeName ||
+                ""
+            )
+              .trim()
+              .toLowerCase()
+        ) || null;
+
+      const pricing =
+        getPricing(
+          product,
+          selectedSize
+        );
+
+      return {
+        ...product,
+
+        selectedColor,
+
+        selectedColorName:
+          selectedColor,
+
+        selectedSize:
+          selectedSize
+            ? selectedSize.name
+            : "",
+
+        selectedVariant:
+          selectedSize,
+
+        selectedSizeActualPrice:
+          pricing.actualPrice,
+
+        selectedSizeSellingPrice:
+          pricing.sellingPrice,
+
+        selectedSellingPrice:
+          pricing.sellingPrice,
+
+        selectedActualPrice:
+          pricing.actualPrice,
+
+        selectedShippingCost:
+          Number(
+            product.shippingCost ||
+              0
+          ),
+
+        /*
+         * Preserve price fields
+         * for existing cart helpers.
+         */
+
+        price:
+          pricing.sellingPrice,
+
+        sellingPrice:
+          pricing.sellingPrice,
+
+        actualPrice:
+          pricing.actualPrice,
+      };
+    };
+
+  /* =======================================================
+     VALIDATE PRODUCT
+  ======================================================= */
+
+  const validateProduct =
+    (product) => {
+      const colors =
+        getColors(
+          product
+        );
+
+      const sizes =
+        getSizes(
+          product
+        );
+
+      const selectedColor =
+        selectedColors[
+          product.slug
+        ];
+
+      const selectedSize =
+        selectedSizes[
+          product.slug
+        ];
+
+      if (
+        colors.length > 0 &&
+        !selectedColor
+      ) {
+        toast.error(
+          "Please select colour first.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+
+        return false;
+      }
+
+      if (
+        sizes.length > 0 &&
+        !selectedSize
+      ) {
+        toast.error(
+          "Please select size first.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+
+        return false;
+      }
+
+      return true;
+    };
+
+  /* =======================================================
+     ADD TO CART
+  ======================================================= */
+
+  const handleAddToCart =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !validateProduct(
+          product
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !isLoggedIn()
+      ) {
+        const pending =
+          buildCartProduct(
+            product
+          );
+
+        savePendingAction(
+          "cart",
+          pending
+        );
+
+        toast.error(
+          "Please login first.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+
+        setTimeout(() => {
+          redirectToLogin(
+            window.location.pathname +
+              window.location.search
+          );
+        }, 450);
+
+        return;
+      }
+
+      try {
+        const cartProduct =
+          buildCartProduct(
+            product
+          );
+
+        await addToCart(
+          cartProduct,
+          1
+        );
+
+        setQuantities(
+          (current) => ({
+            ...current,
+            [product.slug]:
+              1,
+        })
+        );
+
+        toast.success(
+          "Added to cart",
+          {
+            duration:
+              1600,
+            position:
+              "top-right",
+          }
+        );
+      } catch (error) {
+        console.error(
+          "ADD TO CART ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Unable to add to cart.",
+          {
+            duration:
+              2200,
+            position:
+              "top-right",
+          }
+        );
+      }
+    };
+
+  /* =======================================================
+     INCREASE
+  ======================================================= */
+
+  const increaseQty =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !validateProduct(
+          product
+        )
+      ) {
+        return;
+      }
+
+      if (
+        !isLoggedIn()
+      ) {
+        return;
+      }
+
+      const currentQty =
+        Number(
+          quantities[
+            product.slug
+          ] || 1
+        );
+
+      const nextQty =
+        currentQty + 1;
+
+      try {
+        await updateQty(
+          product._id,
+          nextQty
+        );
+
+        setQuantities(
+          (current) => ({
+            ...current,
+            [product.slug]:
+              nextQty,
+        })
+        );
+      } catch (error) {
+        console.error(
+          "INCREASE ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Unable to update quantity.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+      }
+    };
+
+  /* =======================================================
+     DECREASE
+  ======================================================= */
+
+  const decreaseQty =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !isLoggedIn()
+      ) {
+        toast.error(
+          "Please login first.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+
+        return;
+      }
+
+      const currentQty =
+        Number(
+          quantities[
+            product.slug
+          ] || 1
+        );
+
+      const nextQty =
+        currentQty - 1;
+
+      try {
+        await updateQty(
+          product._id,
+          Math.max(
+            nextQty,
+            0
+          )
+        );
+
+        if (
+          nextQty <= 0
+        ) {
+          setQuantities(
+            (current) => {
+              const copy = {
+                ...current,
+              };
+
+              delete copy[
+                product.slug
+              ];
+
+              return copy;
+            }
+          );
+
+          return;
+        }
+
+        setQuantities(
+          (current) => ({
+            ...current,
+            [product.slug]:
+              nextQty,
+        })
+        );
+      } catch (error) {
+        console.error(
+          "DECREASE ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Unable to update quantity.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+      }
+    };
+
+  /* =======================================================
+     WISHLIST
+  ======================================================= */
+
+  const handleWishlist =
+    async (
+      event,
+      product
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (
+        !isLoggedIn()
+      ) {
+        savePendingAction(
+          "wishlist",
+          product
+        );
+
+        toast.error(
+          "Please login first.",
+          {
+            duration:
+              1800,
+            position:
+              "top-right",
+          }
+        );
+
+        setTimeout(() => {
+          redirectToLogin(
+            window.location.pathname +
+              window.location.search
+          );
+        }, 450);
+
+        return;
+      }
+
+      try {
+        const result =
+          await toggleWishlist(
+            product
+          );
+
+        setWishlist(
+          (current) => {
+            const copy = {
+              ...current,
+            };
+
+            if (
+              result
+            ) {
+              copy[
+                product.slug
+              ] = true;
+            } else {
+              delete copy[
+                product.slug
+              ];
+            }
+
+            return copy;
+          }
+        );
+
+        toast.success(
+          result
+            ? "Added to wishlist"
+            : "Removed from wishlist",
+          {
+            duration:
+              1500,
+            position:
+              "top-right",
+          }
+        );
+      } catch (error) {
+        console.error(
+          "WISHLIST ERROR:",
+          error
+        );
+
+        toast.error(
+          error?.message ||
+            "Unable to update wishlist.",
+          {
+            duration:
+              2000,
+            position:
+              "top-right",
+          }
+        );
+      }
+    };
+
+  /* =======================================================
+     IMAGE HOVER
+  ======================================================= */
+
+  const handleImageEnter =
+    (product) => {
+      const images =
+        getProductImages(
+          product
+        );
+
+      if (
+        images.length < 2
+      ) {
+        return;
+      }
+
+      setHoveredProducts(
+        (current) => ({
+          ...current,
+          [product.slug]:
+            true,
+        })
+      );
+    };
+
+  const handleImageLeave =
+    (product) => {
+      setHoveredProducts(
+        (current) => {
           const copy = {
-            ...prev,
+            ...current,
           };
 
           delete copy[
@@ -375,686 +1135,1098 @@ export default function NewArrivalsGrid({
           return copy;
         }
       );
-    } else {
-      updateQty(
-        product._id,
-        qty
-      );
+    };
 
-      setQuantities(
-        (prev) => ({
-          ...prev,
-          [product.slug]: qty,
-        })
-      );
-    }
-  };
+  /* =======================================================
+     TOUCH IMAGE
+  ======================================================= */
 
+  const handleImageTouch =
+    (
+      event,
+      product
+    ) => {
+      event.stopPropagation();
 
-  // ====================================================
-  // WISHLIST
-  // ====================================================
-
-  const handleWishlistClick = (
-    e,
-    product
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (
-      !isLoggedIn()
-    ) {
-      openLoginForAction({
-        type: "wishlist",
-        product,
-      });
-
-      return;
-    }
-  };
-
-
-  // ====================================================
-  // PRODUCTS
-  // ====================================================
-
-  const sourceProducts =
-    apiProducts.length > 0
-      ? apiProducts
-      : products?.filter(
-          (p) =>
-            p.showInNewArrivals === true ||
-            p.showInNewArrivals === 1
+      const images =
+        getProductImages(
+          product
         );
 
-  const items =
-    sourceProducts?.length > 0
-      ? sourceProducts
-          .slice(0, NEW_ARRIVALS_LIMIT)
-          .map((p) => ({
-            _id: p._id,
-            slug: p.slug,
-            mainImage:
-              p.mainImage ||
-              p.image ||
-              p.images?.[0]?.url ||
-              "/images/product-1.jpg",
-            name:
-              p.name?.toUpperCase() ||
-              "NEW ARRIVAL",
-            price: p.price || 0,
-          }))
-      : FALLBACK;
-
-
-  // ====================================================
-  // SCROLL STATE
-  // ====================================================
-
-  const updateScrollState =
-    useCallback(() => {
-      const el =
-        scrollRef.current;
-
-      if (!el) {
+      if (
+        images.length < 2
+      ) {
         return;
       }
 
-      const maxScroll =
-        el.scrollWidth -
-        el.clientWidth;
-
-      setCanScrollLeft(
-        el.scrollLeft >
-          2
+      setHoveredProducts(
+        (current) => ({
+          ...current,
+          [product.slug]:
+            !current[
+              product.slug
+            ],
+        })
       );
-
-      setCanScrollRight(
-        el.scrollLeft <
-          maxScroll - 2
-      );
-    }, []);
-
-
-  useEffect(() => {
-    const el =
-      scrollRef.current;
-
-    if (!el) {
-      return;
-    }
-
-    const refresh = () => {
-      requestAnimationFrame(() => {
-        updateScrollState();
-      });
     };
 
-    refresh();
+  /* =======================================================
+     PRODUCT DETAIL
+  ======================================================= */
 
-    el.addEventListener(
-      "scroll",
-      updateScrollState,
-      { passive: true }
-    );
+  const openProductDetails =
+    (
+      event,
+      product
+    ) => {
+      if (
+        event.target.closest(
+          "button"
+        )
+      ) {
+        return;
+      }
 
-    window.addEventListener(
-      "resize",
-      refresh
-    );
+      /*
+       * Links handle themselves.
+       * This makes empty/card area clickable.
+       */
 
-    const observer =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(refresh)
-        : null;
-
-    observer?.observe(el);
-
-    const track =
-      el.querySelector(
-        ".product-track"
-      );
-
-    if (track) {
-      observer?.observe(track);
-    }
-
-    const imageTimer = setTimeout(
-      refresh,
-      300
-    );
-
-    return () => {
-      el.removeEventListener(
-        "scroll",
-        updateScrollState
-      );
-
-      window.removeEventListener(
-        "resize",
-        refresh
-      );
-
-      observer?.disconnect();
-      clearTimeout(imageTimer);
+      if (
+        product?.slug
+      ) {
+        router.push(
+          `/products/${product.slug}`
+        );
+      }
     };
-  }, [
-    items.length,
-    productsLoading,
-    updateScrollState,
-  ]);
 
+  /* =======================================================
+     PRODUCTS MEMO
+  ======================================================= */
 
-  // ====================================================
-  // ARROW SCROLL
-  // ====================================================
-
-  const scrollSlider = (
-    direction
-  ) => {
-    const el =
-      scrollRef.current;
-
-    if (!el) {
-      return;
-    }
-
-    const current =
-      el.scrollLeft;
-
-    const max =
-      Math.max(
-        0,
-        el.scrollWidth -
-          el.clientWidth
-      );
-
-    // Re-read layout before deciding whether
-    // the slider can move.
-    updateScrollState();
-
-    if (max <= 2) {
-      return;
-    }
-
-    const card =
-      el.querySelector(
-        ".product-card-link"
-      );
-
-    const gap =
-      parseFloat(
-        getComputedStyle(
-          el.querySelector(
-            ".product-track"
-          ) || el
-        ).columnGap ||
-          getComputedStyle(
-            el.querySelector(
-              ".product-track"
-            ) || el
-          ).gap ||
-          "0"
-      ) || 0;
-
-    const step =
-      (card?.getBoundingClientRect().width ||
-        el.clientWidth * 0.82) +
-      gap;
-
-    const target =
-      direction === "next"
-        ? Math.min(
-            current + step,
-            max
-          )
-        : Math.max(
-            current - step,
-            0
-          );
-
-    el.scrollTo({
-      left: target,
-      behavior: "smooth",
-    });
-
-    setTimeout(
-      updateScrollState,
-      500
-    );
-  };
-
-
-  // ====================================================
-  // DRAG START
-  // ====================================================
-
-  const handlePointerDown = (
-    e
-  ) => {
-    if (
-      e.pointerType ===
-      "touch"
-    ) {
-      return;
-    }
-
-    const el =
-      scrollRef.current;
-
-    if (!el) {
-      return;
-    }
-
-    dragging.current =
-      true;
-
-    hasDragged.current =
-      false;
-
-    dragStartX.current =
-      e.clientX;
-
-    dragStartScroll.current =
-      el.scrollLeft;
-
-    el.classList.add(
-      "dragging"
+  const visibleProducts =
+    useMemo(
+      () =>
+        products.slice(
+          0,
+          LIMIT
+        ),
+      [products]
     );
 
-    try {
-      el.setPointerCapture(
-        e.pointerId
-      );
-    } catch {}
-  };
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
+  if (
+    loading
+  ) {
+    return (
+      <section className="new-arrivals-section">
 
-  const handlePointerMove = (
-    e
-  ) => {
-    if (
-      !dragging.current
-    ) {
-      return;
-    }
+        <div className="new-arrivals-container">
 
-    const el =
-      scrollRef.current;
+          <h2 className="section-title">
+            NEW ARRIVALS
+          </h2>
 
-    if (!el) {
-      return;
-    }
+          <div className="product-grid">
 
-    const delta =
-      e.clientX -
-      dragStartX.current;
+            {Array.from({
+              length: 4,
+            }).map(
+              (_, index) => (
+                <div
+                  key={index}
+                  className="product-skeleton-card"
+                >
+                  <div className="product-skeleton-image" />
 
-    if (
-      Math.abs(delta) >
-      5
-    ) {
-      hasDragged.current =
-        true;
-    }
+                  <div className="product-skeleton-content">
 
-    el.scrollLeft =
-      dragStartScroll.current -
-      delta;
+                    <div className="product-skeleton-colors">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
 
-    updateScrollState();
-  };
+                    <div className="product-skeleton-name" />
 
+                    <div className="product-skeleton-price" />
 
-  const handlePointerUp = () => {
-    dragging.current =
-      false;
+                    <div className="product-skeleton-button" />
 
-    const el =
-      scrollRef.current;
+                  </div>
+                </div>
+              )
+            )}
 
-    if (el) {
-      el.classList.remove(
-        "dragging"
-      );
-    }
-  };
+          </div>
 
+        </div>
 
-  // ====================================================
-  // BLOCK CLICK AFTER DRAG
-  // ====================================================
+        <style jsx>{`
 
-  const handleProductClick = (
-    e
-  ) => {
-    if (
-      hasDragged.current
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
+          .new-arrivals-section {
+            width: 100%;
+            background: ${COLORS.page};
+            padding:
+              58px 24px;
+            box-sizing:
+              border-box;
+          }
 
-      hasDragged.current =
-        false;
-    }
-  };
+          .new-arrivals-container {
+            width: 100%;
+            max-width:
+              1420px;
+            margin:
+              0 auto;
+          }
 
+          .section-title {
+            margin:
+              0 0 28px;
 
-  // ====================================================
-  // RENDER
-  // ====================================================
+            text-align:
+              center;
+
+            color:
+              ${COLORS.accent};
+
+            font-family:
+              "Tobias TRIAL",
+              "Playfair Display",
+              Georgia,
+              serif;
+
+            font-size:
+              30px;
+
+            line-height:
+              1.2;
+
+            font-weight:
+              500;
+          }
+
+          .product-grid {
+            display:
+              grid;
+
+            grid-template-columns:
+              repeat(
+                4,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
+            gap:
+              18px;
+          }
+
+          .product-skeleton-card {
+            overflow:
+              hidden;
+
+            border:
+              1px solid
+              rgba(
+                123,
+                127,
+                92,
+                0.15
+              );
+
+            border-radius:
+              12px;
+
+            background:
+              ${COLORS.page};
+          }
+
+          .product-skeleton-image {
+            width:
+              100%;
+
+            aspect-ratio:
+              1 / 0.90;
+
+            background:
+              #e8e9da;
+
+            animation:
+              skeletonPulse
+              1.4s
+              ease-in-out
+              infinite;
+          }
+
+          .product-skeleton-content {
+            padding:
+              13px;
+          }
+
+          .product-skeleton-colors {
+            display:
+              flex;
+
+            gap:
+              7px;
+
+            margin-bottom:
+              9px;
+          }
+
+          .product-skeleton-colors span {
+            width:
+              20px;
+
+            height:
+              20px;
+
+            border-radius:
+              50%;
+
+            background:
+              #e4e5db;
+          }
+
+          .product-skeleton-name {
+            width:
+              70%;
+
+            height:
+              17px;
+
+            margin-bottom:
+              11px;
+
+            border-radius:
+              4px;
+
+            background:
+              #e4e5db;
+          }
+
+          .product-skeleton-price {
+            width:
+              40%;
+
+            height:
+              20px;
+
+            margin-bottom:
+              12px;
+
+            border-radius:
+              4px;
+
+            background:
+              #e4e5db;
+          }
+
+          .product-skeleton-button {
+            width:
+              100%;
+
+            height:
+              40px;
+
+            border-radius:
+              6px;
+
+            background:
+              #e4e5db;
+          }
+
+          @keyframes skeletonPulse {
+            0%,
+            100% {
+              opacity:
+                0.55;
+            }
+
+            50% {
+              opacity:
+                1;
+            }
+          }
+
+          @media (max-width: 700px) {
+
+            .new-arrivals-section {
+              padding:
+                42px 8px;
+            }
+
+            .section-title {
+              margin-bottom:
+                22px;
+
+              font-size:
+                23px;
+            }
+
+            .product-grid {
+              grid-template-columns:
+                repeat(
+                  2,
+                  minmax(
+                    0,
+                    1fr
+                  )
+                );
+
+              gap:
+                9px;
+            }
+
+          }
+
+        `}</style>
+
+      </section>
+    );
+  }
+
+  /* =======================================================
+     EMPTY
+  ======================================================= */
+
+  if (
+    visibleProducts.length ===
+    0
+  ) {
+    return (
+      <section className="new-arrivals-section">
+
+        <div className="empty-products">
+          No new arrivals available.
+        </div>
+
+        <style jsx>{`
+
+          .new-arrivals-section {
+            width: 100%;
+            background: ${COLORS.page};
+            padding:
+              60px 20px;
+          }
+
+          .empty-products {
+            min-height:
+              180px;
+
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            justify-content:
+              center;
+
+            color:
+              ${COLORS.muted};
+
+            font-family:
+              "Mona Sans",
+              Arial,
+              sans-serif;
+
+            font-size:
+              14px;
+          }
+
+        `}</style>
+
+      </section>
+    );
+  }
+
+  /* =======================================================
+     MAIN RENDER
+  ======================================================= */
 
   return (
-    <section className="arrival-section">
+    <section className="new-arrivals-section">
 
-      <div className="container">
+      <div className="new-arrivals-container">
+
+        {/* =================================================
+            TITLE
+        ================================================= */}
 
         <h2 className="section-title">
           NEW ARRIVALS
         </h2>
 
+        {/* =================================================
+            GRID
+        ================================================= */}
 
-        <div className="carousel">
+        <div className="product-grid">
 
-          {/* LEFT ARROW */}
+          {visibleProducts.map(
+            (
+              product,
+              index
+            ) => {
 
-          <button
-            type="button"
-            className="carousel-arrow carousel-arrow-left"
-            onClick={() =>
-              scrollSlider(
-                "prev"
-              )
-            }
-            disabled={
-              !canScrollLeft
-            }
-            aria-label="Previous products"
-          >
-            ‹
-          </button>
+              /* =============================================
+                 DATA
+              ============================================= */
 
+              const colors =
+                getColors(
+                  product
+                );
 
-          {/* SCROLL AREA */}
+              const sizes =
+                getSizes(
+                  product
+                );
 
-          <div
-            ref={scrollRef}
-            className="product-grid"
-            onPointerDown={
-              handlePointerDown
-            }
-            onPointerMove={
-              handlePointerMove
-            }
-            onPointerUp={
-              handlePointerUp
-            }
-            onPointerCancel={
-              handlePointerUp
-            }
-          >
+              const images =
+                getProductImages(
+                  product
+                );
 
-            <div className="product-track">
+              const mainImage =
+                images[0] || "";
 
-              {items.map(
-                (
-                  item,
-                  index
-                ) => (
-                  <Link
-                    key={
-                      item._id ||
-                      item.slug ||
-                      index
+              const hoverImage =
+                images[1] ||
+                mainImage;
+
+              const isHovered =
+                Boolean(
+                  hoveredProducts[
+                    product.slug
+                  ]
+                );
+
+              const selectedColor =
+                selectedColors[
+                  product.slug
+                ] || "";
+
+              const selectedSizeName =
+                selectedSizes[
+                  product.slug
+                ] || "";
+
+              const selectedSize =
+                sizes.find(
+                  (size) =>
+                    String(
+                      size?.name ||
+                        ""
+                    )
+                      .trim()
+                      .toLowerCase() ===
+                    String(
+                      selectedSizeName ||
+                        ""
+                    )
+                      .trim()
+                      .toLowerCase()
+                ) || null;
+
+              const pricing =
+                getPricing(
+                  product,
+                  selectedSize
+                );
+
+              const discount =
+                getDiscount(
+                  pricing.actualPrice,
+                  pricing.sellingPrice
+                );
+
+              const needsColor =
+                colors.length >
+                  0 &&
+                !selectedColor;
+
+              const needsSize =
+                sizes.length >
+                  0 &&
+                !selectedSize;
+
+              const quantity =
+                quantities[
+                  product.slug
+                ] || 0;
+
+              /* =============================================
+                 CARD
+              ============================================= */
+
+              return (
+                <article
+                  key={
+                    product._id ||
+                    product.slug ||
+                    index
+                  }
+                  className="product-card"
+                  onClick={(event) =>
+                    openProductDetails(
+                      event,
+                      product
+                    )
+                  }
+                >
+
+                  {/* ========================================
+                      IMAGE
+                  ======================================== */}
+
+                  <div
+                    className="product-image-link"
+                    onMouseEnter={() =>
+                      handleImageEnter(
+                        product
+                      )
                     }
-                    href={`/products/${item.slug}`}
-                    className="product-card-link"
-                    onClick={
-                      handleProductClick
+                    onMouseLeave={() =>
+                      handleImageLeave(
+                        product
+                      )
                     }
-                    draggable={
-                      false
+                    onTouchStart={(
+                      event
+                    ) =>
+                      handleImageTouch(
+                        event,
+                        product
+                      )
                     }
                   >
 
-                    <article className="product-card">
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="product-image-link-inner"
+                      onClick={(
+                        event
+                      ) =>
+                        event.stopPropagation()
+                      }
+                    >
 
-                      {/* IMAGE */}
+                      <div className="product-image-box">
 
-                      <div className="image-wrap">
+                        {mainImage ? (
+                          <>
+                            <img
+                              src={
+                                mainImage
+                              }
+                              alt={
+                                product.name ||
+                                "Product"
+                              }
+                              className={`product-image product-image-main${
+                                isHovered &&
+                                images.length >
+                                  1
+                                  ? " image-hidden"
+                                  : ""
+                              }`}
+                              draggable={
+                                false
+                              }
+                            />
 
-                        <Image
-                          src={
-                            item.mainImage
-                          }
-                          alt={
-                            item.name
-                          }
-                          fill
-                          sizes="
-                            (max-width: 768px) 46vw,
-                            (max-width: 1100px) 31vw,
-                            23vw
-                          "
-                          style={{
-                            objectFit:
-                              "cover",
-                          }}
-                          className="product-img"
-                          draggable={
-                            false
-                          }
-                        />
+                            {images.length >
+                              1 && (
+                              <img
+                                src={
+                                  hoverImage
+                                }
+                                alt={
+                                  product.name ||
+                                  "Product preview"
+                                }
+                                className={`product-image product-image-hover${
+                                  isHovered
+                                    ? " image-visible"
+                                    : ""
+                                }`}
+                                draggable={
+                                  false
+                                }
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="product-image-placeholder" />
+                        )}
 
+                        {/* DISCOUNT TOP */}
+
+                        {discount >
+                          0 && (
+                          <span className="product-discount-top">
+                            {discount}% OFF
+                          </span>
+                        )}
+
+                        {/* WISHLIST */}
 
                         <button
                           type="button"
-                          className="wishlist-btn"
+                          className={`product-wishlist${
+                            wishlist[
+                              product.slug
+                            ]
+                              ? " active"
+                              : ""
+                          }`}
                           onClick={(
-                            e
+                            event
                           ) =>
-                            handleWishlistClick(
-                              e,
-                              item
+                            handleWishlist(
+                              event,
+                              product
                             )
                           }
-                          aria-label="Wishlist"
+                          aria-label={
+                            wishlist[
+                              product.slug
+                            ]
+                              ? "Remove from wishlist"
+                              : "Add to wishlist"
+                          }
                         >
-                          ♡
+                          {wishlist[
+                            product.slug
+                          ]
+                            ? "♥"
+                            : "♡"}
                         </button>
 
                       </div>
 
+                    </Link>
 
-                      {/* INFO */}
+                  </div>
 
-                      <div className="info-wrap">
+                  {/* ========================================
+                      CONTENT
+                  ======================================== */}
 
-                        <div className="name-row">
+                  <div className="product-content">
 
-                          <h3 className="product-title">
-                            {
-                              item.name
+                    {/* ======================================
+                        COLOUR
+                    ====================================== */}
+
+                    {colors.length >
+                      0 && (
+                      <div
+                        className={`product-colours-block${
+                          needsColor
+                            ? " missing"
+                            : ""
+                        }`}
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+
+                        <div className="product-colour-header">
+
+                          <span className="product-colour-label">
+                            Colour
+                          </span>
+
+                          <span
+                            className={
+                              selectedColor
+                                ? "product-selected"
+                                : "product-required"
                             }
-                          </h3>
-
-                          <span className="name-rule" />
+                          >
+                            {selectedColor
+                              ? "Selected"
+                              : "Select"}
+                          </span>
 
                         </div>
 
+                        <div className="product-colours">
 
-                        <p className="product-price">
-                          ₹
-                          {Number(
-                            item.price ||
-                              0
-                          ).toLocaleString(
-                            "en-IN"
-                          )}
-                        </p>
-
-
-                        <div className="action-row">
-
-                          <button
-                            type="button"
-                            className="price-btn"
-                            onClick={(
-                              e
+                          {colors.map(
+                            (
+                              color,
+                              colorIndex
                             ) => {
-                              e.preventDefault();
-                              e.stopPropagation();
 
-                              router.push(
-                                `/enquiry1/${item.slug}`
+                              const colorValue =
+                                String(
+                                  color
+                                ).trim();
+
+                              const selected =
+                                String(
+                                  selectedColor
+                                ).toLowerCase() ===
+                                colorValue.toLowerCase();
+
+                              return (
+                                <button
+                                  key={`${product._id}-color-${colorIndex}`}
+                                  type="button"
+                                  className={`product-color${
+                                    selected
+                                      ? " selected"
+                                      : ""
+                                  }`}
+                                  style={{
+                                    backgroundColor:
+                                      colorValue,
+                                  }}
+                                  onClick={(
+                                    event
+                                  ) =>
+                                    handleColorSelect(
+                                      event,
+                                      product,
+                                      colorValue
+                                    )
+                                  }
+                                  title={
+                                    colorValue
+                                  }
+                                  aria-label={
+                                    `Select colour ${colorValue}`
+                                  }
+                                />
                               );
-                            }}
-                          >
-                            BULK PRICE ENQUIRY ↗
-                          </button>
-
-
-                          {!
-                            quantities[
-                              item.slug
-                            ] ? (
-                            <button
-                              type="button"
-                              className="cart-btn"
-                              onClick={(
-                                e
-                              ) =>
-                                handleAddToCart(
-                                  e,
-                                  item
-                                )
-                              }
-                            >
-                              <span className="cart-dot">
-                                •
-                              </span>
-
-                              ADD TO CART
-                            </button>
-                          ) : (
-                            <div
-                              className="qty-control"
-                              onClick={(
-                                e
-                              ) =>
-                                e.stopPropagation()
-                              }
-                            >
-                              <button
-                                type="button"
-                                onClick={(
-                                  e
-                                ) =>
-                                  decreaseQty(
-                                    e,
-                                    item
-                                  )
-                                }
-                              >
-                                −
-                              </button>
-
-                              <span>
-                                {
-                                  quantities[
-                                    item.slug
-                                  ]
-                                }
-                              </span>
-
-                              <button
-                                type="button"
-                                onClick={(
-                                  e
-                                ) =>
-                                  increaseQty(
-                                    e,
-                                    item
-                                  )
-                                }
-                              >
-                                +
-                              </button>
-                            </div>
+                            }
                           )}
 
                         </div>
 
                       </div>
+                    )}
 
-                    </article>
+                    {/* ======================================
+                        PRODUCT NAME
+                    ====================================== */}
 
-                  </Link>
-                )
-              )}
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="product-name"
+                      onClick={(
+                        event
+                      ) =>
+                        event.stopPropagation()
+                      }
+                    >
+                      {product.name}
+                    </Link>
 
-            </div>
+                    {/* ======================================
+                        PRICE
+                    ====================================== */}
 
-          </div>
+                    <div className="product-price-area">
 
+                      <div className="product-price-row">
 
-          {/* RIGHT ARROW */}
+                        <span className="product-selling-price">
 
-          <button
-            type="button"
-            className="carousel-arrow carousel-arrow-right"
-            onClick={() =>
-              scrollSlider(
-                "next"
-              )
+                          {sizes.length >
+                            0 &&
+                          !selectedSize
+                            ? `From ${formatPrice(
+                                pricing.sellingPrice
+                              )}`
+                            : formatPrice(
+                                pricing.sellingPrice
+                              )}
+
+                        </span>
+
+                        {pricing.actualPrice >
+                          0 &&
+                          pricing.actualPrice !==
+                            pricing.sellingPrice && (
+                          <span className="product-actual-price">
+                            {formatPrice(
+                              pricing.actualPrice
+                            )}
+                          </span>
+                        )}
+
+                      </div>
+
+                      <p className="product-shipping">
+
+                        {Number(
+                          product.shippingCost ||
+                            0
+                        ) > 0
+                          ? `Shipping ${formatPrice(
+                              product.shippingCost
+                            )}`
+                          : "Free Shipping"}
+
+                      </p>
+
+                    </div>
+
+                    {/* ======================================
+                        SIZE
+                    ====================================== */}
+
+                    {sizes.length >
+                      0 && (
+                      <div
+                        className={`product-size-section${
+                          needsSize
+                            ? " missing"
+                            : ""
+                        }`}
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }}
+                      >
+
+                        <div className="product-size-header">
+
+                          <span>
+                            Size
+                          </span>
+
+                          {selectedSize ? (
+                            <small className="product-size-selected">
+                              {
+                                selectedSize.name
+                              }
+                            </small>
+                          ) : (
+                            <small className="product-size-required">
+                              Select
+                            </small>
+                          )}
+
+                        </div>
+
+                        <div className="product-size-list">
+
+                          {sizes.map(
+                            (
+                              size,
+                              sizeIndex
+                            ) => {
+
+                              const sizeName =
+                                String(
+                                  size?.name ||
+                                    ""
+                                ).trim();
+
+                              const selected =
+                                String(
+                                  selectedSizeName ||
+                                    ""
+                                )
+                                  .trim()
+                                  .toLowerCase() ===
+                                sizeName
+                                  .toLowerCase();
+
+                              return (
+                                <button
+                                  key={`${product._id}-size-${sizeIndex}`}
+                                  type="button"
+                                  className={`product-size-button${
+                                    selected
+                                      ? " selected"
+                                      : ""
+                                  }`}
+                                  onClick={(
+                                    event
+                                  ) =>
+                                    handleSizeSelect(
+                                      event,
+                                      product,
+                                      sizeName
+                                    )
+                                  }
+                                  title={`${sizeName} — ${formatPrice(
+                                    size?.sellingPrice
+                                  )}`}
+                                >
+                                  {sizeName}
+                                </button>
+                              );
+                            }
+                          )}
+
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* ======================================
+                        ACTIONS
+                    ====================================== */}
+
+                    <div
+                      className="product-action-area"
+                      onClick={(
+                        event
+                      ) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }}
+                    >
+
+                      {/* ADD / QUANTITY */}
+
+                      {quantity > 0 ? (
+                        <div className="product-quantity">
+
+                          <button
+                            type="button"
+                            onClick={(
+                              event
+                            ) =>
+                              decreaseQty(
+                                event,
+                                product
+                              )
+                            }
+                            aria-label="Decrease quantity"
+                          >
+                            −
+                          </button>
+
+                          <span>
+                            {quantity}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={(
+                              event
+                            ) =>
+                              increaseQty(
+                                event,
+                                product
+                              )
+                            }
+                            aria-label="Increase quantity"
+                          >
+                            +
+                          </button>
+
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`product-add-cart${
+                            needsColor ||
+                            needsSize
+                              ? " requires-selection"
+                              : ""
+                          }`}
+                          onClick={(
+                            event
+                          ) =>
+                            handleAddToCart(
+                              event,
+                              product
+                            )
+                          }
+                        >
+                          ADD TO CART
+                        </button>
+                      )}
+
+                      {/* BULK */}
+
+                      <button
+                        type="button"
+                        className="product-bulk-button"
+                        onClick={(
+                          event
+                        ) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+
+                          router.push(
+                            `/enquiry1/${product.slug}`
+                          );
+                        }}
+                      >
+                        BULK PRICE ENQUIRY ↗
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </article>
+              );
             }
-            disabled={
-              !canScrollRight
-            }
-            aria-label="Next products"
-          >
-            ›
-          </button>
+          )}
 
-        </div>
-
-
-        {/* SEE ALL */}
-
-        <div className="bottom-btn-wrap">
-          <Link
-            href="/new-arrivals"
-            className="bottom-btn"
-          >
-            SEE ALL NEW ARRIVALS →
-          </Link>
         </div>
 
       </div>
 
+      {/* =====================================================
+          STYLES
+      ===================================================== */}
 
-      <style jsx>{`
+      <style jsx global>{`
 
         /* ==================================================
-           SECTION
+           PAGE
         ================================================== */
 
-        .arrival-section {
+        .new-arrivals-section {
           width: 100%;
-          background: ${BG};
+          background:
+            ${COLORS.page};
+
           padding:
-            82px 24px;
-          overflow: hidden;
-          box-sizing: border-box;
+            55px 24px 65px;
+
+          box-sizing:
+            border-box;
+
+          overflow-x:
+            hidden;
         }
 
-        .container {
-          width: 100%;
-          max-width: 1420px;
-          margin: 0 auto;
-        }
+        .new-arrivals-container {
+          width:
+            100%;
 
+          max-width:
+            1420px;
+
+          margin:
+            0 auto;
+        }
 
         /* ==================================================
            TITLE
@@ -1062,396 +2234,13 @@ export default function NewArrivalsGrid({
 
         .section-title {
           margin:
-            0 0 42px;
+            0 0 28px;
 
           text-align:
             center;
 
-          font-family:
-            "Tobias TRIAL",
-            serif;
-
-          font-size:
-            32px;
-
-          font-weight:
-            500;
-
-          line-height:
-            1.5;
-
-          letter-spacing:
-            -0.02em;
-
           color:
-            ${ACCENT};
-        }
-
-
-        /* ==================================================
-           CAROUSEL
-        ================================================== */
-
-        .carousel {
-          position:
-            relative;
-
-          width:
-            100%;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            12px;
-        }
-
-
-        /* ==================================================
-           ACTUAL SCROLL VIEWPORT
-        ================================================== */
-
-        .product-grid {
-          flex:
-            1 1 0;
-
-          min-width:
-            0;
-
-          width:
-            100%;
-
-          overflow-x:
-            auto;
-
-          overflow-y:
-            hidden;
-
-          scrollbar-width:
-            none;
-
-          -ms-overflow-style:
-            none;
-
-          scroll-behavior:
-            smooth;
-
-          scroll-snap-type:
-            x mandatory;
-
-          -webkit-overflow-scrolling:
-            touch;
-
-          cursor:
-            grab;
-
-          user-select:
-            none;
-
-          touch-action:
-            pan-x;
-
-          padding:
-            4px 2px
-            14px;
-
-          box-sizing:
-            border-box;
-        }
-
-        .product-grid::-webkit-scrollbar {
-          display:
-            none;
-        }
-
-        .product-grid.dragging {
-          cursor:
-            grabbing;
-
-          scroll-behavior:
-            auto;
-        }
-
-
-        /* ==================================================
-           IMPORTANT:
-           TRACK MUST BE WIDER THAN VIEWPORT
-        ================================================== */
-
-        .product-track {
-          display: flex;
-
-          width: max-content;
-          min-width: max-content;
-
-          gap: 22px;
-
-          align-items: stretch;
-
-          flex-shrink: 0;
-        }
-
-
-        /* ==================================================
-           CARD WIDTH
-        ================================================== */
-
-        .product-card-link {
-          display: block;
-
-          flex: 0 0 340px;
-
-          width: 340px;
-          min-width: 340px;
-
-          scroll-snap-align: start;
-          scroll-snap-stop: always;
-
-          text-decoration: none;
-
-          flex-shrink: 0;
-        }
-
-
-        .product-card {
-          width:
-            100%;
-
-          display:
-            flex;
-
-          flex-direction:
-            column;
-
-          box-sizing:
-            border-box;
-
-          padding:
-            14px;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.78
-            );
-
-          border:
-            1px solid
-            #e2e3d7;
-
-          border-radius:
-            22px;
-
-          box-shadow:
-            0 12px 34px
-              rgba(
-                61,
-                67,
-                41,
-                0.08
-              ),
-            0 2px 8px
-              rgba(
-                61,
-                67,
-                41,
-                0.04
-              );
-
-          transition:
-            transform
-            0.25s ease,
-            box-shadow
-            0.25s ease;
-        }
-
-        .product-card:hover {
-          transform:
-            translateY(-3px);
-
-          box-shadow:
-            0 18px 42px
-              rgba(
-                61,
-                67,
-                41,
-                0.12
-              ),
-            0 4px 12px
-              rgba(
-                61,
-                67,
-                41,
-                0.05
-              );
-        }
-
-
-        /* ==================================================
-           IMAGE
-        ================================================== */
-
-        .image-wrap {
-          position:
-            relative;
-
-          width:
-            100%;
-
-          aspect-ratio:
-            4 / 3;
-
-          overflow:
-            hidden;
-
-          border-radius:
-            15px;
-
-          background:
-            #e8e9da;
-
-          flex-shrink:
-            0;
-        }
-
-        .product-img {
-          transition:
-            transform
-            0.4s ease;
-        }
-
-        .product-card:hover
-          .product-img {
-          transform:
-            scale(1.025);
-        }
-
-
-        /* ==================================================
-           WISHLIST
-        ================================================== */
-
-        .wishlist-btn {
-          position:
-            absolute;
-
-          top:
-            14px;
-
-          right:
-            14px;
-
-          width:
-            54px;
-
-          height:
-            54px;
-
-          border:
-            1px solid
-            rgba(
-              123,
-              127,
-              92,
-              0.12
-            );
-
-          border-radius:
-            50%;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.96
-            );
-
-          box-shadow:
-            0 5px 16px
-              rgba(
-                0,
-                0,
-                0,
-                0.1
-              );
-
-          color:
-            #b4b5a4;
-
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          justify-content:
-            center;
-
-          font-size:
-            28px;
-
-          line-height:
-            1;
-
-          padding:
-            0;
-
-          cursor:
-            pointer;
-
-          z-index:
-            4;
-        }
-
-        .wishlist-btn:hover {
-          color:
-            ${ACCENT};
-        }
-
-
-        /* ==================================================
-           INFO
-        ================================================== */
-
-        .info-wrap {
-          padding:
-            18px
-            8px
-            4px;
-        }
-
-        .name-row {
-          display:
-            flex;
-
-          align-items:
-            center;
-
-          gap:
-            18px;
-
-          min-height:
-            40px;
-
-          margin-bottom:
-            14px;
-        }
-
-        .product-title {
-          flex:
-            0 1 auto;
-
-          min-width:
-            0;
-
-          margin:
-            0;
+            ${COLORS.accent};
 
           font-family:
             "Tobias TRIAL",
@@ -1460,7 +2249,7 @@ export default function NewArrivalsGrid({
             serif;
 
           font-size:
-            21px;
+            30px;
 
           line-height:
             1.15;
@@ -1470,73 +2259,329 @@ export default function NewArrivalsGrid({
 
           letter-spacing:
             -0.02em;
-
-          color:
-            #151515;
         }
-
-        .name-rule {
-          width:
-            60px;
-
-          height:
-            1px;
-
-          background:
-            #b9a764;
-
-          flex:
-            0 0 auto;
-
-          margin-left:
-            auto;
-        }
-
-        .product-price {
-          margin:
-            0 0 20px;
-
-          font-family:
-            "Mona Sans",
-            sans-serif;
-
-          font-size:
-            20px;
-
-          font-weight:
-            700;
-
-          color:
-            #171717;
-        }
-
 
         /* ==================================================
-           ACTIONS
+           GRID
+           DESKTOP = 4
         ================================================== */
 
-        .action-row {
+        .product-grid {
+          width:
+            100%;
+
           display:
             grid;
 
           grid-template-columns:
-            1fr
-            1fr;
+            repeat(
+              4,
+              minmax(
+                0,
+                1fr
+              )
+            );
 
           gap:
-            12px;
+            18px;
+
+          align-items:
+            stretch;
         }
 
-        .price-btn,
-        .cart-btn {
+        /* ==================================================
+           CARD
+        ================================================== */
+
+        .product-card {
           width:
             100%;
 
-          min-height:
-            58px;
+          min-width:
+            0;
 
-          box-sizing:
-            border-box;
+          min-height:
+            0;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          background:
+            ${COLORS.page};
+
+          border:
+            1px solid
+            rgba(
+              123,
+              127,
+              92,
+              0.19
+            );
+
+          border-radius:
+            12px;
+
+          overflow:
+            hidden;
+
+          box-shadow:
+            0 2px 9px
+              rgba(
+                40,
+                45,
+                25,
+                0.05
+              );
+
+          cursor:
+            pointer;
+
+          transition:
+            transform
+              0.2s ease,
+            box-shadow
+              0.2s ease;
+        }
+
+        .product-card:hover {
+          transform:
+            translateY(-2px);
+
+          box-shadow:
+            0 9px 24px
+              rgba(
+                40,
+                45,
+                25,
+                0.09
+              );
+        }
+
+        /* ==================================================
+           IMAGE
+        ================================================== */
+
+        .product-image-link {
+          position:
+            relative;
+
+          width:
+            100%;
+
+          display:
+            block;
+        }
+
+        .product-image-link-inner {
+          display:
+            block;
+
+          width:
+            100%;
+
+          text-decoration:
+            none;
+        }
+
+        .product-image-box {
+          position:
+            relative;
+
+          width:
+            100%;
+
+          /*
+           * Compact but still premium image.
+           */
+          aspect-ratio:
+            1 / 0.90;
+
+          overflow:
+            hidden;
+
+          background:
+            ${COLORS.page};
+        }
+
+        .product-image {
+          position:
+            absolute;
+
+          inset:
+            0;
+
+          width:
+            100%;
+
+          height:
+            100%;
+
+          display:
+            block;
+
+          object-fit:
+            cover;
+
+          transition:
+            opacity
+              0.35s ease,
+            transform
+              0.42s ease;
+        }
+
+        .product-image-main {
+          z-index:
+            1;
+
+          opacity:
+            1;
+        }
+
+        .product-image-hover {
+          z-index:
+            2;
+
+          opacity:
+            0;
+        }
+
+        .product-image-main.image-hidden {
+          opacity:
+            0;
+        }
+
+        .product-image-hover.image-visible {
+          opacity:
+            1;
+        }
+
+        .product-image-box:hover
+          .product-image-hover.image-visible {
+          transform:
+            scale(
+              1.025
+            );
+        }
+
+        .product-image-placeholder {
+          position:
+            absolute;
+
+          inset:
+            0;
+
+          background:
+            #ecece2;
+        }
+
+        /* ==================================================
+           DISCOUNT
+           TOP LEFT
+        ================================================== */
+
+        .product-discount-top {
+          position:
+            absolute;
+
+          top:
+            10px;
+
+          left:
+            10px;
+
+          z-index:
+            8;
+
+          display:
+            inline-flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            center;
+
+          min-height:
+            27px;
+
+          padding:
+            0 8px;
+
+          border:
+            1px solid
+            rgba(
+              123,
+              127,
+              92,
+              0.18
+            );
+
+          border-radius:
+            7px;
+
+          background:
+            rgba(
+              253,
+              255,
+              241,
+              0.97
+            );
+
+          color:
+            #38602d;
+
+          box-shadow:
+            0 4px 12px
+              rgba(
+                0,
+                0,
+                0,
+                0.06
+              );
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            10px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.03em;
+        }
+
+        /* ==================================================
+           WISHLIST
+        ================================================== */
+
+        .product-wishlist {
+          position:
+            absolute;
+
+          top:
+            10px;
+
+          right:
+            10px;
+
+          z-index:
+            10;
+
+          width:
+            38px;
+
+          height:
+            38px;
 
           display:
             flex;
@@ -1548,94 +2593,98 @@ export default function NewArrivalsGrid({
             center;
 
           padding:
-            12px;
+            0;
 
-          font-family:
-            "Mona Sans",
-            sans-serif;
+          border:
+            1px solid
+            #d4d4d4;
+
+          border-radius:
+            50%;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #777777;
 
           font-size:
-            11px;
-
-          font-weight:
-            700;
+            21px;
 
           line-height:
-            1.35;
-
-          letter-spacing:
-            0.05em;
-
-          text-transform:
-            uppercase;
+            1;
 
           cursor:
             pointer;
+
+          transition:
+            transform
+              0.15s ease,
+            color
+              0.15s ease;
         }
 
-        .price-btn {
-          background:
-            ${ACCENT};
+        .product-wishlist:hover {
+          transform:
+            scale(
+              1.06
+            );
 
           color:
-            #fff;
-
-          border:
-            1px solid
-            ${ACCENT};
+            ${COLORS.accent};
         }
 
-        .price-btn:hover {
-          background:
-            #676a4c;
-        }
-
-        .cart-btn {
-          background:
-            transparent;
-
+        .product-wishlist.active {
           color:
-            #1b1b1b;
-
-          border:
-            1px solid
-            ${BORDER};
+            #b4002e;
         }
-
-        .cart-btn:hover {
-          background:
-            #f4f5eb;
-
-          border-color:
-            ${ACCENT};
-        }
-
-        .cart-dot {
-          font-size:
-            17px;
-
-          margin-right:
-            6px;
-        }
-
 
         /* ==================================================
-           QUANTITY
+           CONTENT
         ================================================== */
 
-        .qty-control {
+        .product-content {
+          flex:
+            1;
+
           width:
             100%;
 
-          min-height:
-            58px;
+          min-width:
+            0;
+
+          display:
+            flex;
+
+          flex-direction:
+            column;
+
+          padding:
+            11px 12px
+            12px;
 
           box-sizing:
             border-box;
 
-          border:
-            1px solid
-            ${BORDER};
+          background:
+            ${COLORS.page};
+        }
+
+        /* ==================================================
+           COLOURS
+        ================================================== */
+
+        .product-colours-block {
+          width:
+            100%;
+
+          margin-bottom:
+            7px;
+        }
+
+        .product-colour-header {
+          width:
+            100%;
 
           display:
             flex;
@@ -1646,75 +2695,310 @@ export default function NewArrivalsGrid({
           justify-content:
             space-between;
 
-          padding:
-            0 14px;
+          gap:
+            7px;
+
+          margin-bottom:
+            5px;
         }
 
-        .qty-control button {
-          width:
-            28px;
+        .product-colour-label {
+          color:
+            #555555;
 
-          height:
-            28px;
-
-          border:
-            none;
-
-          background:
-            transparent;
-
-          cursor:
-            pointer;
-
-          font-size:
-            20px;
-        }
-
-        .qty-control span {
           font-family:
             "Mona Sans",
+            Arial,
             sans-serif;
 
           font-size:
-            14px;
+            10px;
+
+          line-height:
+            1.2;
 
           font-weight:
             600;
         }
 
+        .product-required,
+        .product-selected {
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
 
-        /* ==================================================
-           ARROWS
-        ================================================== */
+          font-size:
+            7px;
 
-        .carousel-arrow {
-          flex:
-            0 0 auto;
+          line-height:
+            1.2;
 
+          font-weight:
+            700;
+
+          text-transform:
+            uppercase;
+        }
+
+        .product-required {
+          color:
+            #888888;
+        }
+
+        .product-selected {
+          color:
+            ${COLORS.accent};
+        }
+
+        .product-colours {
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          flex-wrap:
+            wrap;
+
+          gap:
+            7px;
+        }
+
+        .product-color {
           width:
-            44px;
+            21px;
 
           height:
-            44px;
+            21px;
+
+          padding:
+            0;
 
           border:
             1px solid
-            ${BORDER};
+            #9d9d9d;
 
           border-radius:
             50%;
 
-          background:
-            #fff;
+          outline:
+            none;
+
+          cursor:
+            pointer;
+
+          transition:
+            transform
+              0.15s ease,
+            box-shadow
+              0.15s ease;
+        }
+
+        .product-color:hover {
+          transform:
+            scale(
+              1.08
+            );
+        }
+
+        .product-color.selected {
+          border:
+            2px solid
+            #111111;
+
+          box-shadow:
+            0 0 0 2px
+              ${COLORS.page},
+            0 0 0 3px
+              #111111;
+        }
+
+        /* ==================================================
+           NAME
+        ================================================== */
+
+        .product-name {
+          display:
+            -webkit-box;
+
+          width:
+            100%;
+
+          min-height:
+            40px;
+
+          margin:
+            0 0 6px;
 
           color:
-            ${ACCENT};
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
 
           font-size:
-            24px;
+            16px;
+
+          line-height:
+            1.25;
+
+          font-weight:
+            700;
+
+          text-decoration:
+            none;
+
+          overflow:
+            hidden;
+
+          text-overflow:
+            ellipsis;
+
+          -webkit-line-clamp:
+            2;
+
+          -webkit-box-orient:
+            vertical;
+        }
+
+        .product-name:hover {
+          text-decoration:
+            underline;
+        }
+
+        /* ==================================================
+           PRICE
+        ================================================== */
+
+        .product-price-area {
+          width:
+            100%;
+
+          margin-bottom:
+            7px;
+        }
+
+        .product-price-row {
+          width:
+            100%;
+
+          display:
+            flex;
+
+          align-items:
+            baseline;
+
+          flex-wrap:
+            wrap;
+
+          gap:
+            6px;
+        }
+
+        .product-selling-price {
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            20px;
+
+          line-height:
+            1.1;
+
+          font-weight:
+            700;
+        }
+
+        .product-actual-price {
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            11px;
 
           line-height:
             1;
+
+          font-weight:
+            500;
+
+          text-decoration:
+            line-through;
+        }
+
+        .product-shipping {
+          margin:
+            4px 0 0;
+
+          color:
+            #666666;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            9px;
+
+          line-height:
+            1.3;
+
+          font-weight:
+            500;
+        }
+
+        /* ==================================================
+           SIZE
+        ================================================== */
+
+        .product-size-section {
+          width:
+            100%;
+
+          margin-bottom:
+            7px;
+
+          padding:
+            7px;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.20
+            );
+
+          border:
+            1px solid
+            rgba(
+              123,
+              127,
+              92,
+              0.22
+            );
+
+          border-radius:
+            7px;
+        }
+
+        .product-size-header {
+          width:
+            100%;
 
           display:
             flex;
@@ -1723,327 +3007,723 @@ export default function NewArrivalsGrid({
             center;
 
           justify-content:
+            space-between;
+
+          gap:
+            7px;
+
+          margin-bottom:
+            5px;
+
+          color:
+            #333333;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            9px;
+
+          line-height:
+            1.2;
+
+          font-weight:
+            700;
+        }
+
+        .product-size-header small {
+          color:
+            ${COLORS.accent};
+
+          font-size:
+            8px;
+
+          font-weight:
+            700;
+        }
+
+        .product-size-required {
+          color:
+            #888888 !important;
+
+          text-transform:
+            uppercase;
+        }
+
+        .product-size-list {
+          width:
+            100%;
+
+          display:
+            flex;
+
+          align-items:
             center;
+
+          flex-wrap:
+            wrap;
+
+          gap:
+            5px;
+        }
+
+        .product-size-button {
+          min-width:
+            34px;
+
+          min-height:
+            27px;
+
+          padding:
+            0 7px;
+
+          border:
+            1px solid
+            #c9c9c9;
+
+          border-radius:
+            5px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            8px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
 
           cursor:
             pointer;
 
-          z-index:
-            5;
-
           transition:
-            opacity
-            0.2s ease,
             background
-            0.2s ease;
+              0.15s ease,
+            color
+              0.15s ease,
+            border-color
+              0.15s ease;
         }
 
-        .carousel-arrow:hover:not(
-          :disabled
-        ) {
+        .product-size-button:hover {
+          border-color:
+            ${COLORS.accent};
+        }
+
+        .product-size-button.selected {
           background:
-            #f4f5eb;
+            ${COLORS.accent};
+
+          border-color:
+            ${COLORS.accent};
+
+          color:
+            #ffffff;
         }
-
-        .carousel-arrow:disabled {
-          opacity:
-            0.28;
-
-          cursor:
-            default;
-        }
-
 
         /* ==================================================
-           BOTTOM BUTTON
+           ACTION AREA
         ================================================== */
 
-        .bottom-btn-wrap {
+        .product-action-area {
+          width:
+            100%;
+
+          margin-top:
+            auto;
+
           display:
             flex;
 
-          justify-content:
-            center;
+          flex-direction:
+            column;
 
-          margin-top:
-            62px;
+          gap:
+            6px;
         }
 
-        .bottom-btn {
-          color:
-            ${ACCENT};
+        /* ==================================================
+           ADD TO CART
+        ================================================== */
 
-          text-decoration:
-            none;
+        .product-add-cart {
+          width:
+            100%;
 
-          border-bottom:
+          min-height:
+            40px;
+
+          padding:
+            0 10px;
+
+          border:
             1px solid
-            ${ACCENT};
+            #111111;
 
-          padding-bottom:
-            10px;
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            #111111;
 
           font-family:
             "Mona Sans",
+            Arial,
             sans-serif;
 
           font-size:
-            16px;
+            10px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.03em;
+
+          cursor:
+            pointer;
+
+          transition:
+            background
+              0.18s ease,
+            color
+              0.18s ease,
+            border-color
+              0.18s ease;
         }
 
+        .product-add-cart:hover {
+          background:
+            #111111;
+
+          border-color:
+            #111111;
+
+          color:
+            #ffffff;
+        }
+
+        /* ==================================================
+           QUANTITY
+        ================================================== */
+
+        .product-quantity {
+          width:
+            100%;
+
+          min-height:
+            40px;
+
+          display:
+            flex;
+
+          align-items:
+            center;
+
+          justify-content:
+            space-between;
+
+          border:
+            1px solid
+            #111111;
+
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+        }
+
+        .product-quantity button {
+          width:
+            35px;
+
+          height:
+            38px;
+
+          padding:
+            0;
+
+          border:
+            none;
+
+          background:
+            transparent;
+
+          color:
+            #111111;
+
+          font-size:
+            18px;
+
+          line-height:
+            1;
+
+          cursor:
+            pointer;
+        }
+
+        .product-quantity span {
+          color:
+            #111111;
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            11px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+        }
+
+        /* ==================================================
+           BULK ENQUIRY
+        ================================================== */
+
+        .product-bulk-button {
+          width:
+            100%;
+
+          min-height:
+            37px;
+
+          padding:
+            0 10px;
+
+          border:
+            1px solid
+            ${COLORS.accent};
+
+          border-radius:
+            6px;
+
+          background:
+            ${COLORS.page};
+
+          color:
+            ${COLORS.accent};
+
+          font-family:
+            "Mona Sans",
+            Arial,
+            sans-serif;
+
+          font-size:
+            9px;
+
+          line-height:
+            1;
+
+          font-weight:
+            700;
+
+          letter-spacing:
+            0.03em;
+
+          cursor:
+            pointer;
+
+          transition:
+            background
+              0.18s ease,
+            color
+              0.18s ease;
+        }
+
+        .product-bulk-button:hover {
+          background:
+            ${COLORS.accent};
+
+          color:
+            #ffffff;
+        }
 
         /* ==================================================
            TABLET
+           3 CARDS
         ================================================== */
 
         @media (max-width: 1100px) {
 
-          .arrival-section {
+          .new-arrivals-section {
             padding:
-              70px 18px;
+              48px 18px 55px;
           }
 
-          .product-track {
+          .product-grid {
+            grid-template-columns:
+              repeat(
+                3,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
             gap:
+              14px;
+          }
+
+          .product-name {
+            font-size:
+              15px;
+          }
+
+          .product-selling-price {
+            font-size:
               18px;
           }
 
-          .product-card-link {
-            width:
-              300px;
-
-            min-width:
-              300px;
-
-            flex-basis:
-              300px;
-          }
-
-          .carousel-arrow {
-            width:
-              40px;
-
-            height:
-              40px;
-          }
         }
-
 
         /* ==================================================
            MOBILE
+           EXACTLY 2 CARDS
         ================================================== */
 
-        @media (max-width: 768px) {
+        @media (max-width: 700px) {
 
-          .arrival-section {
+          .new-arrivals-section {
             padding:
-              48px 8px;
+              42px 8px 45px;
           }
 
           .section-title {
             font-size:
-              24px;
+              23px;
 
             margin-bottom:
-              26px;
-          }
-
-          .carousel {
-            gap:
-              5px;
-          }
-
-          .product-grid {
-            padding:
-              3px
-              0
-              12px;
-          }
-
-          .product-track {
-            gap:
-              12px;
-          }
-
-          .product-card-link {
-            width:
-              calc(
-                (100vw - 62px) / 2
-              );
-
-            min-width:
-              calc(
-                (100vw - 62px) / 2
-              );
-
-            flex-basis:
-              calc(
-                (100vw - 62px) / 2
-              );
-          }
-
-          .product-card {
-            padding:
-              10px;
-
-            border-radius:
-              16px;
-          }
-
-          .wishlist-btn {
-            width:
-              42px;
-
-            height:
-              42px;
-
-            top:
-              10px;
-
-            right:
-              10px;
-
-            font-size:
               22px;
           }
 
-          .info-wrap {
-            padding:
-              12px
-              5px
-              2px;
-          }
-
-          .name-row {
-            gap:
-              10px;
-
-            margin-bottom:
-              10px;
-          }
-
-          .product-title {
-            font-size:
-              14px;
-          }
-
-          .name-rule {
-            width:
-              34px;
-          }
-
-          .product-price {
-            font-size:
-              15px;
-
-            margin-bottom:
-              12px;
-          }
-
-          .action-row {
+          .product-grid {
             grid-template-columns:
-              1fr;
+              repeat(
+                2,
+                minmax(
+                  0,
+                  1fr
+                )
+              );
+
             gap:
+              9px;
+          }
+
+          .product-card {
+            border-radius:
               8px;
           }
 
-          .price-btn,
-          .cart-btn,
-          .qty-control {
-            min-height:
-              46px;
+          .product-image-box {
+            aspect-ratio:
+              1 / 0.92;
           }
 
-          .price-btn,
-          .cart-btn {
-            font-size:
-              9px;
+          /* DISCOUNT */
+
+          .product-discount-top {
+            top:
+              7px;
+
+            left:
+              7px;
+
+            min-height:
+              22px;
 
             padding:
-              8px;
+              0 6px;
+
+            border-radius:
+              5px;
+
+            font-size:
+              7px;
           }
 
-          .carousel-arrow {
+          /* WISHLIST */
+
+          .product-wishlist {
+            top:
+              7px;
+
+            right:
+              7px;
+
             width:
-              30px;
+              31px;
 
             height:
-              30px;
+              31px;
 
             font-size:
               17px;
           }
 
-          .bottom-btn-wrap {
-            margin-top:
-              36px;
+          /* CONTENT */
+
+          .product-content {
+            padding:
+              8px;
           }
 
-          .bottom-btn {
-            font-size:
-              13px;
+          /* COLOUR */
+
+          .product-colours-block {
+            margin-bottom:
+              6px;
           }
+
+          .product-colour-label {
+            font-size:
+              8px;
+          }
+
+          .product-required,
+          .product-selected {
+            font-size:
+              6px;
+          }
+
+          .product-colours {
+            gap:
+              5px;
+          }
+
+          .product-color {
+            width:
+              17px;
+
+            height:
+              17px;
+          }
+
+          /* NAME */
+
+          .product-name {
+            min-height:
+              30px;
+
+            margin-bottom:
+              5px;
+
+            font-size:
+              11px;
+
+            line-height:
+              1.25;
+          }
+
+          /* PRICE */
+
+          .product-price-area {
+            margin-bottom:
+              6px;
+          }
+
+          .product-selling-price {
+            font-size:
+              14px;
+          }
+
+          .product-actual-price {
+            font-size:
+              8px;
+          }
+
+          .product-shipping {
+            margin-top:
+              3px;
+
+            font-size:
+              7px;
+          }
+
+          /* SIZE */
+
+          .product-size-section {
+            padding:
+              6px;
+
+            margin-bottom:
+              6px;
+          }
+
+          .product-size-header {
+            margin-bottom:
+              4px;
+
+            font-size:
+              8px;
+          }
+
+          .product-size-header small {
+            font-size:
+              7px;
+          }
+
+          .product-size-list {
+            gap:
+              4px;
+          }
+
+          .product-size-button {
+            min-width:
+              27px;
+
+            min-height:
+              24px;
+
+            padding:
+              0 5px;
+
+            font-size:
+              7px;
+          }
+
+          /* ACTIONS */
+
+          .product-action-area {
+            gap:
+              5px;
+          }
+
+          .product-add-cart {
+            min-height:
+              37px;
+
+            font-size:
+              8px;
+          }
+
+          .product-bulk-button {
+            min-height:
+              35px;
+
+            font-size:
+              7px;
+          }
+
+          .product-quantity {
+            min-height:
+              37px;
+          }
+
+          .product-quantity button {
+            width:
+              30px;
+
+            height:
+              35px;
+
+            font-size:
+              17px;
+          }
+
+          .product-quantity span {
+            font-size:
+              10px;
+          }
+
         }
 
-
         /* ==================================================
-           SMALL MOBILE
+           VERY SMALL MOBILE
         ================================================== */
 
-        @media (max-width: 400px) {
+        @media (max-width: 380px) {
 
-          .arrival-section {
+          .new-arrivals-section {
             padding:
-              40px 5px;
+              38px 7px 42px;
           }
 
-          .carousel {
+          .product-grid {
             gap:
-              3px;
+              7px;
           }
 
-          .product-track {
-            gap:
-              8px;
+          .product-content {
+            padding:
+              7px;
           }
 
-          .product-card-link {
-            width:
-              calc(
-                (100vw - 48px) / 2
-              );
-
-            min-width:
-              calc(
-                (100vw - 48px) / 2
-              );
-
-            flex-basis:
-              calc(
-                (100vw - 48px) / 2
-              );
-          }
-
-          .product-title {
+          .product-name {
             font-size:
-              12px;
+              10px;
           }
 
-          .product-price {
+          .product-selling-price {
             font-size:
               13px;
           }
 
-          .price-btn,
-          .cart-btn {
+          .product-actual-price {
             font-size:
-              8px;
+              7px;
           }
 
-          .qty-control {
-            min-height:
-              40px;
+          .product-color {
+            width:
+              16px;
+
+            height:
+              16px;
           }
+
+          .product-size-button {
+            min-width:
+              25px;
+
+            min-height:
+              23px;
+
+            font-size:
+              6.5px;
+          }
+
+          .product-add-cart {
+            min-height:
+              35px;
+
+            font-size:
+              7px;
+          }
+
+          .product-bulk-button {
+            min-height:
+              33px;
+
+            font-size:
+              6px;
+          }
+
         }
 
       `}</style>

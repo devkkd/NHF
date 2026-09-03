@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -9,8 +14,9 @@ import Footer from "@/components/Footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 import {
-  getCart,
+  getCartResponse,
   updateQty,
+  updateCartVariant,
   removeFromCart,
   formatPrice,
   CART_EVENT,
@@ -18,53 +24,448 @@ import {
 
 import { addToWishlist } from "@/lib/wishlist";
 
+/* ======================================================
+   HELPERS
+====================================================== */
 
-// ======================================================
-// CART PAGE
-// ======================================================
+function getProductId(item) {
+  return (
+    item?.product?._id ||
+    item?.product?.id ||
+    item?.productId ||
+    null
+  );
+}
+
+function normalizeText(value) {
+  return String(
+    value ?? ""
+  ).trim();
+}
+
+function getColors(product) {
+  if (
+    !Array.isArray(
+      product?.colors
+    )
+  ) {
+    return [];
+  }
+
+  return product.colors.filter(
+    (color) =>
+      normalizeText(color)
+  );
+}
+
+function getSizes(product) {
+  if (
+    !Array.isArray(
+      product?.sizes
+    )
+  ) {
+    return [];
+  }
+
+  return product.sizes.filter(
+    (size) =>
+      normalizeText(
+        size?.name
+      )
+  );
+}
+
+function getSelectedSize(
+  product,
+  selectedSize
+) {
+  const sizes =
+    getSizes(product);
+
+  if (!selectedSize) {
+    return null;
+  }
+
+  return (
+    sizes.find(
+      (size) =>
+        normalizeText(
+          size.name
+        ).toLowerCase() ===
+        normalizeText(
+          selectedSize
+        ).toLowerCase()
+    ) || null
+  );
+}
+
+function getItemSellingPrice(
+  item
+) {
+  const product =
+    item?.product || {};
+
+  const selectedSize =
+    getSelectedSize(
+      product,
+      item?.selectedSize
+    );
+
+  if (
+    Number.isFinite(
+      Number(
+        item?.selectedSellingPrice
+      )
+    ) &&
+    Number(
+      item?.selectedSellingPrice
+    ) > 0
+  ) {
+    return Number(
+      item.selectedSellingPrice
+    );
+  }
+
+  if (
+    Number.isFinite(
+      Number(
+        item?.selectedSizeSellingPrice
+      )
+    ) &&
+    Number(
+      item?.selectedSizeSellingPrice
+    ) > 0
+  ) {
+    return Number(
+      item.selectedSizeSellingPrice
+    );
+  }
+
+  if (
+    selectedSize &&
+    Number(
+      selectedSize.sellingPrice
+    ) > 0
+  ) {
+    return Number(
+      selectedSize.sellingPrice
+    );
+  }
+
+  return Number(
+    product?.sellingPrice ??
+      product?.price ??
+      0
+  );
+}
+
+function getItemActualPrice(
+  item
+) {
+  const product =
+    item?.product || {};
+
+  const selectedSize =
+    getSelectedSize(
+      product,
+      item?.selectedSize
+    );
+
+  if (
+    Number(
+      item?.selectedActualPrice ||
+        0
+    ) > 0
+  ) {
+    return Number(
+      item.selectedActualPrice
+    );
+  }
+
+  if (
+    Number(
+      item?.selectedSizeActualPrice ||
+        0
+    ) > 0
+  ) {
+    return Number(
+      item.selectedSizeActualPrice
+    );
+  }
+
+  if (
+    selectedSize &&
+    Number(
+      selectedSize.actualPrice
+    ) > 0
+  ) {
+    return Number(
+      selectedSize.actualPrice
+    );
+  }
+
+  return Number(
+    product?.actualPrice ??
+      product?.price ??
+      0
+  );
+}
+
+function getItemShipping(
+  item
+) {
+  const backendShipping =
+    Number(
+      item?.selectedShippingCost
+    );
+
+  if (
+    Number.isFinite(
+      backendShipping
+    )
+  ) {
+    return Math.max(
+      backendShipping,
+      0
+    );
+  }
+
+  return Math.max(
+    Number(
+      item?.product
+        ?.shippingCost || 0
+    ),
+    0
+  );
+}
+
+function getItemKey(
+  item,
+  index
+) {
+  return (
+    item?._id ||
+    `${getProductId(item) || "item"}-${index}-${item?.selectedColor || ""}-${item?.selectedSize || ""}`
+  );
+}
+function isValidCartItem(item) {
+  const product = item?.product;
+
+  return (
+    item &&
+    product &&
+    typeof product === "object" &&
+    (
+      product._id ||
+      product.id ||
+      item.productId
+    )
+  );
+}
+
+/* ======================================================
+   PAGE
+====================================================== */
 
 export default function CartPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
-  const [cart, setCart] = useState([]);
-  const [loaded, setLoaded] = useState(false);
-  const [actionLoading, setActionLoading] =
-    useState(null);
-  const [error, setError] = useState("");
+  const [
+    cart,
+    setCart,
+  ] = useState([]);
 
-  // ====================================================
-  // LOAD CART
-  // ====================================================
+  const [
+    summary,
+    setSummary,
+  ] = useState({
+    subtotal: 0,
+    shipping: 0,
+    tax: 0,
+    grandTotal: 0,
+    itemCount: 0,
+  });
+
+  const [
+    loaded,
+    setLoaded,
+  ] = useState(false);
+
+  const [
+    actionLoading,
+    setActionLoading,
+  ] = useState(null);
+
+  const [
+    variantLoading,
+    setVariantLoading,
+  ] = useState(null);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  /* ======================================================
+     LOAD CART
+  ====================================================== */
+
+  const syncCart =
+    async () => {
+      try {
+        setError("");
+
+        const response =
+          await getCartResponse();
+
+       const rawItems =
+  Array.isArray(
+    response?.cart?.items
+  )
+    ? response.cart.items
+    : [];
+
+/*
+ * Remove products that no longer exist
+ * in the backend/product collection.
+ */
+const validItems = rawItems.filter(
+  isValidCartItem
+);
+
+setCart(validItems);
+
+        /*
+         * Backend calculation is
+         * now the source of truth.
+         */
+        setSummary({
+          subtotal:
+            Number(
+              response?.summary
+                ?.subtotal || 0
+            ),
+
+          shipping:
+            Number(
+              response?.summary
+                ?.shipping || 0
+            ),
+
+          tax:
+            Number(
+              response?.summary
+                ?.tax || 0
+            ),
+
+          grandTotal:
+            Number(
+              response?.summary
+                ?.grandTotal || 0
+            ),
+
+          itemCount:
+            Number(
+              response?.summary
+                ?.itemCount || 0
+            ),
+        });
+      } catch (error) {
+        console.error(
+          "FAILED TO LOAD CART:",
+          error
+        );
+
+        setCart([]);
+
+        setSummary({
+          subtotal: 0,
+          shipping: 0,
+          tax: 0,
+          grandTotal: 0,
+          itemCount: 0,
+        });
+
+        setError(
+          error?.message ||
+            "Unable to load your cart. Please try again."
+        );
+      } finally {
+        setLoaded(true);
+      }
+    };
 
   useEffect(() => {
     let mounted = true;
 
-    const sync = async () => {
+    const load = async () => {
       try {
         setError("");
 
-        const data =
-          await getCart();
+        const response =
+          await getCartResponse();
 
         if (!mounted) {
           return;
         }
 
-        setCart(
-          Array.isArray(data)
-            ? data
-            : []
-        );
+       const rawItems =
+  Array.isArray(
+    response?.cart?.items
+  )
+    ? response.cart.items
+    : [];
+
+const validItems =
+  rawItems.filter(
+    isValidCartItem
+  );
+
+setCart(validItems);
+
+        setSummary({
+          subtotal:
+            Number(
+              response?.summary
+                ?.subtotal || 0
+            ),
+
+          shipping:
+            Number(
+              response?.summary
+                ?.shipping || 0
+            ),
+
+          tax:
+            Number(
+              response?.summary
+                ?.tax || 0
+            ),
+
+          grandTotal:
+            Number(
+              response?.summary
+                ?.grandTotal || 0
+            ),
+
+          itemCount:
+            Number(
+              response?.summary
+                ?.itemCount || 0
+            ),
+        });
       } catch (error) {
         console.error(
-          "Failed to load cart:",
+          "FAILED TO LOAD CART:",
           error
         );
 
         if (mounted) {
           setCart([]);
           setError(
-            "Unable to load your cart. Please try again."
+            error?.message ||
+              "Unable to load your cart. Please try again."
           );
         }
       } finally {
@@ -74,16 +475,16 @@ export default function CartPage() {
       }
     };
 
-    sync();
+    load();
 
     const handleCartUpdated =
       () => {
-        sync();
+        syncCart();
       };
 
     const handleStorage =
       () => {
-        sync();
+        syncCart();
       };
 
     window.addEventListener(
@@ -96,135 +497,50 @@ export default function CartPage() {
       handleCartUpdated
     );
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    const handleFocus = () => {
+  syncCart();
+};
 
-    return () => {
-      mounted = false;
+window.addEventListener("focus", handleFocus);
 
-      window.removeEventListener(
-        CART_EVENT,
-        handleCartUpdated
-      );
+const interval = setInterval(() => {
+  syncCart();
+}, 10000);
 
-      window.removeEventListener(
-        "CART_UPDATED",
-        handleCartUpdated
-      );
+return () => {
+  window.removeEventListener(CART_EVENT, syncCart);
+  window.removeEventListener("CART_UPDATED", syncCart);
+  window.removeEventListener("storage", handleStorage);
+  window.removeEventListener("focus", handleFocus);
 
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
-    };
+  clearInterval(interval);
+};
   }, []);
 
+  /* ======================================================
+     DISPLAY COUNT
+  ====================================================== */
 
-  // ====================================================
-  // SUBTOTAL
-  // ====================================================
+  const itemCount = useMemo(() => {
+  return cart.reduce((total, item) => {
+    if (!isValidCartItem(item)) return total;
 
-  /*
-   * IMPORTANT:
-   * Backend cart already contains populated
-   * item.product.
-   *
-   * Calculate subtotal directly from
-   * current cart state.
-   */
+    return total + Number(item?.quantity || 0);
+  }, 0);
+}, [cart]);
 
-  const subtotal =
-    useMemo(() => {
-      return cart.reduce(
-        (
-          total,
-          item
-        ) => {
-          const product =
-            item?.product ||
-            {};
-
-          const price =
-            Number(
-              product?.price ??
-                item?.price ??
-                0
-            );
-
-          const quantity =
-            Number(
-              item?.quantity || 1
-            );
-
-          return (
-            total +
-            price * quantity
-          );
-        },
-        0
-      );
-    }, [cart]);
-
-
-  // ====================================================
-  // TOTAL
-  // ====================================================
-
-  /*
-   * Abhi shipping aur tax zero hain.
-   * Checkout page par final charges
-   * calculate honge.
-   */
-
-  const total = subtotal;
-
-
-  // ====================================================
-  // CART ITEM COUNT
-  // ====================================================
-
-  const itemCount =
-    useMemo(() => {
-      return cart.reduce(
-        (
-          total,
-          item
-        ) =>
-          total +
-          Number(
-            item?.quantity || 0
-          ),
-        0
-      );
-    }, [cart]);
-
-
-  // ====================================================
-  // GET PRODUCT ID
-  // ====================================================
-
-  const getProductId =
-    (item) => {
-      return (
-        item?.product?._id ||
-        item?.product?.id ||
-        item?.productId ||
-        null
-      );
-    };
-
-
-  // ====================================================
-  // UPDATE QUANTITY
-  // ====================================================
+  /* ======================================================
+     UPDATE QUANTITY
+  ====================================================== */
 
   const handleQty =
     async (
-      productId,
+      item,
       quantity
     ) => {
+      const productId =
+        getProductId(item);
+
       if (!productId) {
         setError(
           "Product ID is missing."
@@ -244,36 +560,42 @@ export default function CartPage() {
       }
 
       const actionKey =
-        `qty-${productId}`;
+        `qty-${getItemKey(
+          item,
+          0
+        )}`;
 
       try {
         setError("");
+
         setActionLoading(
           actionKey
         );
 
         await updateQty(
           productId,
-          nextQuantity
+          nextQuantity,
+          {
+            selectedColor:
+              item?.selectedColor ||
+              "",
+
+            selectedSize:
+              item?.selectedSize ||
+              "",
+          }
         );
 
-        const data =
-          await getCart();
-
-        setCart(
-          Array.isArray(data)
-            ? data
-            : []
-        );
+        await syncCart();
       } catch (error) {
         console.error(
-          "Failed to update cart quantity:",
+          "FAILED TO UPDATE QUANTITY:",
           error
         );
 
         setError(
           error?.message ||
-            "Failed to update cart."
+            "Failed to update quantity."
         );
       } finally {
         setActionLoading(
@@ -282,15 +604,18 @@ export default function CartPage() {
       }
     };
 
+  /* ======================================================
+     CHANGE COLOUR
+  ====================================================== */
 
-  // ====================================================
-  // REMOVE ITEM
-  // ====================================================
-
-  const handleRemove =
+  const handleColorChange =
     async (
-      productId
+      item,
+      selectedColor
     ) => {
+      const productId =
+        getProductId(item);
+
       if (!productId) {
         setError(
           "Product ID is missing."
@@ -298,30 +623,169 @@ export default function CartPage() {
         return;
       }
 
-      const actionKey =
-        `remove-${productId}`;
+      const key =
+        getItemKey(item, 0);
 
       try {
         setError("");
+
+        setVariantLoading(
+          `color-${key}`
+        );
+
+        const product =
+          item?.product ||
+          {};
+
+        await updateCartVariant(
+          {
+            productId,
+
+            currentColor:
+              item?.selectedColor ||
+              "",
+
+            currentSize:
+              item?.selectedSize ||
+              "",
+
+            selectedColor,
+
+            selectedColorName:
+              selectedColor,
+
+            selectedSize:
+              item?.selectedSize ||
+              "",
+          }
+        );
+
+        await syncCart();
+      } catch (error) {
+        console.error(
+          "COLOR CHANGE ERROR:",
+          error
+        );
+
+        setError(
+          error?.message ||
+            "Failed to change colour."
+        );
+      } finally {
+        setVariantLoading(
+          null
+        );
+      }
+    };
+
+  /* ======================================================
+     CHANGE SIZE
+  ====================================================== */
+
+  const handleSizeChange =
+    async (
+      item,
+      selectedSize
+    ) => {
+      const productId =
+        getProductId(item);
+
+      if (!productId) {
+        setError(
+          "Product ID is missing."
+        );
+        return;
+      }
+
+      const key =
+        getItemKey(item, 0);
+
+      try {
+        setError("");
+
+        setVariantLoading(
+          `size-${key}`
+        );
+
+        await updateCartVariant(
+          {
+            productId,
+
+            currentColor:
+              item?.selectedColor ||
+              "",
+
+            currentSize:
+              item?.selectedSize ||
+              "",
+
+            selectedColor:
+              item?.selectedColor ||
+              "",
+
+            selectedColorName:
+              item?.selectedColorName ||
+              item?.selectedColor ||
+              "",
+
+            selectedSize,
+          }
+        );
+
+        await syncCart();
+      } catch (error) {
+        console.error(
+          "SIZE CHANGE ERROR:",
+          error
+        );
+
+        setError(
+          error?.message ||
+            "Failed to change size."
+        );
+      } finally {
+        setVariantLoading(
+          null
+        );
+      }
+    };
+
+  /* ======================================================
+     REMOVE ITEM
+  ====================================================== */
+
+  const handleRemove =
+    async (
+      item
+    ) => {
+      const productId =
+        getProductId(item);
+
+      if (!productId) {
+        setError(
+          "Product ID is missing."
+        );
+        return;
+      }
+
+      const key =
+        getItemKey(item, 0);
+
+      try {
+        setError("");
+
         setActionLoading(
-          actionKey
+          `remove-${key}`
         );
 
         await removeFromCart(
-          productId
+          item
         );
 
-        const data =
-          await getCart();
-
-        setCart(
-          Array.isArray(data)
-            ? data
-            : []
-        );
+        await syncCart();
       } catch (error) {
         console.error(
-          "Failed to remove item:",
+          "FAILED TO REMOVE ITEM:",
           error
         );
 
@@ -336,20 +800,19 @@ export default function CartPage() {
       }
     };
 
-
-  // ====================================================
-  // SAVE FOR LATER
-  // ====================================================
+  /* ======================================================
+     SAVE FOR LATER
+  ====================================================== */
 
   const handleSaveForLater =
     async (
       item
     ) => {
-      const productId =
-        getProductId(item);
-
       const product =
         item?.product;
+
+      const productId =
+        getProductId(item);
 
       if (
         !product ||
@@ -361,44 +824,32 @@ export default function CartPage() {
         return;
       }
 
-      const actionKey =
-        `save-${productId}`;
+      const key =
+        getItemKey(item, 0);
 
       try {
         setError("");
+
         setActionLoading(
-          actionKey
+          `save-${key}`
         );
 
-        /*
-         * Wishlist first.
-         */
         await addToWishlist(
           product
         );
 
-        /*
-         * Then remove from cart.
-         */
         await removeFromCart(
-          productId
+          item
         );
 
-        const data =
-          await getCart();
-
-        setCart(
-          Array.isArray(data)
-            ? data
-            : []
-        );
+        await syncCart();
 
         router.push(
           "/saved"
         );
       } catch (error) {
         console.error(
-          "Save for later failed:",
+          "SAVE FOR LATER FAILED:",
           error
         );
 
@@ -413,15 +864,15 @@ export default function CartPage() {
       }
     };
 
-
-  // ====================================================
-  // CHECKOUT
-  // ====================================================
+  /* ======================================================
+     CHECKOUT
+  ====================================================== */
 
   const handleCheckout =
     () => {
       if (
-        cart.length === 0
+        cart.length ===
+        0
       ) {
         return;
       }
@@ -431,10 +882,9 @@ export default function CartPage() {
       );
     };
 
-
-  // ====================================================
-  // RENDER
-  // ====================================================
+  /* ======================================================
+     RENDER
+  ====================================================== */
 
   return (
     <ProtectedRoute>
@@ -442,16 +892,20 @@ export default function CartPage() {
         <Header />
 
         <main className="crt-page-bg">
+
           <div className="crt-outer-wrap">
+
+            {/* =================================================
+                TITLE
+            ================================================= */}
 
             <h1 className="crt-title">
               Shopping Cart ({itemCount})
             </h1>
 
-
-            {/* =========================================
+            {/* =================================================
                 ERROR
-            ========================================= */}
+            ================================================= */}
 
             {error && (
               <div
@@ -462,10 +916,9 @@ export default function CartPage() {
               </div>
             )}
 
-
-            {/* =========================================
+            {/* =================================================
                 LOADING
-            ========================================= */}
+            ================================================= */}
 
             {!loaded ? (
               <div className="crt-loading">
@@ -473,9 +926,9 @@ export default function CartPage() {
               </div>
             ) : cart.length === 0 ? (
 
-              /* =======================================
+              /* ================================================
                  EMPTY CART
-              ======================================= */
+              ================================================= */
 
               <div className="crt-empty">
 
@@ -505,19 +958,20 @@ export default function CartPage() {
                 >
                   Continue Shopping →
                 </Link>
+
               </div>
 
             ) : (
 
-              /* =======================================
+              /* ================================================
                  CART CONTENT
-              ======================================= */
+              ================================================= */
 
               <div className="crt-layout">
 
-                {/* ====================================
-                    LEFT COLUMN
-                ==================================== */}
+                {/* =================================================
+                    LEFT
+                ================================================= */}
 
                 <div className="crt-items-col">
 
@@ -528,6 +982,7 @@ export default function CartPage() {
                       item,
                       index
                     ) => {
+
                       const product =
                         item?.product ||
                         {};
@@ -537,26 +992,35 @@ export default function CartPage() {
                           item
                         );
 
-                      const key =
-                        productId
-                          ? `cart-product-${productId}`
-                          : `cart-item-${index}`;
+                      const itemKey =
+                        getItemKey(
+                          item,
+                          index
+                        );
 
                       const quantity =
                         Number(
                           item?.quantity ||
-                            1
+                          1
                         );
 
-                      const price =
-                        Number(
-                          product?.price ??
-                            item?.price ??
-                            0
+                      const sellingPrice =
+                        getItemSellingPrice(
+                          item
+                        );
+
+                      const actualPrice =
+                        getItemActualPrice(
+                          item
+                        );
+
+                      const shippingCost =
+                        getItemShipping(
+                          item
                         );
 
                       const lineTotal =
-                        price *
+                        sellingPrice *
                         quantity;
 
                       const image =
@@ -565,28 +1029,65 @@ export default function CartPage() {
                         item?.images?.[0] ||
                         "/placeholder-product.png";
 
-                      const isUpdating =
+                      const colors =
+                        getColors(
+                          product
+                        );
+
+                      const sizes =
+                        getSizes(
+                          product
+                        );
+
+                      const selectedColor =
+                        item?.selectedColor ||
+                        "";
+
+                      const selectedSize =
+                        item?.selectedSize ||
+                        "";
+
+                      const isQtyUpdating =
                         actionLoading ===
-                          `qty-${productId}`;
+                        `qty-${itemKey}`;
 
                       const isRemoving =
                         actionLoading ===
-                          `remove-${productId}`;
+                        `remove-${itemKey}`;
 
                       const isSaving =
                         actionLoading ===
-                          `save-${productId}`;
+                        `save-${itemKey}`;
+
+                      const isColorChanging =
+                        variantLoading ===
+                        `color-${itemKey}`;
+
+                      const isSizeChanging =
+                        variantLoading ===
+                        `size-${itemKey}`;
+
+                      const disabled =
+                        isQtyUpdating ||
+                        isRemoving ||
+                        isSaving ||
+                        isColorChanging ||
+                        isSizeChanging;
 
                       return (
                         <div
-                          key={key}
+                          key={itemKey}
                           className="crt-item-row"
                         >
 
-                          {/* IMAGE */}
+                          {/* =================================================
+                              IMAGE
+                          ================================================= */}
 
-                          <div className="crt-item-image">
-
+                          <Link
+                            href={`/products/${product?.slug || ""}`}
+                            className="crt-item-image"
+                          >
                             <img
                               src={image}
                               alt={
@@ -594,40 +1095,252 @@ export default function CartPage() {
                                 "Product image"
                               }
                             />
+                          </Link>
 
-                          </div>
-
-
-                          {/* BODY */}
+                          {/* =================================================
+                              BODY
+                          ================================================= */}
 
                           <div className="crt-item-body">
 
                             <div className="crt-item-top">
 
-                              <h2 className="crt-item-name">
-                                {product?.name ||
-                                  "Unnamed Product"}
-                              </h2>
+                              <div className="crt-item-heading-block">
 
-                              <p className="crt-item-price">
-                                {formatPrice(
-                                  lineTotal
+                                <Link
+                                  href={`/products/${product?.slug || ""}`}
+                                  className="crt-item-name"
+                                >
+                                  {product?.name ||
+                                    "Unnamed Product"}
+                                </Link>
+
+                                {product?.sku && (
+                                  <p className="crt-item-sku">
+                                    SKU: {product.sku}
+                                  </p>
                                 )}
-                              </p>
+
+                              </div>
+
+                              <div className="crt-item-price-block">
+
+                                <p className="crt-item-price">
+                                  {formatPrice(
+                                    lineTotal
+                                  )}
+                                </p>
+
+                                {actualPrice >
+                                  sellingPrice && (
+                                  <p className="crt-item-unit-old-price">
+                                    {formatPrice(
+                                      actualPrice
+                                    )}
+                                  </p>
+                                )}
+
+                              </div>
 
                             </div>
 
+                            {/* =================================================
+                                COLOUR
+                            ================================================= */}
 
-                            {product?.item && (
-                              <p className="crt-item-desc">
-                                {product.item}
-                              </p>
+                            {colors.length > 0 && (
+                              <div className="crt-variant-block">
+
+                                <div className="crt-variant-heading">
+                                  <span>
+                                    Colour
+                                  </span>
+
+                                  {isColorChanging && (
+                                    <small>
+                                      Updating...
+                                    </small>
+                                  )}
+                                </div>
+
+                                <div className="crt-color-list">
+
+                                  {colors.map(
+                                    (
+                                      color,
+                                      colorIndex
+                                    ) => {
+
+                                      const isSelected =
+                                        normalizeText(
+                                          selectedColor
+                                        ).toLowerCase() ===
+                                        normalizeText(
+                                          color
+                                        ).toLowerCase();
+
+                                      return (
+                                        <button
+                                          key={`${itemKey}-color-${colorIndex}`}
+                                          type="button"
+                                          className={`crt-color-button${
+                                            isSelected
+                                              ? " selected"
+                                              : ""
+                                          }`}
+                                          style={{
+                                            backgroundColor:
+                                              color,
+                                          }}
+                                          disabled={
+                                            disabled
+                                          }
+                                          title={color}
+                                          aria-label={`Select colour ${color}`}
+                                          onClick={() =>
+                                            handleColorChange(
+                                              item,
+                                              color
+                                            )
+                                          }
+                                        >
+                                          {isSelected && (
+                                            <span>
+                                              ✓
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    }
+                                  )}
+
+                                </div>
+
+                                {selectedColor && (
+                                  <div className="crt-selected-value">
+                                    Selected:{" "}
+                                    {item?.selectedColorName ||
+                                      selectedColor}
+                                  </div>
+                                )}
+
+                              </div>
                             )}
 
+                            {/* =================================================
+                                SIZE
+                            ================================================= */}
+
+                            {sizes.length > 0 && (
+                              <div className="crt-variant-block">
+
+                                <div className="crt-variant-heading">
+                                  <span>
+                                    Size
+                                  </span>
+
+                                  {isSizeChanging && (
+                                    <small>
+                                      Updating...
+                                    </small>
+                                  )}
+                                </div>
+
+                                <div className="crt-size-list">
+
+                                  {sizes.map(
+                                    (
+                                      size,
+                                      sizeIndex
+                                    ) => {
+
+                                      const sizeName =
+                                        normalizeText(
+                                          size?.name
+                                        );
+
+                                      const selected =
+                                        normalizeText(
+                                          selectedSize
+                                        ).toLowerCase() ===
+                                        sizeName.toLowerCase();
+
+                                      return (
+                                        <button
+                                          key={`${itemKey}-size-${sizeIndex}`}
+                                          type="button"
+                                          className={`crt-size-button${
+                                            selected
+                                              ? " selected"
+                                              : ""
+                                          }`}
+                                          disabled={
+                                            disabled
+                                          }
+                                          onClick={() =>
+                                            handleSizeChange(
+                                              item,
+                                              sizeName
+                                            )
+                                          }
+                                        >
+                                          {sizeName}
+                                        </button>
+                                      );
+                                    }
+                                  )}
+
+                                </div>
+
+                              </div>
+                            )}
+
+                            {/* =================================================
+                                PRICE INFO
+                            ================================================= */}
+
+                            <div className="crt-item-pricing">
+
+                              <div className="crt-price-info">
+
+                                <span>
+                                  Unit Price
+                                </span>
+
+                                <strong>
+                                  {formatPrice(
+                                    sellingPrice
+                                  )}
+                                </strong>
+
+                              </div>
+
+                              <div className="crt-price-info shipping-row">
+
+                                <span>
+                                  Shipping
+                                </span>
+
+                                <strong>
+                                  {shippingCost >
+                                  0
+                                    ? formatPrice(
+                                        shippingCost
+                                      )
+                                    : "Free"}
+                                </strong>
+
+                              </div>
+
+                            </div>
+
+                            {/* =================================================
+                                CONTROLS
+                            ================================================= */}
 
                             <div className="crt-item-controls">
 
-                              {/* QTY */}
+                              {/* QUANTITY */}
 
                               <div className="crt-qty-box">
 
@@ -639,14 +1352,15 @@ export default function CartPage() {
                                     "product"
                                   }`}
                                   disabled={
-                                    isUpdating ||
-                                    isRemoving ||
-                                    isSaving
+                                    disabled ||
+                                    quantity <=
+                                      1
                                   }
                                   onClick={() =>
                                     handleQty(
-                                      productId,
-                                      quantity - 1
+                                      item,
+                                      quantity -
+                                        1
                                     )
                                   }
                                 >
@@ -654,7 +1368,7 @@ export default function CartPage() {
                                 </button>
 
                                 <span className="crt-qty-value">
-                                  {isUpdating
+                                  {isQtyUpdating
                                     ? "..."
                                     : quantity}
                                 </span>
@@ -667,14 +1381,13 @@ export default function CartPage() {
                                     "product"
                                   }`}
                                   disabled={
-                                    isUpdating ||
-                                    isRemoving ||
-                                    isSaving
+                                    disabled
                                   }
                                   onClick={() =>
                                     handleQty(
-                                      productId,
-                                      quantity + 1
+                                      item,
+                                      quantity +
+                                        1
                                     )
                                   }
                                 >
@@ -683,20 +1396,17 @@ export default function CartPage() {
 
                               </div>
 
-
                               {/* REMOVE */}
 
                               <button
                                 type="button"
                                 className="crt-text-link"
                                 disabled={
-                                  isUpdating ||
-                                  isRemoving ||
-                                  isSaving
+                                  disabled
                                 }
                                 onClick={() =>
                                   handleRemove(
-                                    productId
+                                    item
                                   )
                                 }
                               >
@@ -705,16 +1415,13 @@ export default function CartPage() {
                                   : "Remove"}
                               </button>
 
-
-                              {/* SAVE FOR LATER */}
+                              {/* SAVE */}
 
                               <button
                                 type="button"
                                 className="crt-text-link"
                                 disabled={
-                                  isUpdating ||
-                                  isRemoving ||
-                                  isSaving
+                                  disabled
                                 }
                                 onClick={() =>
                                   handleSaveForLater(
@@ -736,8 +1443,7 @@ export default function CartPage() {
                     }
                   )}
 
-
-                  <div className="crt-hr" />
+                  <div className="crt-hr bottom-hr" />
 
                   <Link
                     href="/"
@@ -748,86 +1454,95 @@ export default function CartPage() {
 
                 </div>
 
-
-                {/* ====================================
-                    RIGHT COLUMN
-                ==================================== */}
+                {/* =================================================
+                    SUMMARY
+                ================================================= */}
 
                 <div className="crt-summary-col">
 
-                  <div className="crt-hr" />
+                  <div className="crt-summary-card">
 
+                    <h2 className="crt-summary-title">
+                      Order Summary
+                    </h2>
 
-                  <div className="crt-summary-line">
-                    <span>
-                      Estimated Subtotal
-                    </span>
+                    <div className="crt-summary-line">
+                      <span>
+                        Subtotal
+                      </span>
 
-                    <span>
-                      {formatPrice(
-                        subtotal
-                      )}
-                    </span>
+                      <span>
+                        {formatPrice(
+                          summary.subtotal
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="crt-summary-line">
+                      <span>
+                        Shipping Charges
+                      </span>
+
+                      <span>
+                        {summary.shipping >
+                        0
+                          ? formatPrice(
+                              summary.shipping
+                            )
+                          : "Free"}
+                      </span>
+                    </div>
+
+                    {Number(
+                      summary.tax || 0
+                    ) > 0 && (
+                      <div className="crt-summary-line">
+                        <span>
+                          Tax
+                        </span>
+
+                        <span>
+                          {formatPrice(
+                            summary.tax
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="crt-summary-divider" />
+
+                    <div className="crt-summary-total">
+                      <span>
+                        Total Amount
+                      </span>
+
+                      <strong>
+                        {formatPrice(
+                          summary.grandTotal
+                        )}
+                      </strong>
+                    </div>
+
+                    <p className="crt-summary-note">
+                      Shipping charges are calculated from the
+                      selected product variants.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="crt-checkout-btn"
+                      onClick={
+                        handleCheckout
+                      }
+                      disabled={
+                        cart.length ===
+                        0
+                      }
+                    >
+                      PROCEED TO CHECKOUT
+                    </button>
+
                   </div>
-
-
-                  <div className="crt-summary-line">
-                    <span>
-                      Complimentary Express Delivery
-                    </span>
-
-                    <span>
-                      {formatPrice(0)}
-                    </span>
-                  </div>
-
-
-                  <div className="crt-summary-line">
-                    <span>
-                      Estimated Tax
-                    </span>
-
-                    <span>
-                      {formatPrice(0)}
-                    </span>
-                  </div>
-
-
-                  <div className="crt-hr" />
-
-
-                  <div className="crt-summary-total">
-                    <span>
-                      Estimated Total
-                    </span>
-
-                    <span>
-                      {formatPrice(
-                        total
-                      )}
-                    </span>
-                  </div>
-
-
-                  <p className="crt-summary-note">
-                    Complimentary Delivery
-                    with Effortless Returns
-                  </p>
-
-
-                  <button
-                    type="button"
-                    className="crt-checkout-btn"
-                    onClick={
-                      handleCheckout
-                    }
-                    disabled={
-                      cart.length ===
-                      0
-                    }
-                  >
-                    CHECKOUT
-                  </button>
 
                 </div>
 
@@ -835,90 +1550,119 @@ export default function CartPage() {
             )}
 
           </div>
+
         </main>
 
         <Footer />
 
-
-        {/* =========================================
+        {/* =====================================================
             STYLES
-        ========================================= */}
+        ===================================================== */}
 
         <style jsx>{`
+
+          /* ==================================================
+             BASE
+          ================================================== */
+
           .crt-page-bg {
-            background-color: #fdfff1;
             min-height: 100vh;
+            background: #fdfff1;
+            color: #0e0e0e;
             font-family:
               "Mona Sans",
               "Inter",
+              Arial,
               sans-serif;
-            color: #0e0e0e;
           }
 
           .crt-outer-wrap {
+            width: 100%;
             max-width: 1400px;
             margin: 0 auto;
             padding: 120px 48px 80px;
             box-sizing: border-box;
           }
 
+          /* ==================================================
+             TITLE
+          ================================================== */
+
           .crt-title {
+            margin: 0 0 42px;
+
             font-family:
               "Tobias TRIAL",
               "Playfair Display",
               Georgia,
               serif;
 
-            font-weight: 700;
             font-size: 32px;
+            font-weight: 700;
             line-height: 1.2;
 
             text-align: center;
 
-            margin: 0 0 48px;
-
             color: #0e0e0e;
           }
 
+          /* ==================================================
+             ERROR
+          ================================================== */
+
           .crt-error {
             width: 100%;
-
             margin: 0 0 24px;
-
             padding: 12px 16px;
 
-            border: 1px solid #e7b2b2;
+            border:
+              1px solid #e7b2b2;
+
+            border-radius: 6px;
 
             background: #fff5f5;
-
             color: #a52d2d;
 
             font-size: 13px;
+            line-height: 1.4;
 
             text-align: center;
           }
 
-          .crt-loading {
-            text-align: center;
+          /* ==================================================
+             LOADING
+          ================================================== */
 
+          .crt-loading {
             padding: 80px 20px;
 
             color: #777;
 
             font-size: 14px;
+
+            text-align: center;
           }
 
-          .crt-empty {
-            text-align: center;
+          /* ==================================================
+             EMPTY
+          ================================================== */
 
-            padding: 80px 20px;
+          .crt-empty {
+            padding:
+              80px
+              20px
+              110px;
+
+            text-align: center;
           }
 
           .crt-empty-icon {
             width: 82px;
             height: 82px;
 
-            margin: 0 auto 18px;
+            margin:
+              0 auto
+              18px;
 
             display: flex;
             align-items: center;
@@ -926,34 +1670,46 @@ export default function CartPage() {
 
             border-radius: 50%;
 
-            background: #f0f2de;
+            background:
+              #f0f2de;
 
-            color: #8a8d67;
+            color:
+              #8a8d67;
           }
 
           .crt-empty p {
             margin: 0;
 
-            font-size: 16px;
-
             color: #333;
+
+            font-size: 16px;
           }
 
           .crt-continue-link {
-            display: inline-block;
+            display:
+              inline-block;
 
-            margin-top: 16px;
+            margin-top:
+              16px;
 
-            color: #8a8d67;
+            color:
+              #8a8d67;
 
-            font-weight: 600;
+            font-weight:
+              600;
 
-            text-decoration: none;
+            text-decoration:
+              none;
           }
 
           .crt-continue-link:hover {
-            color: #747854;
+            color:
+              #747854;
           }
+
+          /* ==================================================
+             LAYOUT
+          ================================================== */
 
           .crt-layout {
             display: grid;
@@ -967,243 +1723,707 @@ export default function CartPage() {
             align-items: start;
           }
 
+          .crt-items-col {
+            min-width: 0;
+          }
+
+          .crt-summary-col {
+            position: sticky;
+            top: 24px;
+          }
+
           .crt-hr {
+            width: 100%;
+
             border: none;
 
             border-top:
               1px solid #c8cab4;
 
             margin:
-              0 0 28px;
+              0
+              0
+              28px;
           }
 
-          /* =========================================
-             ITEMS
-          ========================================= */
+          .crt-hr.bottom-hr {
+            margin:
+              28px
+              0
+              18px;
+          }
+
+          /* ==================================================
+             ITEM
+          ================================================== */
 
           .crt-item-row {
-            display: flex;
+            display: grid;
+
+            grid-template-columns:
+              180px
+              minmax(0, 1fr);
 
             gap: 24px;
 
-            margin-bottom: 32px;
+            margin-bottom:
+              28px;
+
+            padding-bottom:
+              28px;
+
+            border-bottom:
+              1px solid
+              #e2e3d5;
           }
 
           .crt-item-image {
-            width: 150px;
-            height: 150px;
+            width: 180px;
+            height: 180px;
 
-            flex-shrink: 0;
-
-            background: #f0f2de;
+            display: block;
 
             overflow: hidden;
+
+            background:
+              #f0f2de;
+
+            text-decoration:
+              none;
           }
 
           .crt-item-image img {
             width: 100%;
             height: 100%;
 
+            display: block;
+
             object-fit: cover;
 
-            display: block;
+            transition:
+              transform
+              0.35s
+              ease;
           }
 
-          .crt-item-body {
-            flex: 1;
+          .crt-item-image:hover img {
+            transform:
+              scale(1.035);
+          }
 
+          /* ==================================================
+             BODY
+          ================================================== */
+
+          .crt-item-body {
             min-width: 0;
 
             display: flex;
-
             flex-direction: column;
 
-            gap: 10px;
+            gap: 13px;
           }
 
           .crt-item-top {
-            display: flex;
-
-            justify-content:
-              space-between;
+            display:
+              flex;
 
             align-items:
               flex-start;
 
-            gap: 16px;
+            justify-content:
+              space-between;
+
+            gap: 20px;
+          }
+
+          .crt-item-heading-block {
+            min-width: 0;
           }
 
           .crt-item-name {
+            display:
+              block;
+
+            margin:
+              0;
+
+            color:
+              #0e0e0e;
+
             font-family:
               "Tobias TRIAL",
               "Playfair Display",
               Georgia,
               serif;
 
-            font-size: 19px;
+            font-size:
+              20px;
 
-            font-weight: 700;
+            font-weight:
+              700;
 
-            margin: 0;
+            line-height:
+              1.25;
 
-            color: #0e0e0e;
+            text-decoration:
+              none;
+          }
+
+          .crt-item-name:hover {
+            color:
+              #747854;
+          }
+
+          .crt-item-sku {
+            margin:
+              5px
+              0
+              0;
+
+            color:
+              #888888;
+
+            font-size:
+              11px;
+          }
+
+          .crt-item-price-block {
+            flex-shrink:
+              0;
+
+            text-align:
+              right;
           }
 
           .crt-item-price {
-            font-size: 15px;
+            margin:
+              0;
 
-            font-weight: 700;
+            color:
+              #0e0e0e;
 
-            color: #0e0e0e;
+            font-size:
+              17px;
 
-            margin: 0;
+            font-weight:
+              700;
 
-            white-space: nowrap;
+            white-space:
+              nowrap;
           }
 
-          .crt-item-desc {
-            font-size: 13.5px;
+          .crt-item-unit-old-price {
+            margin:
+              4px
+              0
+              0;
 
-            color: #888;
+            color:
+              #888888;
 
-            margin: 0;
+            font-size:
+              11px;
 
-            line-height: 1.6;
+            text-decoration:
+              line-through;
           }
 
-          .crt-item-controls {
-            display: flex;
+          /* ==================================================
+             VARIANT BLOCK
+          ================================================== */
 
-            align-items: center;
-
-            gap: 24px;
-
-            margin-top: 6px;
-
-            flex-wrap: wrap;
+          .crt-variant-block {
+            width: 100%;
           }
 
-          .crt-qty-box {
-            display: flex;
+          .crt-variant-heading {
+            display:
+              flex;
 
-            align-items: center;
+            align-items:
+              center;
+
+            gap:
+              10px;
+
+            margin-bottom:
+              7px;
+
+            color:
+              #333333;
+
+            font-size:
+              11px;
+
+            font-weight:
+              700;
+          }
+
+          .crt-variant-heading small {
+            color:
+              #8a8d67;
+
+            font-size:
+              9px;
+
+            font-weight:
+              600;
+          }
+
+          /* ==================================================
+             COLORS
+          ================================================== */
+
+          .crt-color-list {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            flex-wrap:
+              wrap;
+
+            gap:
+              9px;
+          }
+
+          .crt-color-button {
+            position: relative;
+
+            width:
+              28px;
+
+            height:
+              28px;
+
+            padding:
+              0;
 
             border:
-              1px solid #c8cab4;
+              1px solid
+              #bababa;
 
-            width: fit-content;
+            border-radius:
+              50%;
+
+            cursor:
+              pointer;
+
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            justify-content:
+              center;
+
+            transition:
+              transform
+              0.15s
+              ease,
+              box-shadow
+              0.15s
+              ease;
           }
 
-          .crt-qty-btn {
-            width: 32px;
-            height: 36px;
-
-            background: transparent;
-
-            border: none;
-
-            font-size: 15px;
-
-            cursor: pointer;
-
-            color: #0e0e0e;
+          .crt-color-button:hover:not(
+            :disabled
+          ) {
+            transform:
+              scale(1.08);
           }
 
-          .crt-qty-btn:hover:not(:disabled) {
-            background: #f0f2de;
+          .crt-color-button.selected {
+            box-shadow:
+              0 0 0 2px
+              #fdfff1,
+              0 0 0 3px
+              #111111;
           }
 
-          .crt-qty-btn:disabled {
-            opacity: 0.45;
+          .crt-color-button span {
+            color:
+              #ffffff;
 
-            cursor: not-allowed;
+            font-size:
+              13px;
+
+            font-weight:
+              800;
+
+            line-height:
+              1;
+
+            text-shadow:
+              0
+              1px
+              2px
+              rgba(
+                0,
+                0,
+                0,
+                0.35
+              );
           }
 
-          .crt-qty-value {
-            min-width: 32px;
+          .crt-color-button:disabled {
+            opacity:
+              0.55;
 
-            text-align: center;
-
-            font-size: 14px;
-
-            font-weight: 600;
+            cursor:
+              not-allowed;
           }
 
-          .crt-text-link {
-            background: none;
+          .crt-selected-value {
+            margin-top:
+              6px;
 
-            border: none;
+            color:
+              #777777;
 
-            padding: 0;
+            font-size:
+              10px;
+          }
+
+          /* ==================================================
+             SIZE
+          ================================================== */
+
+          .crt-size-list {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            flex-wrap:
+              wrap;
+
+            gap:
+              6px;
+          }
+
+          .crt-size-button {
+            min-width:
+              44px;
+
+            height:
+              32px;
+
+            padding:
+              0 10px;
+
+            border:
+              1px
+              solid
+              #c8cab4;
+
+            border-radius:
+              5px;
+
+            background:
+              #fdfff1;
+
+            color:
+              #111111;
 
             font-family:
               "Mona Sans",
               "Inter",
               sans-serif;
 
-            font-size: 13px;
+            font-size:
+              10px;
 
-            font-weight: 600;
+            font-weight:
+              700;
 
-            color: #0e0e0e;
+            cursor:
+              pointer;
 
-            text-decoration: underline;
-
-            cursor: pointer;
-
-            letter-spacing: 0.02em;
+            transition:
+              background
+              0.15s
+              ease,
+              color
+              0.15s
+              ease,
+              border-color
+              0.15s
+              ease;
           }
 
-          .crt-text-link:hover:not(:disabled) {
-            color: #747854;
+          .crt-size-button:hover:not(
+            :disabled
+          ) {
+            border-color:
+              #7b7f5c;
+          }
+
+          .crt-size-button.selected {
+            background:
+              #7b7f5c;
+
+            border-color:
+              #7b7f5c;
+
+            color:
+              #ffffff;
+          }
+
+          .crt-size-button:disabled {
+            opacity:
+              0.55;
+
+            cursor:
+              not-allowed;
+          }
+
+          /* ==================================================
+             PRICE
+          ================================================== */
+
+          .crt-item-pricing {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            flex-wrap:
+              wrap;
+
+            gap:
+              20px;
+          }
+
+          .crt-price-info {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            gap:
+              8px;
+
+            color:
+              #666666;
+
+            font-size:
+              11px;
+          }
+
+          .crt-price-info strong {
+            color:
+              #0e0e0e;
+
+            font-size:
+              12px;
+          }
+
+          .crt-price-info.shipping-row strong {
+            color:
+              #3f4a2b;
+          }
+
+          /* ==================================================
+             CONTROLS
+          ================================================== */
+
+          .crt-item-controls {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            flex-wrap:
+              wrap;
+
+            gap:
+              20px;
+
+            margin-top:
+              2px;
+          }
+
+          /* ==================================================
+             QTY
+          ================================================== */
+
+          .crt-qty-box {
+            width:
+              118px;
+
+            height:
+              38px;
+
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            justify-content:
+              space-between;
+
+            border:
+              1px
+              solid
+              #c8cab4;
+          }
+
+          .crt-qty-btn {
+            width:
+              34px;
+
+            height:
+              36px;
+
+            padding:
+              0;
+
+            border:
+              none;
+
+            background:
+              transparent;
+
+            color:
+              #0e0e0e;
+
+            font-size:
+              18px;
+
+            line-height:
+              1;
+
+            cursor:
+              pointer;
+          }
+
+          .crt-qty-btn:hover:not(
+            :disabled
+          ) {
+            background:
+              #f0f2de;
+          }
+
+          .crt-qty-btn:disabled {
+            opacity:
+              0.4;
+
+            cursor:
+              not-allowed;
+          }
+
+          .crt-qty-value {
+            min-width:
+              30px;
+
+            color:
+              #0e0e0e;
+
+            font-size:
+              13px;
+
+            font-weight:
+              700;
+
+            text-align:
+              center;
+          }
+
+          /* ==================================================
+             LINKS
+          ================================================== */
+
+          .crt-text-link {
+            padding:
+              0;
+
+            border:
+              none;
+
+            background:
+              none;
+
+            color:
+              #0e0e0e;
+
+            font-family:
+              "Mona Sans",
+              "Inter",
+              sans-serif;
+
+            font-size:
+              12px;
+
+            font-weight:
+              600;
+
+            text-decoration:
+              underline;
+
+            cursor:
+              pointer;
+          }
+
+          .crt-text-link:hover:not(
+            :disabled
+          ) {
+            color:
+              #747854;
           }
 
           .crt-text-link:disabled {
-            opacity: 0.45;
+            opacity:
+              0.45;
 
-            cursor: not-allowed;
+            cursor:
+              not-allowed;
           }
 
           .crt-continue-bottom {
-            display: inline-block;
+            display:
+              inline-block;
 
-            text-decoration: none;
+            color:
+              #8a8d67;
 
-            color: #8a8d67;
+            text-decoration:
+              none;
           }
 
-          /* =========================================
+          /* ==================================================
              SUMMARY
-          ========================================= */
+          ================================================== */
 
-          .crt-summary-col {
-            position: sticky;
+          .crt-summary-card {
+            padding:
+              25px;
 
-            top: 24px;
+            border:
+              1px
+              solid
+              #dcddce;
+
+            background:
+              #ffffff;
           }
 
-          .crt-summary-line {
-            display: flex;
+          .crt-summary-title {
+            margin:
+              0
+              0
+              22px;
 
-            justify-content:
-              space-between;
-
-            gap: 16px;
-
-            font-size: 14px;
-
-            color: #333;
-
-            margin-bottom: 16px;
-          }
-
-          .crt-summary-total {
-            display: flex;
-
-            justify-content:
-              space-between;
-
-            gap: 16px;
+            color:
+              #0e0e0e;
 
             font-family:
               "Tobias TRIAL",
@@ -1211,76 +2431,186 @@ export default function CartPage() {
               Georgia,
               serif;
 
-            font-size: 19px;
+            font-size:
+              23px;
 
-            font-weight: 700;
+            font-weight:
+              600;
+          }
 
-            color: #0e0e0e;
+          .crt-summary-line {
+            display:
+              flex;
 
-            margin-bottom: 8px;
+            align-items:
+              flex-start;
+
+            justify-content:
+              space-between;
+
+            gap:
+              18px;
+
+            margin-bottom:
+              15px;
+
+            color:
+              #444444;
+
+            font-size:
+              13px;
+          }
+
+          .crt-summary-line span:last-child {
+            flex-shrink:
+              0;
+
+            color:
+              #111111;
+
+            font-weight:
+              600;
+          }
+
+          .crt-summary-divider {
+            width:
+              100%;
+
+            margin:
+              22px
+              0;
+
+            border-top:
+              1px
+              solid
+              #c8cab4;
+          }
+
+          .crt-summary-total {
+            display:
+              flex;
+
+            align-items:
+              center;
+
+            justify-content:
+              space-between;
+
+            gap:
+              18px;
+
+            margin-bottom:
+              10px;
+
+            color:
+              #0e0e0e;
+
+            font-family:
+              "Tobias TRIAL",
+              "Playfair Display",
+              Georgia,
+              serif;
+
+            font-size:
+              21px;
+
+            font-weight:
+              700;
+          }
+
+          .crt-summary-total strong {
+            white-space:
+              nowrap;
           }
 
           .crt-summary-note {
-            font-size: 12.5px;
+            margin:
+              0
+              0
+              22px;
 
-            color: #888;
+            color:
+              #888888;
 
-            margin: 0 0 24px;
+            font-size:
+              11px;
 
-            line-height: 1.6;
+            line-height:
+              1.6;
           }
 
           .crt-checkout-btn {
-            display: flex;
+            width:
+              100%;
 
-            align-items: center;
+            height:
+              55px;
 
-            justify-content: center;
+            display:
+              flex;
 
-            width: 100%;
+            align-items:
+              center;
 
-            height: 56px;
+            justify-content:
+              center;
 
-            background: #8a8d67;
+            border:
+              none;
 
-            color: #fff;
+            background:
+              #8a8d67;
 
-            border: none;
+            color:
+              #ffffff;
 
             font-family:
               "Mona Sans",
               "Inter",
               sans-serif;
 
-            font-size: 14px;
+            font-size:
+              13px;
 
-            font-weight: 600;
+            font-weight:
+              700;
 
-            letter-spacing: 0.04em;
+            letter-spacing:
+              0.05em;
 
-            cursor: pointer;
+            cursor:
+              pointer;
 
             transition:
-              background 0.2s ease,
-              opacity 0.2s ease;
+              background
+              0.2s
+              ease,
+              opacity
+              0.2s
+              ease;
           }
 
-          .crt-checkout-btn:hover:not(:disabled) {
-            background: #747854;
+          .crt-checkout-btn:hover:not(
+            :disabled
+          ) {
+            background:
+              #747854;
           }
 
           .crt-checkout-btn:disabled {
-            opacity: 0.45;
+            opacity:
+              0.45;
 
-            cursor: not-allowed;
+            cursor:
+              not-allowed;
           }
 
-
-          /* =========================================
+          /* ==================================================
              TABLET
-          ========================================= */
+          ================================================== */
 
           @media (max-width: 960px) {
+
             .crt-outer-wrap {
               padding:
                 90px
@@ -1292,244 +2622,459 @@ export default function CartPage() {
               grid-template-columns:
                 1fr;
 
-              gap: 40px 0;
+              gap:
+                38px;
             }
 
             .crt-summary-col {
-              position: static;
+              position:
+                static;
+            }
+
+            .crt-summary-card {
+              max-width:
+                560px;
+
+              margin:
+                0 auto;
             }
 
             .crt-title {
-              font-size: 26px;
+              font-size:
+                28px;
             }
+
           }
 
-
-          /* =========================================
+          /* ==================================================
              MOBILE
-          ========================================= */
+          ================================================== */
 
-          @media (max-width: 560px) {
+          @media (max-width: 700px) {
+
             .crt-outer-wrap {
               padding:
                 88px
-                18px
-                50px;
+                14px
+                45px;
             }
 
             .crt-title {
-              font-size: 30px;
-
-              line-height: 1.15;
-
               margin:
                 0
                 0
-                34px;
+                30px;
 
-              text-align: left;
+              font-size:
+                28px;
+
+              line-height:
+                1.15;
+
+              text-align:
+                left;
             }
 
             .crt-layout {
-              display: flex;
+              display:
+                flex;
 
               flex-direction:
                 column;
 
-              gap: 42px;
+              gap:
+                32px;
             }
 
+            .crt-hr {
+              margin-bottom:
+                20px;
+            }
+
+            /* ==============================================
+               ITEM
+            ============================================== */
+
             .crt-item-row {
-              display: flex;
+              display:
+                grid;
 
-              align-items:
-                flex-start;
+              grid-template-columns:
+                112px
+                minmax(0, 1fr);
 
-              gap: 16px;
+              gap:
+                13px;
 
-              margin-bottom: 28px;
+              margin-bottom:
+                20px;
 
-              padding-bottom: 24px;
-
-              border-bottom:
-                1px solid #e6e7d8;
+              padding-bottom:
+                20px;
             }
 
             .crt-item-image {
-              width: 118px;
-              height: 118px;
+              width:
+                112px;
+
+              height:
+                112px;
+            }
+
+            .crt-item-body {
+              gap:
+                9px;
             }
 
             .crt-item-top {
-              display: flex;
-
-              flex-direction:
-                column;
-
-              gap: 6px;
+              gap:
+                8px;
             }
 
             .crt-item-name {
-              font-size: 17px;
+              font-family:
+                "Mona Sans",
+                "Inter",
+                sans-serif;
 
-              line-height: 1.45;
+              font-size:
+                13px;
+
+              font-weight:
+                700;
+
+              line-height:
+                1.35;
+            }
+
+            .crt-item-sku {
+              margin-top:
+                3px;
+
+              font-size:
+                8px;
             }
 
             .crt-item-price {
-              font-size: 15px;
+              font-size:
+                13px;
             }
 
-            .crt-item-desc {
-              display: none;
+            .crt-item-unit-old-price {
+              font-size:
+                8px;
             }
 
-            .crt-item-controls {
-              display: grid;
+            /* ==============================================
+               VARIANTS
+            ============================================== */
+
+            .crt-variant-heading {
+              margin-bottom:
+                5px;
+
+              font-size:
+                9px;
+            }
+
+            .crt-color-list {
+              gap:
+                7px;
+            }
+
+            .crt-color-button {
+              width:
+                22px;
+
+              height:
+                22px;
+            }
+
+            .crt-color-button span {
+              font-size:
+                10px;
+            }
+
+            .crt-selected-value {
+              margin-top:
+                4px;
+
+              font-size:
+                8px;
+            }
+
+            .crt-size-list {
+              gap:
+                4px;
+            }
+
+            .crt-size-button {
+              min-width:
+                34px;
+
+              height:
+                27px;
+
+              padding:
+                0 7px;
+
+              font-size:
+                8px;
+            }
+
+            /* ==============================================
+               PRICE
+            ============================================== */
+
+            .crt-item-pricing {
+              display:
+                grid;
 
               grid-template-columns:
                 1fr
                 1fr;
 
-              gap: 10px;
-
-              margin-top: 6px;
+              gap:
+                5px 8px;
             }
 
-            .crt-qty-box {
-              grid-column:
-                1 / span 2;
+            .crt-price-info {
+              gap:
+                5px;
 
-              width: 100%;
-
-              height: 46px;
-
-              display: flex;
-
-              justify-content:
-                space-between;
-
-              align-items:
-                center;
-            }
-
-            .crt-qty-btn {
-              width: 46px;
-              height: 46px;
-
-              font-size: 20px;
-            }
-
-            .crt-qty-value {
-              flex: 1;
-
-              text-align: center;
-
-              font-size: 15px;
-
-              font-weight: 600;
-            }
-
-            .crt-text-link {
-              width: 100%;
-
-              min-height: 44px;
-
-              display: flex;
-
-              justify-content:
-                center;
-
-              align-items:
-                center;
-
-              border:
-                1px solid #c8cab4;
-
-              text-decoration: none;
-
-              font-size: 12px;
-
-              font-weight: 600;
-
-              background: #fff;
-            }
-
-            .crt-continue-bottom {
-              margin-top: 18px;
-
-              display: inline-flex;
-
-              min-height: auto;
-
-              border: none;
-
-              font-size: 13px;
-            }
-
-            .crt-summary-col {
-              width: 100% !important;
-
-              max-width: 100% !important;
-
-              margin: 0 !important;
-
-              padding:
-                22px
-                18px;
-
-              border:
-                1px solid #dcddce;
-
-              background: #fff;
-
-              position: static;
-            }
-
-            .crt-summary-line {
-              display: flex;
-
-              justify-content:
-                space-between;
-
-              gap: 16px;
-
-              font-size: 13px;
-
-              margin-bottom: 16px;
-            }
-
-            .crt-summary-total {
-              font-size: 22px;
-
-              margin:
-                18px
-                0
+              font-size:
                 8px;
             }
 
+            .crt-price-info strong {
+              font-size:
+                9px;
+            }
+
+            /* ==============================================
+               CONTROLS
+            ============================================== */
+
+            .crt-item-controls {
+              display:
+                grid;
+
+              grid-template-columns:
+                1fr
+                1fr;
+
+              gap:
+                7px;
+
+              margin-top:
+                2px;
+            }
+
+            .crt-qty-box {
+              width:
+                100%;
+
+              height:
+                35px;
+
+              grid-column:
+                1 / -1;
+            }
+
+            .crt-qty-btn {
+              width:
+                34px;
+
+              height:
+                33px;
+
+              font-size:
+                17px;
+            }
+
+            .crt-qty-value {
+              font-size:
+                11px;
+            }
+
+            .crt-text-link {
+              width:
+                100%;
+
+              min-height:
+                34px;
+
+              display:
+                flex;
+
+              align-items:
+                center;
+
+              justify-content:
+                center;
+
+              border:
+                1px
+                solid
+                #c8cab4;
+
+              background:
+                #ffffff;
+
+              font-size:
+                9px;
+
+              text-decoration:
+                none;
+            }
+
+            .crt-continue-bottom {
+              display:
+                inline-flex;
+
+              min-height:
+                auto;
+
+              border:
+                none;
+
+              background:
+                transparent;
+
+              font-size:
+                11px;
+            }
+
+            /* ==============================================
+               SUMMARY
+            ============================================== */
+
+            .crt-summary-card {
+              width:
+                100%;
+
+              padding:
+                18px;
+            }
+
+            .crt-summary-title {
+              font-size:
+                21px;
+
+              margin-bottom:
+                18px;
+            }
+
+            .crt-summary-line {
+              font-size:
+                12px;
+
+              margin-bottom:
+                13px;
+            }
+
+            .crt-summary-total {
+              font-size:
+                20px;
+            }
+
             .crt-summary-note {
-              font-size: 12px;
+              font-size:
+                10px;
 
-              line-height: 1.7;
-
-              margin-bottom: 22px;
+              margin-bottom:
+                18px;
             }
 
             .crt-checkout-btn {
-              width: 100%;
+              height:
+                50px;
 
-              height: 52px;
-
-              font-size: 13px;
-
-              letter-spacing: 0.08em;
+              font-size:
+                12px;
             }
 
-            .crt-empty {
-              padding: 70px 0;
-            }
           }
+
+          /* ==================================================
+             VERY SMALL MOBILE
+          ================================================== */
+
+          @media (max-width: 380px) {
+
+            .crt-outer-wrap {
+              padding:
+                80px
+                9px
+                40px;
+            }
+
+            .crt-title {
+              font-size:
+                25px;
+            }
+
+            .crt-item-row {
+              grid-template-columns:
+                96px
+                minmax(0, 1fr);
+
+              gap:
+                10px;
+            }
+
+            .crt-item-image {
+              width:
+                96px;
+
+              height:
+                96px;
+            }
+
+            .crt-item-name {
+              font-size:
+                11px;
+            }
+
+            .crt-item-price {
+              font-size:
+                12px;
+            }
+
+            .crt-color-button {
+              width:
+                20px;
+
+              height:
+                20px;
+            }
+
+            .crt-size-button {
+              min-width:
+                31px;
+
+              height:
+                25px;
+
+              padding:
+                0 5px;
+
+              font-size:
+                7px;
+            }
+
+            .crt-text-link {
+              min-height:
+                32px;
+
+              font-size:
+                8px;
+            }
+
+          }
+
         `}</style>
+
       </>
     </ProtectedRoute>
   );

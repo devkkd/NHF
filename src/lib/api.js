@@ -593,6 +593,91 @@ export async function getFeaturedProducts() {
 // ORDERS
 // ======================================================
 
+/**
+ * Create Order
+ *
+ * POST /orders
+ *
+ * COD:
+ * - paymentStatus = pending
+ * - orderStatus = pending
+ * - adminApproval = pending
+ *
+ * Razorpay:
+ * - paymentStatus = pending
+ * - orderStatus = pending
+ * - adminApproval = pending
+ */
+export async function createOrder(
+  payload
+) {
+  return await apiFetch(
+    "/orders",
+    {
+      method: "POST",
+
+      body: JSON.stringify(
+        payload
+      ),
+    }
+  );
+}
+
+
+/**
+ * Create Razorpay Order
+ *
+ * POST /orders/razorpay
+ */
+export async function createRazorpayOrder(
+  payload
+) {
+  return await apiFetch(
+    "/orders/razorpay",
+    {
+      method: "POST",
+
+      body: JSON.stringify(
+        payload
+      ),
+    }
+  );
+}
+
+
+/**
+ * Verify Razorpay Payment
+ *
+ * POST /orders/verify
+ *
+ * IMPORTANT:
+ * Payment verification only updates
+ * payment-related information.
+ *
+ * Order remains pending until
+ * admin approves it.
+ */
+export async function verifyRazorpayPayment(
+  payload
+) {
+  return await apiFetch(
+    "/orders/verify",
+    {
+      method: "POST",
+
+      body: JSON.stringify(
+        payload
+      ),
+    }
+  );
+}
+
+
+/**
+ * Get logged-in user's orders.
+ *
+ * GET /orders/my-orders
+ */
 export async function getMyOrders() {
   const res =
     await apiFetch(
@@ -603,6 +688,11 @@ export async function getMyOrders() {
 }
 
 
+/**
+ * Get one order by ID.
+ *
+ * GET /orders/:id
+ */
 export async function getOrderById(
   id
 ) {
@@ -619,6 +709,14 @@ export async function getOrderById(
 }
 
 
+/**
+ * Track order.
+ *
+ * GET /orders/track/:id
+ *
+ * Backend refreshes Shiprocket
+ * tracking and updates local order.
+ */
 export async function trackOrder(
   id
 ) {
@@ -632,6 +730,226 @@ export async function trackOrder(
     );
 
   return res.data;
+}
+
+
+// ======================================================
+// ORDER REQUESTS
+// Cancel / Return / Replacement
+// ======================================================
+
+
+/**
+ * Create cancel / return / replacement
+ * request.
+ *
+ * POST /orders/requests/:orderId
+ *
+ * Example:
+ *
+ * {
+ *   type: "replacement",
+ *   orderItemId: "0",
+ *   reason: "damaged",
+ *   description: "Product received damaged",
+ *   images: [
+ *     "https://..."
+ *   ]
+ * }
+ */
+export async function createOrderRequest(
+  orderId,
+  payload
+) {
+  if (!orderId) {
+    return {
+      ok: false,
+
+      status: 400,
+
+      data: {
+        message:
+          "Order ID is required.",
+      },
+    };
+  }
+
+  return await apiFetch(
+    `/orders/requests/${orderId}`,
+    {
+      method: "POST",
+
+      body: JSON.stringify(
+        payload
+      ),
+    }
+  );
+}
+
+
+/**
+ * Get all logged-in user's
+ * order requests.
+ *
+ * GET /orders/requests/my
+ */
+export async function getMyOrderRequests() {
+  const res =
+    await apiFetch(
+      "/orders/requests/my"
+    );
+
+  return res.data;
+}
+
+
+/**
+ * Get one user's request.
+ *
+ * GET /orders/requests/my/:requestId
+ */
+export async function getMyOrderRequestById(
+  requestId
+) {
+  if (!requestId) {
+    return null;
+  }
+
+  const res =
+    await apiFetch(
+      `/orders/requests/my/${requestId}`
+    );
+
+  return res.data;
+}
+
+
+/**
+ * Cancel pending user request.
+ *
+ * PATCH /orders/requests/my/:requestId/cancel
+ */
+export async function cancelMyOrderRequest(
+  requestId
+) {
+  if (!requestId) {
+    return {
+      ok: false,
+
+      status: 400,
+
+      data: {
+        message:
+          "Request ID is required.",
+      },
+    };
+  }
+
+  return await apiFetch(
+    `/orders/requests/my/${requestId}/cancel`,
+    {
+      method: "PATCH",
+    }
+  );
+}
+
+
+// ======================================================
+// R2 FILE UPLOAD
+// ======================================================
+
+/**
+ * Get R2 presigned upload URL.
+ *
+ * POST /upload/presign
+ *
+ * Example:
+ *
+ * {
+ *   mimeType: "image/jpeg",
+ *   fileSize: 500000,
+ *   folder: "replacement-requests"
+ * }
+ */
+export async function getUploadPresignedUrl(
+  payload
+) {
+  return await apiFetch(
+    "/upload/presign",
+    {
+      method: "POST",
+
+      body: JSON.stringify(
+        payload
+      ),
+    }
+  );
+}
+
+
+/**
+ * Upload file directly to R2
+ * using the presigned URL.
+ */
+export async function uploadFileToR2(
+  uploadUrl,
+  file
+) {
+  if (!uploadUrl || !file) {
+    return {
+      ok: false,
+
+      status: 400,
+
+      data: {
+        message:
+          "Upload URL and file are required.",
+      },
+    };
+  }
+
+  try {
+    const response =
+      await fetch(
+        uploadUrl,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type":
+              file.type ||
+              "application/octet-stream",
+          },
+
+          body: file,
+        }
+      );
+
+    return {
+      ok: response.ok,
+
+      status:
+        response.status,
+
+      data: {},
+    };
+  } catch (error) {
+    console.error(
+      "R2 Upload Error:",
+      error
+    );
+
+    return {
+      ok: false,
+
+      status: 500,
+
+      data: {
+        message:
+          "File upload failed.",
+      },
+    };
+  }
 }
 
 
