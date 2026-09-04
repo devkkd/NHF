@@ -29,15 +29,15 @@ const COMPANY_LINKS = [
   },
   {
     label: "Shipping Policy",
-    href: "#",
+    href: "/shippingPolicy",
   },
   {
     label: "Return Policy",
-    href: "#",
+    href: "/returnPolicy",
   },
   {
     label: "Terms & Conditions",
-    href: "#",
+    href: "/termsAndConditions",
   },
 ];
 
